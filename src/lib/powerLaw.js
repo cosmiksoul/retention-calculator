@@ -96,27 +96,33 @@ export function retentionCurve(fit, horizon) {
 }
 
 /**
- * ±1σ confidence band around the power-law prediction.
+ * ±k·σ confidence band around the power-law prediction.
  *
  * In log-space the regression line has standard error `se` on the slope, so the
- * 1-sigma envelope at period t is `a · t^(-(b ∓ se))`. Capped to [0, 1] because
- * retention is a fraction. Width grows monotonically with t, by construction.
+ * k-sigma envelope at period t is `a · t^(-(b ∓ k·se))`. Capped to [0, 1] because
+ * retention is a fraction. Width grows monotonically with t (in log-space), by
+ * construction.
  *
- * Note: this is a slope-only ±1σ band (≈68%). It does NOT account for the
- * intercept's standard error; for the calculator's audience the slope error
- * dominates the visible width and a wider, asymmetric envelope would be more
- * confusing than informative.
+ * `kSigma` is typically 1 (≈68% Gaussian coverage) or 2 (≈95%).
+ *
+ * Note: this is a slope-only band. It does NOT account for the intercept's
+ * standard error; for the calculator's audience the slope error dominates the
+ * visible width and an asymmetric envelope would be more confusing than
+ * informative.
  *
  * @param {{a:number, b:number, se:number}} fit
  * @param {number} horizon
+ * @param {number} [kSigma=1]
  * @returns {Array<{t:number, lower:number, upper:number}>}
  */
-export function retentionBand(fit, horizon) {
+export function retentionBand(fit, horizon, kSigma = 1) {
   if (!(horizon >= 1)) throw new Error('retentionBand: horizon must be >= 1')
+  if (!(kSigma > 0)) throw new Error('retentionBand: kSigma must be > 0')
+  const halfWidth = fit.se * kSigma
   const out = []
   for (let t = 1; t <= horizon; t++) {
-    const upper = Math.min(1, fit.a * Math.pow(t, -(fit.b - fit.se)))
-    const lower = Math.max(0, fit.a * Math.pow(t, -(fit.b + fit.se)))
+    const upper = Math.min(1, fit.a * Math.pow(t, -(fit.b - halfWidth)))
+    const lower = Math.max(0, fit.a * Math.pow(t, -(fit.b + halfWidth)))
     out.push({ t, lower, upper })
   }
   return out

@@ -15,7 +15,7 @@ const USER_COLOR = '#22d3ee'
 const FIT_COLOR = '#22d3ee'
 const BENCH_COLOR = '#94a3b8'
 
-function CustomTooltip({ active, payload, label }) {
+function CustomTooltip({ active, payload, label, bandSigma }) {
   if (!active || !payload || !payload.length) return null
   const userP = payload.find((p) => p.dataKey === 'user')
   const fitP = payload.find((p) => p.dataKey === 'fit')
@@ -33,7 +33,7 @@ function CustomTooltip({ active, payload, label }) {
       {bandP && Array.isArray(bandP.value) && (
         <Row
           color="transparent"
-          label="±1σ band"
+          label={`±${bandSigma}σ band`}
           value={`${bandP.value[0].toFixed(1)}–${bandP.value[1].toFixed(1)}%`}
         />
       )}
@@ -73,6 +73,7 @@ export default function RetentionChart({
   alternateFitSeries,
   alternateLabel,
   bandSeries,
+  bandSigma = 1,
   benchmarkSeries,
   horizon,
   lastUserT,
@@ -99,7 +100,7 @@ export default function RetentionChart({
         <div className="text-sm font-medium text-slate-200">Retention curve</div>
         {showBand && (
           <div className="text-xs text-slate-500">
-            shaded = ±1σ confidence band (≈68%)
+            shaded = ±{bandSigma}σ confidence band (≈{bandSigma === 1 ? '68%' : '95%'})
           </div>
         )}
       </div>
@@ -122,15 +123,15 @@ export default function RetentionChart({
               tickFormatter={(v) => `${v}%`}
               domain={[0, 'auto']}
             />
-            <Tooltip content={<CustomTooltip />} />
+            <Tooltip content={<CustomTooltip bandSigma={bandSigma} />} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
             {showBand && (
               <Area
                 dataKey="band"
-                name="±1σ"
+                name={`±${bandSigma}σ`}
                 stroke="none"
                 fill={FIT_COLOR}
-                fillOpacity={0.13}
+                fillOpacity={bandSigma === 1 ? 0.13 : 0.1}
                 isAnimationActive={false}
                 legendType="none"
                 connectNulls

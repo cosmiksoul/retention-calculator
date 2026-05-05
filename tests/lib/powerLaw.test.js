@@ -143,6 +143,29 @@ describe('retentionBand', () => {
     }
   })
 
+  it('±2σ band is wider than ±1σ at every t (when se > 0)', () => {
+    const band1 = retentionBand(fit, 90, 1)
+    const band2 = retentionBand(fit, 90, 2)
+    for (let i = 0; i < band1.length; i++) {
+      const w1 = band1[i].upper - band1[i].lower
+      const w2 = band2[i].upper - band2[i].lower
+      // Allow equality when both upper edges saturate at 1 — there's no slack
+      // for the 2σ envelope to stretch further.
+      expect(w2).toBeGreaterThanOrEqual(w1 - 1e-12)
+    }
+    // And strictly wider at points away from the t=1 origin where capping
+    // doesn't dominate.
+    const idx = band1.findIndex((p) => p.t === 30)
+    expect(band2[idx].upper - band2[idx].lower).toBeGreaterThan(
+      band1[idx].upper - band1[idx].lower,
+    )
+  })
+
+  it('throws on non-positive kSigma', () => {
+    expect(() => retentionBand(fit, 30, 0)).toThrow()
+    expect(() => retentionBand(fit, 30, -1)).toThrow()
+  })
+
   it('collapses to predict when SE=0 (only 2 points)', () => {
     const exactFit = fitPowerLaw([
       { t: 1, r: 0.4 },

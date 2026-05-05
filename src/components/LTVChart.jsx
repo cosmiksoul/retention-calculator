@@ -18,7 +18,7 @@ function fmtUsd(v) {
   return `$${v.toFixed(2)}`
 }
 
-function CustomTooltip({ active, payload, label, cac }) {
+function CustomTooltip({ active, payload, label, cac, bandSigma }) {
   if (!active || !payload || !payload.length) return null
   const ltvP = payload.find((p) => p.dataKey === 'cumLtv')
   const bandP = payload.find((p) => p.dataKey === 'band')
@@ -32,7 +32,7 @@ function CustomTooltip({ active, payload, label, cac }) {
       </div>
       {bandP && Array.isArray(bandP.value) && (
         <div className="flex items-center gap-2">
-          <span className="text-slate-400">±1σ</span>
+          <span className="text-slate-400">±{bandSigma}σ</span>
           <span className="ml-auto tabular-nums text-slate-400">
             {fmtUsd(bandP.value[0])} – {fmtUsd(bandP.value[1])}
           </span>
@@ -68,6 +68,7 @@ function CustomTooltip({ active, payload, label, cac }) {
 export default function LTVChart({
   series,
   bandSeries,
+  bandSigma = 1,
   cac,
   beDay,
   horizon,
@@ -96,7 +97,9 @@ export default function LTVChart({
           {cac != null && beDay == null && (
             <span className="text-amber-400">CAC not reached at horizon</span>
           )}
-          {bandSeries && cac == null && <span>shaded = ±1σ</span>}
+          {bandSeries && cac == null && (
+            <span>shaded = ±{bandSigma}σ ≈ {bandSigma === 1 ? '68%' : '95%'}</span>
+          )}
         </div>
       </div>
       <div className="h-72 w-full">
@@ -118,7 +121,7 @@ export default function LTVChart({
               tickFormatter={fmtUsd}
               domain={[0, yMax]}
             />
-            <Tooltip content={<CustomTooltip cac={cac} />} />
+            <Tooltip content={<CustomTooltip cac={cac} bandSigma={bandSigma} />} />
             {cac != null && beDay != null && (
               <ReferenceArea x1={1} x2={beDay} y1={0} y2={yMax} fill="#ef4444" fillOpacity={0.06} stroke="none" />
             )}
@@ -128,10 +131,10 @@ export default function LTVChart({
             {bandSeries && (
               <Area
                 dataKey="band"
-                name="±1σ"
+                name={`±${bandSigma}σ`}
                 stroke="none"
                 fill="#22c55e"
-                fillOpacity={0.13}
+                fillOpacity={bandSigma === 1 ? 0.13 : 0.1}
                 isAnimationActive={false}
                 legendType="none"
                 connectNulls

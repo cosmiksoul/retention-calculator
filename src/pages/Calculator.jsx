@@ -54,6 +54,44 @@ function NumberField({ label, value, onChange, hint, error, min, step, suffix })
   )
 }
 
+function BandSigmaToggle({ sigma, onChange, disabled }) {
+  const radio = (k, label) => (
+    <label
+      className={`flex items-center gap-1.5 text-xs ${
+        disabled ? 'text-slate-600' : 'text-slate-300'
+      }`}
+    >
+      <input
+        type="radio"
+        name="band-sigma"
+        value={k}
+        checked={sigma === k}
+        onChange={() => onChange(k)}
+        disabled={disabled}
+        className="accent-cyan-500"
+      />
+      {label}
+    </label>
+  )
+  return (
+    <div className="rounded border border-slate-800 bg-bg-elev/30 p-2">
+      <div className="mb-1.5 text-xs font-medium text-slate-300">
+        Confidence band
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        {radio(1, '±1σ ≈ 68%')}
+        {radio(2, '±2σ ≈ 95%')}
+      </div>
+      {disabled && (
+        <div className="mt-1 text-[11px] leading-snug text-slate-500">
+          Band requires ≥3 user points (residual degrees of freedom). It is also
+          hidden in industry-adjusted mode.
+        </div>
+      )}
+    </div>
+  )
+}
+
 function InputModeToggle({ mode, onChange }) {
   const radio = (key, label) => (
     <label className="flex items-center gap-1.5 text-xs text-slate-300">
@@ -162,6 +200,7 @@ export default function Calculator() {
   const [adjustMode, setAdjustMode] = useState('pure') // 'pure' | 'adjusted'
   const [inputMode, setInputMode] = useState('manual') // 'manual' | 'paste'
   const [pasteText, setPasteText] = useState('')
+  const [bandSigma, setBandSigma] = useState(1) // 1 ≈ 68%, 2 ≈ 95%
 
   useEffect(() => {
     let cancelled = false
@@ -265,16 +304,16 @@ export default function Calculator() {
   // adjusted mode — that's correct: the synthetic fit doesn't carry residual
   // uncertainty in a defensible way.
   const retBand = useMemo(
-    () => (fit && fit.se > 0 ? retentionBand(fit, horizon) : null),
-    [fit, horizon],
+    () => (fit && fit.se > 0 ? retentionBand(fit, horizon, bandSigma) : null),
+    [fit, horizon, bandSigma],
   )
   const ltv = useMemo(
     () => (fit ? ltvSeries(fit, arpu, horizon) : null),
     [fit, arpu, horizon],
   )
   const ltvBandSeries = useMemo(
-    () => (fit && fit.se > 0 ? ltvBand(fit, arpu, horizon) : null),
-    [fit, arpu, horizon],
+    () => (fit && fit.se > 0 ? ltvBand(fit, arpu, horizon, bandSigma) : null),
+    [fit, arpu, horizon, bandSigma],
   )
   const beDay = useMemo(
     () => (ltv ? breakevenDay(ltv, cac) : null),
@@ -325,6 +364,12 @@ export default function Calculator() {
               avgRatio={adjustedFit?.avgRatio}
             />
           )}
+
+          <BandSigmaToggle
+            sigma={bandSigma}
+            onChange={setBandSigma}
+            disabled={!retBand}
+          />
 
           <div className="space-y-3 border-t border-slate-800 pt-4">
             <InputModeToggle mode={inputMode} onChange={setInputMode} />
@@ -415,6 +460,7 @@ export default function Calculator() {
                 alternateFitSeries={alternateFitSeries}
                 alternateLabel="Pure user fit"
                 bandSeries={retBand}
+                bandSigma={bandSigma}
                 benchmarkSeries={benchmarkSeries}
                 horizon={horizon}
                 lastUserT={lastUserT}
@@ -422,6 +468,7 @@ export default function Calculator() {
               <LTVChart
                 series={ltv}
                 bandSeries={ltvBandSeries}
+                bandSigma={bandSigma}
                 cac={cac}
                 beDay={beDay}
                 horizon={horizon}
