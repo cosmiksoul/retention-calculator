@@ -83,6 +83,13 @@ function dayDelta(current, base, { lowerIsBetter }) {
  *   rSquared: number,
  *   beDay: number|null,
  *   cac: number|null,
+ *   horizonRetention: number,
+ *   baseline?: {
+ *     ltvAtHorizon: number,
+ *     ratio: number|null,
+ *     beDay: number|null,
+ *     horizonRetention: number,
+ *   } | null,
  * }} props
  */
 export default function KPICards({
@@ -91,11 +98,13 @@ export default function KPICards({
   rSquared,
   beDay,
   cac,
+  horizonRetention,
   baseline,
 }) {
   const r2 = rsqTone(rSquared)
   const showCacCards = cac != null && cac > 0
   const ratio = showCacCards ? ltvAtHorizon / cac : null
+
   const ltvDelta = baseline
     ? pctDelta(ltvAtHorizon, baseline.ltvAtHorizon, { higherIsBetter: true })
     : null
@@ -104,19 +113,29 @@ export default function KPICards({
       ? pctDelta(ratio, baseline.ratio, { higherIsBetter: true })
       : null
   const beDelta = baseline ? dayDelta(beDay, baseline.beDay, { lowerIsBetter: true }) : null
+  const retDelta = baseline
+    ? pctDelta(horizonRetention, baseline.horizonRetention, { higherIsBetter: true })
+    : null
+
+  const paybackValue = beDay != null ? `Day ${beDay}` : 'Not reached'
+  const paybackTone = beDay != null ? 'text-fg-strong' : 'text-amber-300'
+  const paybackHint =
+    beDay != null
+      ? `at D${beDay}`
+      : `LTV < CAC at D${horizon}`
 
   return (
     <div
       className={`grid gap-3 ${
         showCacCards
           ? 'grid-cols-2 md:grid-cols-3 xl:grid-cols-5'
-          : 'grid-cols-2'
+          : 'grid-cols-2 md:grid-cols-3'
       }`}
     >
       <Card
         label="Predicted LTV"
         value={fmtUsd(ltvAtHorizon)}
-        hint="per acquired user"
+        hint={`at D${horizon}`}
         delta={ltvDelta}
         tooltip={
           <>
@@ -137,7 +156,6 @@ export default function KPICards({
         value={Number.isFinite(rSquared) ? rSquared.toFixed(3) : '—'}
         hint={r2.label}
         tone={r2.tone}
-        tooltipAlign={showCacCards ? 'left' : 'right'}
         tooltip={
           <>
             <p>
@@ -156,19 +174,19 @@ export default function KPICards({
       {showCacCards && (
         <>
           <Card
-            label="Breakeven"
-            value={beDay != null ? `Day ${beDay}` : 'Not reached'}
-            hint={beDay != null ? `at horizon D${horizon}` : `LTV < CAC at D${horizon}`}
-            tone={beDay != null ? 'text-fg-strong' : 'text-amber-300'}
+            label="Payback"
+            value={paybackValue}
+            hint={paybackHint}
+            tone={paybackTone}
             delta={beDelta}
             tooltip={
               <>
                 <p>
-                  Первый день t, на котором Σ выручки на юзера ≥ CAC. После
-                  этой точки когорта переходит в плюс.
+                  Первый день, на котором накопленный доход ≥ CAC. После этой
+                  точки когорта переходит в плюс.
                 </p>
                 <p className="mt-1.5">
-                  Если breakeven позже горизонта — показывается «Not reached»:
+                  Если payback позже горизонта — показывается «Not reached»:
                   юнит-экономика на текущих параметрах не сходится в выбранном
                   окне.
                 </p>
@@ -205,28 +223,32 @@ export default function KPICards({
               </>
             }
           />
-          <Card
-            label="Payback"
-            value={beDay != null ? `${beDay}d` : '—'}
-            tooltipAlign="right"
-            delta={beDelta}
-            tooltip={
-              <>
-                <p>
-                  Численно совпадает с Breakeven — это первый день, когда
-                  накопленный доход покрыл CAC.
-                </p>
-                <p className="mt-1.5">
-                  Дублируется как отдельный KPI потому, что в продуктовой
-                  аналитике это разные ментальные модели: «когда выйду в
-                  плюс» (breakeven) vs «насколько долго мои деньги связаны»
-                  (payback).
-                </p>
-              </>
-            }
-          />
         </>
       )}
+      <Card
+        label="Long-term retention"
+        value={
+          Number.isFinite(horizonRetention)
+            ? `${(horizonRetention * 100).toFixed(2)}%`
+            : '—'
+        }
+        hint={`at D${horizon}`}
+        tooltipAlign="right"
+        delta={retDelta}
+        tooltip={
+          <>
+            <p>
+              Прогноз ретеншена в самой дальней точке горизонта (D{horizon}) —
+              значение фита R(t) = a·t<sup>−b</sup> на конце окна.
+            </p>
+            <p className="mt-1.5">
+              Это grade проверки правдоподобности модели: если число выглядит
+              нереалистично высоким или низким — фит, скорее всего, плохо
+              экстраполируется и стоит добавить точек или сменить пресет.
+            </p>
+          </>
+        }
+      />
     </div>
   )
 }

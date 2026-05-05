@@ -1,9 +1,9 @@
-// Five KPI cards for subscription mode (spec-v2 §5.1):
-//   1. LTV per install     — main number
-//   2. LTV / CAC            — colored: red <1, amber 1–3, emerald >3
-//   3. Payback              — "Month 8" / "Week 12" / "Not reached"
-//   4. Trial → Paid         — echoed input, highlighted as the key knob
-//   5. Long-term retention  — fit value at the cadence anchor (M12 / W26)
+// Five KPI cards for subscription mode, unified with DAU mode (spec-v2 §5.1):
+//   1. Predicted LTV       — main number, per install at horizon
+//   2. Model fit (R²)      — quality of the power-law fit
+//   3. Payback             — "Month 8" / "Week 12" / "Not reached"
+//   4. LTV / CAC           — colored: red <1, amber 1–3, emerald >3
+//   5. Long-term retention — fit value at the horizon endpoint
 //
 // All values are derived; this component is purely presentational.
 
@@ -16,6 +16,12 @@ function fmtUsd(x) {
   if (Math.abs(x) >= 1000) return `$${x.toFixed(0)}`
   if (Math.abs(x) >= 10) return `$${x.toFixed(1)}`
   return `$${x.toFixed(2)}`
+}
+
+function rsqTone(r2) {
+  if (r2 >= 0.95) return { tone: 'text-emerald-300', label: 'Excellent' }
+  if (r2 >= 0.85) return { tone: 'text-fg', label: 'Good' }
+  return { tone: 'text-amber-300', label: 'Weak fit — extrapolation is risky' }
 }
 
 function ltvCacTone(ratio) {
@@ -46,29 +52,26 @@ function Card({ label, value, hint, tone = 'text-fg-strong', tooltip, tooltipAli
 /**
  * @param {{
  *   ltvPerInstall: number,
+ *   rSquared: number,
  *   cac: number,
  *   payback: number|null,
- *   trialToPaid: number,
- *   longTermRetention: number,
- *   longTermAnchor: number,
+ *   horizonRetention: number,
  *   horizon: number,
  *   cadence: 'weekly'|'monthly',
  *   baseline?: {
  *     ltvPerInstall: number,
  *     ratio: number|null,
  *     payback: number|null,
- *     trialToPaid: number,
- *     longTermRetention: number,
+ *     horizonRetention: number,
  *   } | null,
  * }} props
  */
 export default function SubscriptionKPI({
   ltvPerInstall,
+  rSquared,
   cac,
   payback,
-  trialToPaid,
-  longTermRetention,
-  longTermAnchor,
+  horizonRetention,
   horizon,
   cadence,
   baseline,
@@ -77,6 +80,7 @@ export default function SubscriptionKPI({
   const cycleAbbr = cadence === 'weekly' ? 'W' : 'M'
   const showCac = Number.isFinite(cac) && cac > 0
   const ratio = showCac ? ltvPerInstall / cac : null
+  const r2 = rsqTone(rSquared)
 
   const ltvDeltaInfo = baseline
     ? pctDelta(ltvPerInstall, baseline.ltvPerInstall, { higherIsBetter: true })
@@ -91,11 +95,8 @@ export default function SubscriptionKPI({
         unit: cadence === 'weekly' ? 'w' : 'mo',
       })
     : null
-  const t2pDeltaInfo = baseline
-    ? pctDelta(trialToPaid, baseline.trialToPaid, { higherIsBetter: true })
-    : null
-  const ltrDeltaInfo = baseline
-    ? pctDelta(longTermRetention, baseline.longTermRetention, {
+  const retDeltaInfo = baseline
+    ? pctDelta(horizonRetention, baseline.horizonRetention, {
         higherIsBetter: true,
       })
     : null
@@ -116,7 +117,7 @@ export default function SubscriptionKPI({
   return (
     <div className="grid gap-3 grid-cols-2 md:grid-cols-3 xl:grid-cols-5">
       <Card
-        label="LTV / install"
+        label="Predicted LTV"
         value={fmtUsd(ltvPerInstall)}
         hint={`at ${cycleAbbr}${horizon}`}
         delta={ltvDeltaInfo}
@@ -126,6 +127,42 @@ export default function SubscriptionKPI({
               Σ revenue (1..{horizon}) / cohort. Главное число unit-economics —
               именно с ним сравнивается CAC, потому что CAC платится за инсталл,
               не за платящего.
+            </p>
+          </>
+        }
+      />
+      <Card
+        label="Model fit (R²)"
+        value={Number.isFinite(rSquared) ? rSquared.toFixed(3) : '—'}
+        hint={r2.label}
+        tone={r2.tone}
+        tooltip={
+          <>
+            <p>
+              Доля дисперсии ваших точек, объяснённая моделью R(t) = a·t<sup>−b</sup>.
+              Считается на лог-преобразованных данных.
+            </p>
+            <p className="mt-1.5">
+              ≥ 0.95 — отличная подгонка, прогноз надёжен. 0.85–0.95 —
+              приемлемо. &lt; 0.85 — модель плохо ложится на ваши данные;
+              экстраполяция рискованна, попробуйте сменить пресет или добавить
+              промежуточных точек.
+            </p>
+          </>
+        }
+      />
+      <Card
+        label="Payback"
+        value={paybackValue}
+        hint={paybackHint}
+        tone={paybackTone}
+        delta={paybackDeltaInfo}
+        tooltip={
+          <>
+            <p>
+              Первый {unit}, на котором накопленная выручка покрыла полную
+              стоимость привлечения когорты (cohort × CAC). После этой точки
+              когорта переходит в плюс.
             </p>
           </>
         }
@@ -150,62 +187,25 @@ export default function SubscriptionKPI({
         }
       />
       <Card
-        label="Payback"
-        value={paybackValue}
-        hint={paybackHint}
-        tone={paybackTone}
-        delta={paybackDeltaInfo}
-        tooltip={
-          <>
-            <p>
-              Первый {unit}, на котором накопленная выручка покрыла полную
-              стоимость привлечения когорты (cohort × CAC). После этой точки
-              когорта переходит в плюс.
-            </p>
-          </>
-        }
-      />
-      <Card
-        label="Trial → Paid"
-        value={Number.isFinite(trialToPaid) ? `${trialToPaid.toFixed(1)}%` : '—'}
-        hint="key knob"
-        tone="text-accent-fg"
-        tooltipAlign="right"
-        delta={t2pDeltaInfo}
-        tooltip={
-          <>
-            <p>
-              Главная переменная subscription unit-economics — небольшое
-              движение в обе стороны сильнее всего влияет на LTV.
-            </p>
-            <p className="mt-1.5">
-              Подсвечен отдельной карточкой, чтобы держать его на виду:
-              ARPU и retention двигают линейно, а t→p — мультипликативно
-              на весь funnel.
-            </p>
-          </>
-        }
-      />
-      <Card
-        label={`${cycleAbbr}${longTermAnchor} retention`}
+        label="Long-term retention"
         value={
-          Number.isFinite(longTermRetention)
-            ? `${(longTermRetention * 100).toFixed(1)}%`
+          Number.isFinite(horizonRetention)
+            ? `${(horizonRetention * 100).toFixed(2)}%`
             : '—'
         }
-        hint="long-term stickiness"
+        hint={`at ${cycleAbbr}${horizon}`}
         tooltipAlign="right"
-        delta={ltrDeltaInfo}
+        delta={retDeltaInfo}
         tooltip={
           <>
             <p>
-              Доля платящих юзеров, всё ещё активных на якорном чекпоинте
-              ({cycleAbbr}{longTermAnchor}) — для monthly это annual renewal
-              point, для weekly — ~6 месяцев.
+              Прогноз ретеншена платящих юзеров на самой дальней точке горизонта
+              ({cycleAbbr}{horizon}) — значение фита R(t) = a·t<sup>−b</sup> на
+              конце окна.
             </p>
             <p className="mt-1.5">
-              Считается из power-law fit, не из сырого input — может слегка
-              отличаться от введённого значения если кривая шумная.
+              Sanity-check для модели: если число выглядит нереалистично высоким
+              или низким — фит плохо экстраполируется и стоит добавить точек.
             </p>
           </>
         }

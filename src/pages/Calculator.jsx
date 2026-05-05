@@ -843,11 +843,10 @@ export default function Calculator() {
                           ratio,
                           payback: subModel.payback,
                           trialToPaid: subInput.trialToPaid,
-                          longTermRetention: subModel.longTermRetention,
+                          horizonRetention: last.retention,
                           arpuPaid: subInput.arpuPaid,
                           cac: subInput.cac,
                           rSquared: subModel.fit.rSquared,
-                          longTermAnchor: subModel.longTermAnchor,
                         },
                       })
                     }}
@@ -972,9 +971,9 @@ export default function Calculator() {
                             : 'not reached',
                         ],
                         [
-                          `${subBaseline.cadence === 'weekly' ? 'W' : 'M'}${subBaseline.summary.longTermAnchor} ret`,
-                          Number.isFinite(subBaseline.summary.longTermRetention)
-                            ? `${(subBaseline.summary.longTermRetention * 100).toFixed(1)}%`
+                          'Long-term ret',
+                          Number.isFinite(subBaseline.summary.horizonRetention)
+                            ? `${(subBaseline.summary.horizonRetention * 100).toFixed(2)}%`
                             : '—',
                         ],
                       ].map(([label, value]) => (
@@ -999,11 +998,12 @@ export default function Calculator() {
                   ltvPerInstall={
                     subModel.series[subModel.series.length - 1].cumLtvPerInstall
                   }
+                  rSquared={subModel.fit.rSquared}
                   cac={subInput.cac}
                   payback={subModel.payback}
-                  trialToPaid={subInput.trialToPaid}
-                  longTermRetention={subModel.longTermRetention}
-                  longTermAnchor={subModel.longTermAnchor}
+                  horizonRetention={
+                    subModel.series[subModel.series.length - 1].retention
+                  }
                   horizon={subInput.horizon}
                   cadence={cadence}
                   baseline={subBaseline?.summary ?? null}
@@ -1274,6 +1274,7 @@ export default function Calculator() {
                       beDay,
                       ratio: cac != null && cac > 0 ? ltvAtHorizon / cac : null,
                       rSquared: fit.rSquared,
+                      horizonRetention: fitSeries[fitSeries.length - 1].r,
                       horizon,
                       cohortSize,
                       cac,
@@ -1377,13 +1378,18 @@ export default function Calculator() {
                       ['CAC', baseline.cac != null ? `$${baseline.cac}` : '—'],
                       ['LTV', fmtMoney(baseline.ltvAtHorizon)],
                       ['R²', Number.isFinite(baseline.rSquared) ? baseline.rSquared.toFixed(3) : '—'],
-                      ['BE', baseline.beDay != null ? `D${baseline.beDay}` : 'not reached'],
+                      ...(baseline.cac != null && baseline.cac > 0
+                        ? [['Payback', baseline.beDay != null ? `D${baseline.beDay}` : 'not reached']]
+                        : []),
                       ...(baseline.ratio != null
                         ? [['LTV/CAC', baseline.ratio.toFixed(2)]]
                         : []),
-                      ...(baseline.cac != null && baseline.cac > 0
-                        ? [['Payback', baseline.beDay != null ? `${baseline.beDay}d` : '—']]
-                        : []),
+                      [
+                        'Long-term ret',
+                        Number.isFinite(baseline.horizonRetention)
+                          ? `${(baseline.horizonRetention * 100).toFixed(2)}%`
+                          : '—',
+                      ],
                     ].map(([label, value]) => (
                       <span key={label} className="flex items-baseline gap-1 whitespace-nowrap">
                         <span className="text-fg-faint">·</span>
@@ -1408,6 +1414,11 @@ export default function Calculator() {
                 rSquared={fit.rSquared}
                 beDay={beDay}
                 cac={cac}
+                horizonRetention={
+                  fitSeries && fitSeries.length
+                    ? fitSeries[fitSeries.length - 1].r
+                    : NaN
+                }
                 baseline={baseline}
               />
               {extrap !== 'none' && (
