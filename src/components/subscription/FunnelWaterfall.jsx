@@ -5,7 +5,10 @@
 // Implementation: pure CSS — flexbox + percentage-width inner bars. No
 // chart library, per spec note "не нужно тяжёлое".
 
+import { useRef } from 'react'
 import HoverHint from '../HoverHint.jsx'
+import ExportPngButton from '../ExportPngButton.jsx'
+import { pngFilename } from '../../lib/exportPng.js'
 
 function fmtCount(x) {
   if (!Number.isFinite(x)) return '—'
@@ -23,14 +26,16 @@ function fmtPct(x) {
 /**
  * @param {{
  *   steps: Array<{label:string, count:number, dropoffPct:number|null}>,
+ *   presetLabel?: string,
  * }} props
  */
-export default function FunnelWaterfall({ steps }) {
+export default function FunnelWaterfall({ steps, presetLabel }) {
+  const cardRef = useRef(null)
   if (!steps || steps.length === 0) return null
   const maxCount = steps[0].count || 1
 
   return (
-    <div className="rounded-lg border border-line bg-bg-elev/40 p-4">
+    <div ref={cardRef} className="rounded-lg border border-line bg-bg-elev/40 p-4">
       <div className="mb-3 flex items-center text-sm font-medium text-fg">
         <span>Funnel cascade</span>
         <HoverHint align="left">
@@ -45,6 +50,12 @@ export default function FunnelWaterfall({ steps }) {
             менее агрессивным с течением времени — это нормально.
           </p>
         </HoverHint>
+        <div className="ml-auto">
+          <ExportPngButton
+            targetRef={cardRef}
+            filename={pngFilename('subscription-funnel', presetLabel)}
+          />
+        </div>
       </div>
       <div className="space-y-1.5">
         {steps.map((step, i) => {

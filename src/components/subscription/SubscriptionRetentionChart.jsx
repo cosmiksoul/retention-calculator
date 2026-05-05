@@ -76,6 +76,7 @@ function Row({ color, label, value }) {
  *   bandSeries: Array<{t:number, lower:number, upper:number}>|null,
  *   bandSigma: 1|2,
  *   benchmarkSeries: Array<{t:number, r:number}>|null,
+ *   baselineSeries: Array<{t:number, retention:number}>|null,
  *   horizon: number,
  *   cadence: 'weekly'|'monthly',
  *   rSquared: number,
@@ -88,6 +89,7 @@ export default function SubscriptionRetentionChart({
   bandSeries,
   bandSigma = 1,
   benchmarkSeries,
+  baselineSeries,
   horizon,
   cadence,
   rSquared,
@@ -99,6 +101,9 @@ export default function SubscriptionRetentionChart({
   const benchByT = benchmarkSeries
     ? new Map(benchmarkSeries.map((p) => [p.t, p.r * 100]))
     : null
+  const baselineByT = baselineSeries
+    ? new Map(baselineSeries.map((p) => [p.t, p.retention * 100]))
+    : null
 
   const data = fitSeries.map((p, i) => ({
     t: p.t,
@@ -108,6 +113,7 @@ export default function SubscriptionRetentionChart({
       ? [bandSeries[i].lower * 100, bandSeries[i].upper * 100]
       : null,
     bench: benchByT?.get(p.t) ?? null,
+    baseline: baselineByT?.get(p.t) ?? null,
   }))
 
   const showBand = !!bandSeries
@@ -232,6 +238,19 @@ export default function SubscriptionRetentionChart({
               connectNulls
               isAnimationActive={false}
             />
+            {baselineSeries && (
+              <Line
+                type="monotone"
+                dataKey="baseline"
+                name="Baseline"
+                stroke={colors.baseline}
+                strokeWidth={2}
+                strokeDasharray="6 4"
+                dot={false}
+                connectNulls
+                isAnimationActive={false}
+              />
+            )}
             <Line
               type="monotone"
               dataKey="user"

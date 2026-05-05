@@ -254,6 +254,8 @@ export default function Calculator() {
   const handleCadenceChange = (next) => {
     if (next === cadence) return
     setCadence(next)
+    // Cadence change invalidates any pinned baseline (its t-scale differs).
+    setSubBaseline(null)
     // Re-seed inputs. If a subscription preset is selected and has data
     // for the new cadence, use that variant; otherwise fall back to fresh
     // cadence defaults.
@@ -288,6 +290,12 @@ export default function Calculator() {
     const t = setTimeout(() => setCadenceToast(null), 4000)
     return () => clearTimeout(t)
   }, [cadenceToast])
+
+  // Pinned subscription snapshot — the live calculator becomes the
+  // comparison; charts overlay this as a faded dashed line and KPI cards
+  // show Δ from baseline. Auto-cleared when cadence changes (data scale
+  // mismatch) or when the user leaves Subscription mode.
+  const [subBaseline, setSubBaseline] = useState(null)
   const subValidation = useMemo(
     () => validateSubscriptionInputs(subInput),
     [subInput],
@@ -717,6 +725,9 @@ export default function Calculator() {
             value={mode}
             onChange={(next) => {
               setMode(next)
+              // Leaving Subscription invalidates its pinned baseline; the
+              // session side has its own baseline state (`baseline`).
+              if (next !== 'subscription') setSubBaseline(null)
               // Drop stale presetState if it belongs to the other mode —
               // otherwise the new mode would surface a phantom preset card
               // (e.g. a Subscription preset still active after switching
@@ -809,6 +820,47 @@ export default function Calculator() {
                 <div className="flex flex-wrap items-center justify-end gap-2">
                   <button
                     type="button"
+                    onClick={() => {
+                      if (subBaseline) {
+                        setSubBaseline(null)
+                        return
+                      }
+                      const last =
+                        subModel.series[subModel.series.length - 1]
+                      const ratio =
+                        subInput.cac > 0
+                          ? last.cumLtvPerInstall / subInput.cac
+                          : null
+                      setSubBaseline({
+                        cadence,
+                        label: presetLabel,
+                        // Per-cycle series is enough for chart overlays;
+                        // KPI snapshot pulls from `summary` to stay
+                        // immune to subModel structure changes.
+                        series: subModel.series,
+                        summary: {
+                          ltvPerInstall: last.cumLtvPerInstall,
+                          ratio,
+                          payback: subModel.payback,
+                          trialToPaid: subInput.trialToPaid,
+                          longTermRetention: subModel.longTermRetention,
+                          arpuPaid: subInput.arpuPaid,
+                          cac: subInput.cac,
+                          rSquared: subModel.fit.rSquared,
+                          longTermAnchor: subModel.longTermAnchor,
+                        },
+                      })
+                    }}
+                    className={`rounded border px-3 py-1.5 text-xs transition-colors ${
+                      subBaseline
+                        ? 'border-accent/60 bg-accent-surface/30 text-accent-fg hover:border-accent'
+                        : 'border-line-strong bg-bg-subtle text-fg-muted hover:border-accent/50 hover:text-accent-fg'
+                    }`}
+                  >
+                    {subBaseline ? '× Clear baseline' : '📌 Pin as baseline'}
+                  </button>
+                  <button
+                    type="button"
                     onClick={async () => {
                       const encoded = encodeState({
                         mode,
@@ -893,6 +945,56 @@ export default function Calculator() {
                     Download CSV
                   </button>
                 </div>
+                {subBaseline && (
+                  <div className="relative rounded border border-accent/40 bg-accent-surface/20 py-2 pl-3 pr-8 text-xs">
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 tabular-nums">
+                      <span className="text-fg-faint">📌 Baseline</span>
+                      {subBaseline.label && (
+                        <span className="flex items-baseline gap-1 whitespace-nowrap">
+                          <span className="text-fg-faint">·</span>
+                          <span className="text-fg">{subBaseline.label}</span>
+                        </span>
+                      )}
+                      {[
+                        ['Cadence', subBaseline.cadence],
+                        ['T→P', `${subBaseline.summary.trialToPaid?.toFixed?.(1)}%`],
+                        ['ARPU paid', fmtMoney(subBaseline.summary.arpuPaid)],
+                        ['CAC', fmtMoney(subBaseline.summary.cac)],
+                        ['LTV/install', fmtMoney(subBaseline.summary.ltvPerInstall)],
+                        ['R²', Number.isFinite(subBaseline.summary.rSquared) ? subBaseline.summary.rSquared.toFixed(3) : '—'],
+                        ...(subBaseline.summary.ratio != null
+                          ? [['LTV/CAC', subBaseline.summary.ratio.toFixed(2)]]
+                          : []),
+                        [
+                          'Payback',
+                          subBaseline.summary.payback != null
+                            ? `${subBaseline.cadence === 'weekly' ? 'W' : 'M'}${subBaseline.summary.payback}`
+                            : 'not reached',
+                        ],
+                        [
+                          `${subBaseline.cadence === 'weekly' ? 'W' : 'M'}${subBaseline.summary.longTermAnchor} ret`,
+                          Number.isFinite(subBaseline.summary.longTermRetention)
+                            ? `${(subBaseline.summary.longTermRetention * 100).toFixed(1)}%`
+                            : '—',
+                        ],
+                      ].map(([label, value]) => (
+                        <span key={label} className="flex items-baseline gap-1 whitespace-nowrap">
+                          <span className="text-fg-faint">·</span>
+                          <span className="text-fg-faint">{label}</span>
+                          <span className="text-fg">{value}</span>
+                        </span>
+                      ))}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setSubBaseline(null)}
+                      aria-label="Clear baseline"
+                      className="absolute right-2 top-1.5 text-fg-faint transition-colors hover:text-fg"
+                    >
+                      ×
+                    </button>
+                  </div>
+                )}
                 <PlanBadge
                   dominantPlan={
                     selectedPreset?.dominantPlan ?? null
@@ -918,14 +1020,19 @@ export default function Calculator() {
                   longTermAnchor={subModel.longTermAnchor}
                   horizon={subInput.horizon}
                   cadence={cadence}
+                  baseline={subBaseline?.summary ?? null}
                 />
-                <FunnelWaterfall steps={subModel.funnel.steps} />
+                <FunnelWaterfall
+                  steps={subModel.funnel.steps}
+                  presetLabel={presetLabel}
+                />
                 <SubscriptionRetentionChart
                   userPoints={subInput.retention}
                   fitSeries={subModel.series}
                   bandSeries={subModel.retentionBand}
                   bandSigma={bandSigma}
                   benchmarkSeries={subBenchmarkSeries}
+                  baselineSeries={subBaseline?.series ?? null}
                   horizon={subInput.horizon}
                   cadence={cadence}
                   rSquared={subModel.fit.rSquared}
@@ -934,6 +1041,7 @@ export default function Calculator() {
                   series={subModel.series}
                   bandSeries={subModel.ltvBand}
                   bandSigma={bandSigma}
+                  baselineSeries={subBaseline?.series ?? null}
                   cohortSize={subInput.cohortSize}
                   cac={subInput.cac}
                   payback={subModel.payback}

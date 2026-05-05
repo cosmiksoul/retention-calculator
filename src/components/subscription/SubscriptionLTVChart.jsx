@@ -9,6 +9,7 @@ import {
   ResponsiveContainer,
   ComposedChart,
   Area,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -70,6 +71,7 @@ function CustomTooltip({ active, payload, label, cac, cadence }) {
  *   series: Array<{t:number, cumLtvPerInstall:number}>,
  *   bandSeries: Array<{t:number, lower:number, upper:number}>|null,
  *   bandSigma: 1|2,
+ *   baselineSeries: Array<{t:number, cumLtvPerInstall:number}>|null,
  *   cohortSize: number,
  *   cac: number,
  *   payback: number|null,
@@ -82,6 +84,7 @@ export default function SubscriptionLTVChart({
   series,
   bandSeries,
   bandSigma = 1,
+  baselineSeries,
   cohortSize,
   cac,
   payback,
@@ -91,6 +94,10 @@ export default function SubscriptionLTVChart({
 }) {
   const colors = useThemeColors()
   const cardRef = useRef(null)
+
+  const baselineByT = baselineSeries
+    ? new Map(baselineSeries.map((p) => [p.t, p.cumLtvPerInstall]))
+    : null
 
   // ltvBand returns absolute revenue bounds (arpu × Σ R(t)), but our Y is
   // per-install. Convert by dividing by cohortSize to keep the band aligned
@@ -102,6 +109,7 @@ export default function SubscriptionLTVChart({
       bandSeries && cohortSize > 0
         ? [bandSeries[i].lower / cohortSize, bandSeries[i].upper / cohortSize]
         : null,
+    baseline: baselineByT?.get(p.t) ?? null,
   }))
   const showBand = !!bandSeries
 
@@ -110,7 +118,10 @@ export default function SubscriptionLTVChart({
     bandSeries && cohortSize > 0
       ? bandSeries[bandSeries.length - 1].upper / cohortSize
       : 0
-  const yMax = Math.max(lastLtv, cac, bandUpperMax) * 1.15
+  const baselineMax = baselineSeries
+    ? Math.max(...baselineSeries.map((p) => p.cumLtvPerInstall))
+    : 0
+  const yMax = Math.max(lastLtv, cac, bandUpperMax, baselineMax) * 1.15
   const ticks = (TICK_CANDIDATES[cadence] ?? TICK_CANDIDATES.monthly).filter(
     (t) => t <= horizon,
   )
@@ -246,6 +257,19 @@ export default function SubscriptionLTVChart({
               fill="url(#subLtvFill)"
               isAnimationActive={false}
             />
+            {baselineSeries && (
+              <Line
+                type="monotone"
+                dataKey="baseline"
+                name="Baseline"
+                stroke={colors.baseline}
+                strokeWidth={2}
+                strokeDasharray="6 4"
+                dot={false}
+                connectNulls
+                isAnimationActive={false}
+              />
+            )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>

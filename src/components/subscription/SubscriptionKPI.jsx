@@ -9,6 +9,7 @@
 
 import HoverHint from '../HoverHint.jsx'
 import { cadenceUnit } from '../../lib/subscriptionMath.js'
+import { pctDelta, periodDelta } from '../../lib/baselineDelta.js'
 
 function fmtUsd(x) {
   if (!Number.isFinite(x)) return '—'
@@ -24,7 +25,7 @@ function ltvCacTone(ratio) {
   return 'text-red-400'
 }
 
-function Card({ label, value, hint, tone = 'text-fg-strong', tooltip, tooltipAlign = 'left' }) {
+function Card({ label, value, hint, tone = 'text-fg-strong', tooltip, tooltipAlign = 'left', delta }) {
   return (
     <div className="rounded-lg border border-line bg-bg-elev/50 px-4 py-3">
       <div className="flex items-center whitespace-nowrap text-xs uppercase tracking-wide text-fg-faint">
@@ -32,7 +33,12 @@ function Card({ label, value, hint, tone = 'text-fg-strong', tooltip, tooltipAli
         {tooltip && <HoverHint align={tooltipAlign}>{tooltip}</HoverHint>}
       </div>
       <div className={`mt-1 text-2xl font-semibold tabular-nums ${tone}`}>{value}</div>
-      {hint && <div className="mt-0.5 text-xs text-fg-faint">{hint}</div>}
+      {delta && (
+        <div className={`mt-0.5 text-xs tabular-nums ${delta.tone}`}>
+          {delta.text}
+        </div>
+      )}
+      {hint && !delta && <div className="mt-0.5 text-xs text-fg-faint">{hint}</div>}
     </div>
   )
 }
@@ -47,6 +53,13 @@ function Card({ label, value, hint, tone = 'text-fg-strong', tooltip, tooltipAli
  *   longTermAnchor: number,
  *   horizon: number,
  *   cadence: 'weekly'|'monthly',
+ *   baseline?: {
+ *     ltvPerInstall: number,
+ *     ratio: number|null,
+ *     payback: number|null,
+ *     trialToPaid: number,
+ *     longTermRetention: number,
+ *   } | null,
  * }} props
  */
 export default function SubscriptionKPI({
@@ -58,11 +71,34 @@ export default function SubscriptionKPI({
   longTermAnchor,
   horizon,
   cadence,
+  baseline,
 }) {
   const unit = cadenceUnit(cadence)
   const cycleAbbr = cadence === 'weekly' ? 'W' : 'M'
   const showCac = Number.isFinite(cac) && cac > 0
   const ratio = showCac ? ltvPerInstall / cac : null
+
+  const ltvDeltaInfo = baseline
+    ? pctDelta(ltvPerInstall, baseline.ltvPerInstall, { higherIsBetter: true })
+    : null
+  const ratioDeltaInfo =
+    baseline && ratio != null && baseline.ratio != null
+      ? pctDelta(ratio, baseline.ratio, { higherIsBetter: true })
+      : null
+  const paybackDeltaInfo = baseline
+    ? periodDelta(payback, baseline.payback, {
+        lowerIsBetter: true,
+        unit: cadence === 'weekly' ? 'w' : 'mo',
+      })
+    : null
+  const t2pDeltaInfo = baseline
+    ? pctDelta(trialToPaid, baseline.trialToPaid, { higherIsBetter: true })
+    : null
+  const ltrDeltaInfo = baseline
+    ? pctDelta(longTermRetention, baseline.longTermRetention, {
+        higherIsBetter: true,
+      })
+    : null
 
   const paybackValue =
     payback != null
@@ -83,6 +119,7 @@ export default function SubscriptionKPI({
         label="LTV / install"
         value={fmtUsd(ltvPerInstall)}
         hint={`at ${cycleAbbr}${horizon}`}
+        delta={ltvDeltaInfo}
         tooltip={
           <>
             <p>
@@ -98,6 +135,7 @@ export default function SubscriptionKPI({
         value={ratio != null ? ratio.toFixed(2) : '—'}
         hint={ratioHint}
         tone={ltvCacTone(ratio)}
+        delta={ratioDeltaInfo}
         tooltip={
           <>
             <p>
@@ -116,6 +154,7 @@ export default function SubscriptionKPI({
         value={paybackValue}
         hint={paybackHint}
         tone={paybackTone}
+        delta={paybackDeltaInfo}
         tooltip={
           <>
             <p>
@@ -132,6 +171,7 @@ export default function SubscriptionKPI({
         hint="key knob"
         tone="text-accent-fg"
         tooltipAlign="right"
+        delta={t2pDeltaInfo}
         tooltip={
           <>
             <p>
@@ -155,6 +195,7 @@ export default function SubscriptionKPI({
         }
         hint="long-term stickiness"
         tooltipAlign="right"
+        delta={ltrDeltaInfo}
         tooltip={
           <>
             <p>
