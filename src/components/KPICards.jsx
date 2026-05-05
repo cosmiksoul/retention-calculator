@@ -9,28 +9,28 @@ function fmtUsd(x) {
 
 function rsqTone(r2) {
   if (r2 >= 0.95) return { tone: 'text-emerald-300', label: 'Excellent' }
-  if (r2 >= 0.85) return { tone: 'text-slate-200', label: 'Good' }
+  if (r2 >= 0.85) return { tone: 'text-fg', label: 'Good' }
   return { tone: 'text-amber-300', label: 'Weak fit — extrapolation is risky' }
 }
 
 function ltvCacTone(ratio) {
-  if (!Number.isFinite(ratio)) return 'text-slate-200'
+  if (!Number.isFinite(ratio)) return 'text-fg'
   if (ratio >= 3) return 'text-emerald-300'
   if (ratio >= 1) return 'text-amber-300'
   return 'text-red-400'
 }
 
-function Card({ label, value, hint, tooltip, tooltipAlign = 'left', tone = 'text-slate-100' }) {
+function Card({ label, value, hint, tooltip, tooltipAlign = 'left', tone = 'text-fg-strong' }) {
   return (
-    <div className="rounded-lg border border-slate-800 bg-bg-elev/50 px-4 py-3">
-      <div className="flex items-center whitespace-nowrap text-xs uppercase tracking-wide text-slate-500">
+    <div className="rounded-lg border border-line bg-bg-elev/50 px-4 py-3">
+      <div className="flex items-center whitespace-nowrap text-xs uppercase tracking-wide text-fg-faint">
         <span>{label}</span>
         {tooltip && <HoverHint align={tooltipAlign}>{tooltip}</HoverHint>}
       </div>
       <div className={`mt-1 text-2xl font-semibold tabular-nums ${tone}`}>
         {value}
       </div>
-      {hint && <div className="mt-0.5 text-xs text-slate-500">{hint}</div>}
+      {hint && <div className="mt-0.5 text-xs text-fg-faint">{hint}</div>}
     </div>
   )
 }
@@ -108,7 +108,7 @@ export default function KPICards({
             label="Breakeven"
             value={beDay != null ? `Day ${beDay}` : 'Not reached'}
             hint={beDay != null ? `at horizon D${horizon}` : `LTV < CAC at D${horizon}`}
-            tone={beDay != null ? 'text-slate-100' : 'text-amber-300'}
+            tone={beDay != null ? 'text-fg-strong' : 'text-amber-300'}
             tooltip={
               <>
                 <p>

@@ -30,18 +30,18 @@ function Heatmap({ cohorts, periods }) {
   const cols = periods.length + 1 // 1 for cohort label
   return (
     <div
-      className="overflow-x-auto rounded border border-slate-800"
+      className="overflow-x-auto rounded border border-line"
       style={{ ['--cols']: cols }}
     >
       <div
         className="grid min-w-fit text-xs"
         style={{ gridTemplateColumns: `minmax(7rem, auto) repeat(${periods.length}, minmax(3.5rem, 1fr))` }}
       >
-        <div className="bg-bg-subtle/40 px-2 py-1.5 text-slate-500">Cohort</div>
+        <div className="bg-bg-subtle/40 px-2 py-1.5 text-fg-faint">Cohort</div>
         {periods.map((p) => (
           <div
             key={p.t}
-            className="bg-bg-subtle/40 px-2 py-1.5 text-right tabular-nums text-slate-400"
+            className="bg-bg-subtle/40 px-2 py-1.5 text-right tabular-nums text-fg-dim"
           >
             D{p.t}
           </div>
@@ -49,13 +49,13 @@ function Heatmap({ cohorts, periods }) {
         {cohorts.map((c, ci) => (
           <Row key={ci} cohort={c} periods={periods} />
         ))}
-        <div className="border-t border-slate-800 bg-bg-subtle/30 px-2 py-1.5 text-slate-300">
+        <div className="border-t border-line bg-bg-subtle/30 px-2 py-1.5 text-fg-muted">
           Avg
         </div>
         {periods.map((p) => (
           <div
             key={p.t}
-            className="border-t border-slate-800 bg-bg-subtle/30 px-2 py-1.5 text-right tabular-nums text-slate-200"
+            className="border-t border-line bg-bg-subtle/30 px-2 py-1.5 text-right tabular-nums text-fg"
           >
             {fmtCell(p.mean)}
           </div>
@@ -68,13 +68,13 @@ function Heatmap({ cohorts, periods }) {
 function Row({ cohort, periods }) {
   return (
     <>
-      <div className="border-t border-slate-800 px-2 py-1.5 text-slate-300">
+      <div className="border-t border-line px-2 py-1.5 text-fg-muted">
         {cohort.label}
       </div>
       {periods.map((p, i) => (
         <div
           key={p.t}
-          className="border-t border-slate-800 px-2 py-1.5 text-right tabular-nums text-slate-200"
+          className="border-t border-line px-2 py-1.5 text-right tabular-nums text-fg"
           style={{ backgroundColor: cellBg(cohort.retentionPct[i]) }}
         >
           {fmtCell(cohort.retentionPct[i])}
@@ -95,13 +95,13 @@ export default function CohortPaste({ text, onTextChange, parsed }) {
   return (
     <div className="space-y-3">
       <div>
-        <label className="mb-1 flex items-center justify-between text-sm font-medium text-slate-300">
+        <label className="mb-1 flex items-center justify-between text-sm font-medium text-fg-muted">
           <span>Paste cohort table (TSV / CSV)</span>
           {!text && (
             <button
               type="button"
               onClick={() => onTextChange(SAMPLE)}
-              className="text-xs text-cyan-400 hover:text-cyan-300"
+              className="text-xs text-accent-soft hover:text-accent-fg"
             >
               Load sample
             </button>
@@ -113,7 +113,7 @@ export default function CohortPaste({ text, onTextChange, parsed }) {
           placeholder="Cohort\tD0\tD1\tD7\tD14\tD30&#10;2026-04-01\t1200\t480\t240\t168\t108&#10;…"
           rows={6}
           spellCheck={false}
-          className="block w-full resize-y rounded border border-slate-700 bg-bg-subtle px-2 py-2 font-mono text-xs text-slate-100 placeholder:text-slate-600 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40"
+          className="block w-full resize-y rounded border border-line-strong bg-bg-subtle px-2 py-2 font-mono text-xs text-fg-strong placeholder:text-fg-disabled focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/40"
         />
       </div>
 
@@ -135,10 +135,10 @@ export default function CohortPaste({ text, onTextChange, parsed }) {
 
       {parsed?.avgPoints && parsed.cohorts.length > 0 && (
         <>
-          <div className="text-xs text-slate-500">
+          <div className="text-xs text-fg-faint">
             {parsed.cohorts.length} cohort{parsed.cohorts.length > 1 ? 's' : ''} × {parsed.periods.length} period{parsed.periods.length > 1 ? 's' : ''} ·{' '}
-            <span className="text-slate-400">format: {parsed.cohorts[0].format}</span> ·{' '}
-            <span className="text-slate-400">separator: {parsed.separator}</span>
+            <span className="text-fg-dim">format: {parsed.cohorts[0].format}</span> ·{' '}
+            <span className="text-fg-dim">separator: {parsed.separator}</span>
           </div>
           <Heatmap cohorts={parsed.cohorts} periods={parsed.periods} />
         </>

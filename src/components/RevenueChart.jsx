@@ -18,6 +18,7 @@ import {
 } from 'recharts'
 import { bucketRevenue } from '../lib/revenueBuckets.js'
 import HoverHint from './HoverHint.jsx'
+import { useThemeColors } from '../lib/useThemeColors.js'
 
 function fmtUsd(v) {
   if (v == null || !Number.isFinite(v)) return '—'
@@ -30,17 +31,17 @@ function CustomTooltip({ active, payload }) {
   if (!active || !payload || !payload.length) return null
   const p = payload[0].payload
   return (
-    <div className="rounded border border-slate-700 bg-bg-elev/95 px-3 py-2 text-xs">
-      <div className="font-medium text-slate-200">{p.label}</div>
+    <div className="rounded border border-line-strong bg-bg-elev/95 px-3 py-2 text-xs">
+      <div className="font-medium text-fg">{p.label}</div>
       <div className="mt-1 flex items-center gap-3">
-        <span className="text-slate-400">Cohort revenue</span>
+        <span className="text-fg-dim">Cohort revenue</span>
         <span className="ml-auto tabular-nums text-emerald-300">
           {fmtUsd(p.revenue)}
         </span>
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-slate-400">Share</span>
-        <span className="ml-auto tabular-nums text-slate-300">
+        <span className="text-fg-dim">Share</span>
+        <span className="ml-auto tabular-nums text-fg-muted">
           {p.pct.toFixed(1)}%
         </span>
       </div>
@@ -56,6 +57,7 @@ function CustomTooltip({ active, payload }) {
  * }} props
  */
 export default function RevenueChart({ series, cohortSize, horizon }) {
+  const colors = useThemeColors()
   const buckets = bucketRevenue(series, horizon)
   const totalPerUser = buckets.reduce((s, b) => s + b.revenue, 0)
   const totalCohort = totalPerUser * cohortSize
@@ -66,9 +68,9 @@ export default function RevenueChart({ series, cohortSize, horizon }) {
   }))
 
   return (
-    <div className="rounded-lg border border-slate-800 bg-bg-elev/40 p-4">
+    <div className="rounded-lg border border-line bg-bg-elev/40 p-4">
       <div className="mb-2 flex items-baseline justify-between">
-        <div className="flex items-center text-sm font-medium text-slate-200">
+        <div className="flex items-center text-sm font-medium text-fg">
           <span>Revenue per period</span>
           <HoverHint align="left">
             <p>
@@ -84,9 +86,9 @@ export default function RevenueChart({ series, cohortSize, horizon }) {
             </p>
           </HoverHint>
         </div>
-        <div className="text-xs text-slate-500">
+        <div className="text-xs text-fg-faint">
           Cohort total over D1–D{horizon}:{' '}
-          <span className="tabular-nums text-slate-300">
+          <span className="tabular-nums text-fg-muted">
             {fmtUsd(totalCohort)}
           </span>
         </div>
@@ -94,21 +96,21 @@ export default function RevenueChart({ series, cohortSize, horizon }) {
       <div className="h-56 w-full">
         <ResponsiveContainer>
           <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
-            <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" vertical={false} />
+            <CartesianGrid stroke={colors.grid} strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="label"
-              stroke="#64748b"
+              stroke={colors.axis}
               tick={{ fontSize: 11 }}
             />
             <YAxis
-              stroke="#64748b"
+              stroke={colors.axis}
               tick={{ fontSize: 11 }}
               tickFormatter={fmtUsd}
             />
-            <Tooltip content={<CustomTooltip />} cursor={{ fill: '#1e293b40' }} />
+            <Tooltip content={<CustomTooltip />} cursor={{ fill: colors.grid, fillOpacity: 0.4 }} />
             <Bar
               dataKey="revenue"
-              fill="#22c55e"
+              fill={colors.line}
               fillOpacity={0.85}
               isAnimationActive={false}
               radius={[2, 2, 0, 0]}

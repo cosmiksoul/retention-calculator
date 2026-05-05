@@ -27,13 +27,13 @@ const METRIC_HINTS = {
 }
 
 const selectCls =
-  'block w-full rounded border border-slate-700 bg-bg-subtle px-2 py-1.5 text-sm ' +
-  'text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40'
+  'block w-full rounded border border-line-strong bg-bg-subtle px-2 py-1.5 text-sm ' +
+  'text-fg-strong focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/40'
 
 export default function PresetSelector({ bundle, value, onChange }) {
   if (!bundle) {
     return (
-      <div className="text-xs text-slate-500">Loading presets…</div>
+      <div className="text-xs text-fg-faint">Loading presets…</div>
     )
   }
 
@@ -87,7 +87,7 @@ export default function PresetSelector({ bundle, value, onChange }) {
   return (
     <div className="space-y-3">
       <div>
-        <label className="mb-1 flex items-center text-sm font-medium text-slate-300">
+        <label className="mb-1 flex items-center text-sm font-medium text-fg-muted">
           <span>Industry preset</span>
           <HoverHint align="left">
             <p>
@@ -119,16 +119,16 @@ export default function PresetSelector({ bundle, value, onChange }) {
         <>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="mb-1 flex items-center text-xs text-slate-400">
+              <label className="mb-1 flex items-center text-xs text-fg-dim">
                 <span>Quality</span>
                 <HoverHint align="left" width="sm">
                   <p>
                     Уровень результата среди игроков отрасли:
                   </p>
                   <ul className="mt-1.5 list-disc space-y-1 pl-4">
-                    <li><strong className="text-slate-200">top quartile</strong> — лучшие 25%</li>
-                    <li><strong className="text-slate-200">median</strong> — медиана</li>
-                    <li><strong className="text-slate-200">bottom quartile</strong> — худшие 25%</li>
+                    <li><strong className="text-fg">top quartile</strong> — лучшие 25%</li>
+                    <li><strong className="text-fg">median</strong> — медиана</li>
+                    <li><strong className="text-fg">bottom quartile</strong> — худшие 25%</li>
                   </ul>
                   <p className="mt-1.5">
                     Если для текущей пары Industry+Geo квартиль недоступен,
@@ -153,7 +153,7 @@ export default function PresetSelector({ bundle, value, onChange }) {
               </select>
             </div>
             <div>
-              <label className="mb-1 block text-xs text-slate-400">Geo tier</label>
+              <label className="mb-1 block text-xs text-fg-dim">Geo tier</label>
               <select
                 value={geo}
                 onChange={(e) => handleGeoChange(e.target.value)}
@@ -172,7 +172,7 @@ export default function PresetSelector({ bundle, value, onChange }) {
             </div>
           </div>
 
-          <div className="space-y-2 rounded border border-slate-800 bg-bg-elev/60 p-3">
+          <div className="space-y-2 rounded border border-line bg-bg-elev/60 p-3">
             <div className="flex flex-wrap items-center gap-2">
               {badge && (
                 <span className={`rounded border px-2 py-0.5 text-xs ${badge.cls}`}>
@@ -181,27 +181,27 @@ export default function PresetSelector({ bundle, value, onChange }) {
               )}
               {metricHint && (
                 <span
-                  className="cursor-help text-xs text-slate-500"
+                  className="cursor-help text-xs text-fg-faint"
                   title={metricHint}
                 >
                   {preset.metricType.replace('_', ' ')} ⓘ
                 </span>
               )}
             </div>
-            <p className="text-xs leading-relaxed text-slate-400">
+            <p className="text-xs leading-relaxed text-fg-dim">
               {preset.qualityWarning}
             </p>
             {(arpuDisplays.length > 0 || cacDisplays.length > 0) && (
-              <dl className="space-y-1 text-xs text-slate-500">
+              <dl className="space-y-1 text-xs text-fg-faint">
                 {arpuDisplays.length > 0 && (
                   <div>
-                    <dt className="inline text-slate-400">ARPU: </dt>
+                    <dt className="inline text-fg-dim">ARPU: </dt>
                     <dd className="inline">{arpuDisplays.join(' · ')}</dd>
                   </div>
                 )}
                 {cacDisplays.length > 0 && (
                   <div>
-                    <dt className="inline text-slate-400">Acquisition: </dt>
+                    <dt className="inline text-fg-dim">Acquisition: </dt>
                     <dd className="inline">{cacDisplays.join(' · ')}</dd>
                   </div>
                 )}
@@ -210,7 +210,7 @@ export default function PresetSelector({ bundle, value, onChange }) {
             {preset.methodologyAnchor && (
               <Link
                 to={`/methodology#${preset.methodologyAnchor}`}
-                className="inline-block text-xs text-cyan-400 hover:text-cyan-300"
+                className="inline-block text-xs text-accent-soft hover:text-accent-fg"
               >
                 See methodology →
               </Link>

@@ -2,6 +2,77 @@
 @tailwind components;
 @tailwind utilities;
 
+/*
+  Semantic colour tokens used throughout the app. The values are stored as
+  space-separated RGB triplets so that Tailwind's `<alpha-value>` placeholder
+  (configured in tailwind.config.js) can compose them with opacity modifiers
+  like `bg-bg-elev/40`.
+
+  Dark is the default; the `data-theme="light"` block remaps every token for
+  the light variant. Recharts hex constants live separately because they
+  cannot consume Tailwind classes — see useThemeColors().
+*/
+:root {
+  --c-fg: 230 237 243;          /* default body */
+  --c-fg-strong: 241 245 249;   /* slate-100 — emphasised values */
+  --c-fg-muted: 203 213 225;    /* slate-300 — secondary text/labels */
+  --c-fg-dim: 148 163 184;      /* slate-400 — tertiary */
+  --c-fg-faint: 100 116 139;    /* slate-500 — captions/hints */
+  --c-fg-disabled: 71 85 105;   /* slate-600 */
+
+  --c-bg: 13 17 23;
+  --c-bg-elev: 22 27 34;
+  --c-bg-subtle: 33 38 45;
+
+  --c-line: 30 41 59;           /* slate-800 — subtle dividers/panels */
+  --c-line-strong: 51 65 85;    /* slate-700 — input borders */
+  --c-line-soft: 30 41 59;
+
+  --c-accent: 6 182 212;        /* cyan-500 — borders, focus, primary */
+  --c-accent-fg: 103 232 249;   /* cyan-300 — hover/active text */
+  --c-accent-soft: 34 211 238;  /* cyan-400 — secondary accent */
+  --c-accent-surface: 8 51 68;  /* cyan-950 — subtle row tint */
+
+  /* Recharts hex constants (consumed by useThemeColors) */
+  --c-chart-grid: #1f2937;
+  --c-chart-axis: #64748b;
+  --c-chart-line: #22c55e;
+  --c-chart-line-secondary: #94a3b8;
+  --c-chart-user: #22d3ee;
+  --c-chart-cac: #ef4444;
+  --c-chart-recon: #22c55e;
+}
+
+[data-theme='light'] {
+  --c-fg: 15 23 42;             /* slate-900 — primary text */
+  --c-fg-strong: 2 6 23;        /* near-black — emphasised values */
+  --c-fg-muted: 51 65 85;       /* slate-700 */
+  --c-fg-dim: 71 85 105;        /* slate-600 */
+  --c-fg-faint: 100 116 139;    /* slate-500 */
+  --c-fg-disabled: 148 163 184; /* slate-400 */
+
+  --c-bg: 248 250 252;          /* slate-50 — page */
+  --c-bg-elev: 255 255 255;     /* card */
+  --c-bg-subtle: 241 245 249;   /* slate-100 — input */
+
+  --c-line: 226 232 240;        /* slate-200 — divider */
+  --c-line-strong: 203 213 225; /* slate-300 — input border */
+  --c-line-soft: 226 232 240;
+
+  --c-accent: 14 116 144;       /* cyan-700 — primary on light */
+  --c-accent-fg: 8 145 178;     /* cyan-700 — text accent */
+  --c-accent-soft: 6 182 212;   /* cyan-500 */
+  --c-accent-surface: 207 250 254; /* cyan-100 — subtle row tint */
+
+  --c-chart-grid: #e2e8f0;      /* slate-200 */
+  --c-chart-axis: #64748b;
+  --c-chart-line: #16a34a;      /* green-600 */
+  --c-chart-line-secondary: #475569; /* slate-600 */
+  --c-chart-user: #0891b2;      /* cyan-600 */
+  --c-chart-cac: #dc2626;       /* red-600 */
+  --c-chart-recon: #16a34a;
+}
+
 html,
 body,
 #root {
@@ -9,7 +80,8 @@ body,
 }
 
 body {
-  background-color: #0d1117;
-  color: #e6edf3;
+  background-color: rgb(var(--c-bg));
+  color: rgb(var(--c-fg));
   -webkit-font-smoothing: antialiased;
+  transition: background-color 120ms ease, color 120ms ease;
 }

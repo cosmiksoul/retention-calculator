@@ -45,11 +45,11 @@ export default function Methodology() {
     )
   }
   if (!content) {
-    return <div className="text-slate-500">Loading…</div>
+    return <div className="text-fg-faint">Loading…</div>
   }
 
   return (
-    <article className="prose prose-invert max-w-none prose-headings:scroll-mt-20 prose-a:text-cyan-300">
+    <article className="prose prose-invert max-w-none prose-headings:scroll-mt-20 prose-a:text-accent-fg">
       <ReactMarkdown remarkPlugins={[remarkGfm]} rehypePlugins={[rehypeSlug]}>
         {content}
       </ReactMarkdown>

@@ -11,8 +11,8 @@ export const DEFAULT_POINTS = [
 const MAX_POINTS = 10
 
 const inputCls =
-  'rounded border border-slate-700 bg-bg-subtle px-2 py-1 text-sm tabular-nums ' +
-  'text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40'
+  'rounded border border-line-strong bg-bg-subtle px-2 py-1 text-sm tabular-nums ' +
+  'text-fg-strong focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/40'
 
 export default function RetentionInput({ points, onChange, errors }) {
   const update = (id, patch) =>
@@ -34,14 +34,14 @@ export default function RetentionInput({ points, onChange, errors }) {
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <label className="text-sm font-medium text-slate-300">
+        <label className="text-sm font-medium text-fg-muted">
           Retention points
         </label>
         <button
           type="button"
           onClick={add}
           disabled={points.length >= MAX_POINTS}
-          className="text-xs text-cyan-400 disabled:cursor-not-allowed disabled:opacity-40 hover:text-cyan-300"
+          className="text-xs text-accent-soft disabled:cursor-not-allowed disabled:opacity-40 hover:text-accent-fg"
         >
           + Add point
         </button>
@@ -52,7 +52,7 @@ export default function RetentionInput({ points, onChange, errors }) {
           return (
             <div key={p.id}>
               <div className="flex items-center gap-2">
-                <span className="w-4 text-xs text-slate-500">D</span>
+                <span className="w-4 text-xs text-fg-faint">D</span>
                 <input
                   type="number"
                   min="1"
@@ -64,7 +64,7 @@ export default function RetentionInput({ points, onChange, errors }) {
                   className={`${inputCls} w-20`}
                   aria-label="Period (day)"
                 />
-                <span className="text-slate-500">→</span>
+                <span className="text-fg-faint">→</span>
                 <input
                   type="number"
                   min="0"
@@ -77,12 +77,12 @@ export default function RetentionInput({ points, onChange, errors }) {
                   className={`${inputCls} w-24`}
                   aria-label="Retention %"
                 />
-                <span className="text-xs text-slate-500">%</span>
+                <span className="text-xs text-fg-faint">%</span>
                 <button
                   type="button"
                   onClick={() => remove(p.id)}
                   disabled={points.length <= 1}
-                  className="ml-auto text-base leading-none text-slate-500 disabled:opacity-30 hover:text-red-400"
+                  className="ml-auto text-base leading-none text-fg-faint disabled:opacity-30 hover:text-red-400"
                   aria-label="Remove point"
                 >
                   ×

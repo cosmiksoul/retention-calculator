@@ -10,6 +10,7 @@ import {
   ReferenceArea,
 } from 'recharts'
 import HoverHint from './HoverHint.jsx'
+import { useThemeColors } from '../lib/useThemeColors.js'
 
 function fmtUsd(v) {
   if (v == null || !Number.isFinite(v)) return '—'
@@ -30,16 +31,16 @@ function CustomTooltip({ active, payload, label, acquisitionCost }) {
   const cum = payload[0]?.value ?? 0
   const profit = cum - acquisitionCost
   return (
-    <div className="rounded border border-slate-700 bg-bg-elev/95 px-3 py-2 text-xs">
-      <div className="font-medium text-slate-200">Day {label}</div>
+    <div className="rounded border border-line-strong bg-bg-elev/95 px-3 py-2 text-xs">
+      <div className="font-medium text-fg">Day {label}</div>
       <div className="mt-1 flex items-center gap-3">
-        <span className="text-slate-400">Cum revenue</span>
+        <span className="text-fg-dim">Cum revenue</span>
         <span className="ml-auto tabular-nums text-emerald-300">
           {fmtUsd(cum)}
         </span>
       </div>
       <div className="flex items-center gap-3">
-        <span className="text-slate-400">vs acquisition cost</span>
+        <span className="text-fg-dim">vs acquisition cost</span>
         <span
           className={`ml-auto tabular-nums ${
             profit >= 0 ? 'text-emerald-300' : 'text-red-400'
@@ -63,6 +64,7 @@ function CustomTooltip({ active, payload, label, acquisitionCost }) {
  * }} props
  */
 export default function CohortPL({ series, cohortSize, cac, beDay, horizon }) {
+  const colors = useThemeColors()
   const acquisitionCost = cohortSize * cac
   const revenueAtHorizon = series[series.length - 1].cumLtv * cohortSize
   const revenueAtBreakeven =
@@ -111,7 +113,7 @@ export default function CohortPL({ series, cohortSize, cac, beDay, horizon }) {
       formula: 'Profit / Acquisition cost',
       tone:
         roi == null
-          ? 'text-slate-200'
+          ? 'text-fg'
           : roi >= 0
           ? 'text-emerald-300'
           : 'text-red-400',
@@ -120,14 +122,14 @@ export default function CohortPL({ series, cohortSize, cac, beDay, horizon }) {
       label: 'Breakeven day',
       value: beDay != null ? `Day ${beDay}` : 'Not reached',
       formula: 'first t where cum revenue ≥ acquisition cost',
-      tone: beDay != null ? 'text-slate-100' : 'text-amber-300',
+      tone: beDay != null ? 'text-fg-strong' : 'text-amber-300',
     },
   ]
 
   return (
-    <div className="space-y-4 rounded-lg border border-slate-800 bg-bg-elev/40 p-4">
+    <div className="space-y-4 rounded-lg border border-line bg-bg-elev/40 p-4">
       <div>
-        <div className="flex items-center text-sm font-medium text-slate-200">
+        <div className="flex items-center text-sm font-medium text-fg">
           <span>Cohort P&amp;L</span>
           <HoverHint align="left">
             <p>
@@ -141,7 +143,7 @@ export default function CohortPL({ series, cohortSize, cac, beDay, horizon }) {
             </p>
           </HoverHint>
         </div>
-        <p className="mt-0.5 text-xs text-slate-500">
+        <p className="mt-0.5 text-xs text-fg-faint">
           Absolute economics for a cohort of {cohortSize.toLocaleString()} users
           at CAC {fmtUsd(cac)}.
         </p>
@@ -149,18 +151,18 @@ export default function CohortPL({ series, cohortSize, cac, beDay, horizon }) {
 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <tbody className="divide-y divide-slate-800/60">
+          <tbody className="divide-y divide-line/60">
             {rows.map((row) => (
               <tr key={row.label} className="tabular-nums">
-                <td className="py-1.5 pr-4 text-slate-400">{row.label}</td>
+                <td className="py-1.5 pr-4 text-fg-dim">{row.label}</td>
                 <td
                   className={`py-1.5 pr-4 text-right font-semibold ${
-                    row.tone ?? 'text-slate-100'
+                    row.tone ?? 'text-fg-strong'
                   }`}
                 >
                   {row.value}
                 </td>
-                <td className="py-1.5 text-right text-xs text-slate-500">
+                <td className="py-1.5 text-right text-xs text-fg-faint">
                   {row.formula}
                 </td>
               </tr>
@@ -174,22 +176,22 @@ export default function CohortPL({ series, cohortSize, cac, beDay, horizon }) {
           <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
             <defs>
               <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#22c55e" stopOpacity={0.4} />
-                <stop offset="100%" stopColor="#22c55e" stopOpacity={0.05} />
+                <stop offset="0%" stopColor={colors.line} stopOpacity={0.4} />
+                <stop offset="100%" stopColor={colors.line} stopOpacity={0.05} />
               </linearGradient>
             </defs>
-            <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" />
+            <CartesianGrid stroke={colors.grid} strokeDasharray="3 3" />
             <XAxis
               dataKey="t"
               type="number"
               domain={[1, horizon]}
               ticks={[1, 7, 14, 30, 60, 90, 180, 365].filter((t) => t <= horizon)}
-              stroke="#64748b"
+              stroke={colors.axis}
               tick={{ fontSize: 11 }}
-              label={{ value: 'Day', position: 'insideBottom', offset: -2, fill: '#64748b', fontSize: 11 }}
+              label={{ value: 'Day', position: 'insideBottom', offset: -2, fill: colors.axis, fontSize: 11 }}
             />
             <YAxis
-              stroke="#64748b"
+              stroke={colors.axis}
               tick={{ fontSize: 11 }}
               tickFormatter={fmtUsd}
               domain={[0, yMax]}
@@ -201,7 +203,7 @@ export default function CohortPL({ series, cohortSize, cac, beDay, horizon }) {
                 x2={beDay}
                 y1={0}
                 y2={yMax}
-                fill="#ef4444"
+                fill={colors.cac}
                 fillOpacity={0.06}
                 stroke="none"
               />
@@ -212,30 +214,30 @@ export default function CohortPL({ series, cohortSize, cac, beDay, horizon }) {
                 x2={horizon}
                 y1={0}
                 y2={yMax}
-                fill="#22c55e"
+                fill={colors.line}
                 fillOpacity={0.06}
                 stroke="none"
               />
             )}
             <ReferenceLine
               y={acquisitionCost}
-              stroke="#ef4444"
+              stroke={colors.cac}
               strokeDasharray="5 5"
               label={{
                 value: `Acquisition cost ${fmtUsd(acquisitionCost)}`,
                 position: 'insideTopRight',
-                fill: '#ef4444',
+                fill: colors.cac,
                 fontSize: 11,
               }}
             />
             {beDay != null && (
-              <ReferenceLine x={beDay} stroke="#94a3b8" strokeDasharray="3 3" />
+              <ReferenceLine x={beDay} stroke={colors.secondary} strokeDasharray="3 3" />
             )}
             <Area
               type="monotone"
               dataKey="cumRevenue"
               name="Cum revenue"
-              stroke="#22c55e"
+              stroke={colors.line}
               strokeWidth={2}
               fill="url(#revFill)"
               isAnimationActive={false}

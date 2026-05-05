@@ -62,13 +62,13 @@ export default function DAUInput({
   return (
     <div className="space-y-3">
       <div>
-        <label className="mb-1 flex items-center justify-between text-sm font-medium text-slate-300">
+        <label className="mb-1 flex items-center justify-between text-sm font-medium text-fg-muted">
           <span>Paste DAU + new users (TSV / CSV)</span>
           {!text && (
             <button
               type="button"
               onClick={() => onTextChange(generateSample())}
-              className="text-xs text-cyan-400 hover:text-cyan-300"
+              className="text-xs text-accent-soft hover:text-accent-fg"
             >
               Load sample
             </button>
@@ -80,30 +80,30 @@ export default function DAUInput({
           placeholder="Date\tNew Users\tDAU&#10;2026-04-01\t150\t1200&#10;…"
           rows={6}
           spellCheck={false}
-          className="block w-full resize-y rounded border border-slate-700 bg-bg-subtle px-2 py-2 font-mono text-xs text-slate-100 placeholder:text-slate-600 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40"
+          className="block w-full resize-y rounded border border-line-strong bg-bg-subtle px-2 py-2 font-mono text-xs text-fg-strong placeholder:text-fg-disabled focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/40"
         />
       </div>
 
-      <div className="rounded border border-slate-800 bg-bg-elev/30 p-2">
-        <div className="mb-1.5 text-xs font-medium text-slate-300">
+      <div className="rounded border border-line bg-bg-elev/30 p-2">
+        <div className="mb-1.5 text-xs font-medium text-fg-muted">
           Smoothing window
         </div>
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
           {SMOOTH_OPTIONS.map((o) => (
-            <label key={o.value} className="flex items-center gap-1.5 text-xs text-slate-300">
+            <label key={o.value} className="flex items-center gap-1.5 text-xs text-fg-muted">
               <input
                 type="radio"
                 name="dau-smooth"
                 value={o.value}
                 checked={smoothWindow === o.value}
                 onChange={() => onSmoothChange(o.value)}
-                className="accent-cyan-500"
+                className="accent-accent"
               />
               {o.label}
             </label>
           ))}
         </div>
-        <div className="mt-1 text-[11px] leading-snug text-slate-500">
+        <div className="mt-1 text-[11px] leading-snug text-fg-faint">
           Sequential deconvolution amplifies day-to-day noise. Apply a moving
           average if observed DAU is volatile.
         </div>
@@ -133,14 +133,14 @@ export default function DAUInput({
       )}
 
       {parsed?.rows?.length > 0 && (
-        <div className="text-xs text-slate-500">
+        <div className="text-xs text-fg-faint">
           {parsed.rows.length} day{parsed.rows.length > 1 ? 's' : ''} ·{' '}
-          <span className="text-slate-400">separator: {parsed.separator}</span>
+          <span className="text-fg-dim">separator: {parsed.separator}</span>
         </div>
       )}
 
-      <div className="rounded border border-slate-800 bg-bg-elev/20 p-2 text-[11px] leading-snug text-slate-500">
-        <strong className="text-slate-400">Caveats.</strong> The model assumes
+      <div className="rounded border border-line bg-bg-elev/20 p-2 text-[11px] leading-snug text-fg-faint">
+        <strong className="text-fg-dim">Caveats.</strong> The model assumes
         retention is identical across cohorts (no seasonality between cohorts)
         and that there is no reactivation — returning users will inflate DAU
         and bias the recovered curve upward. Short windows (under ~14 days)

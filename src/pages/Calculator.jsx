@@ -38,13 +38,13 @@ import { buildCsv, buildFilename } from '../lib/exportCsv.js'
 import { encodeState, decodeState, buildShareUrl } from '../lib/share.js'
 
 const inputCls =
-  'rounded border border-slate-700 bg-bg-subtle px-2 py-1 text-sm tabular-nums ' +
-  'text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40'
+  'rounded border border-line-strong bg-bg-subtle px-2 py-1 text-sm tabular-nums ' +
+  'text-fg-strong focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/40'
 
 function NumberField({ label, value, onChange, hint, error, min, step, suffix, ru, tooltip, tooltipAlign = 'left' }) {
   return (
     <label className="block">
-      <span className="mb-1 flex items-center text-sm font-medium text-slate-300">
+      <span className="mb-1 flex items-center text-sm font-medium text-fg-muted">
         <span>{label}</span>
         {tooltip && <HoverHint align={tooltipAlign}>{tooltip}</HoverHint>}
       </span>
@@ -57,14 +57,14 @@ function NumberField({ label, value, onChange, hint, error, min, step, suffix, r
         className={`${inputCls} w-full`}
       />
       {suffix && (
-        <span className="mt-1 block text-xs text-slate-500">{suffix}</span>
+        <span className="mt-1 block text-xs text-fg-faint">{suffix}</span>
       )}
       {hint && !error && (
-        <span className="mt-1 block text-xs text-slate-500">{hint}</span>
+        <span className="mt-1 block text-xs text-fg-faint">{hint}</span>
       )}
       {error && <span className="mt-1 block text-xs text-red-400">{error}</span>}
       {ru && (
-        <span className="mt-1 block text-[11px] italic leading-snug text-slate-500">
+        <span className="mt-1 block text-[11px] italic leading-snug text-fg-faint">
           {ru}
         </span>
       )}
@@ -76,7 +76,7 @@ function BandSigmaToggle({ sigma, onChange, disabled }) {
   const radio = (k, label) => (
     <label
       className={`flex items-center gap-1.5 text-xs ${
-        disabled ? 'text-slate-600' : 'text-slate-300'
+        disabled ? 'text-fg-disabled' : 'text-fg-muted'
       }`}
     >
       <input
@@ -86,14 +86,14 @@ function BandSigmaToggle({ sigma, onChange, disabled }) {
         checked={sigma === k}
         onChange={() => onChange(k)}
         disabled={disabled}
-        className="accent-cyan-500"
+        className="accent-accent"
       />
       {label}
     </label>
   )
   return (
-    <div className="rounded border border-slate-800 bg-bg-elev/30 p-2">
-      <div className="mb-0.5 flex items-center text-xs font-medium text-slate-300">
+    <div className="rounded border border-line bg-bg-elev/30 p-2">
+      <div className="mb-0.5 flex items-center text-xs font-medium text-fg-muted">
         <span>Confidence band</span>
         <HoverHint align="left">
           <p>
@@ -113,7 +113,7 @@ function BandSigmaToggle({ sigma, onChange, disabled }) {
         {radio(2, '±2σ ≈ 95%')}
       </div>
       {disabled && (
-        <div className="mt-1 text-[11px] leading-snug text-slate-500">
+        <div className="mt-1 text-[11px] leading-snug text-fg-faint">
           Band requires ≥3 user points (residual degrees of freedom). It is also
           hidden in industry-adjusted mode.
         </div>
@@ -124,35 +124,35 @@ function BandSigmaToggle({ sigma, onChange, disabled }) {
 
 function InputModeToggle({ mode, onChange }) {
   const radio = (key, label) => (
-    <label className="flex items-center gap-1.5 text-xs text-slate-300">
+    <label className="flex items-center gap-1.5 text-xs text-fg-muted">
       <input
         type="radio"
         name="input-mode"
         value={key}
         checked={mode === key}
         onChange={() => onChange(key)}
-        className="accent-cyan-500"
+        className="accent-accent"
       />
       {label}
     </label>
   )
   return (
     <div>
-      <div className="mb-1 flex items-center text-xs font-medium text-slate-300">
+      <div className="mb-1 flex items-center text-xs font-medium text-fg-muted">
         <span>Input mode</span>
         <HoverHint align="left">
           <p>Три способа задать кривую ретеншена:</p>
           <ul className="mt-1.5 list-disc space-y-1 pl-4">
             <li>
-              <strong className="text-slate-200">Manual</strong> — точки t/%
+              <strong className="text-fg">Manual</strong> — точки t/%
               вручную, минимум 3.
             </li>
             <li>
-              <strong className="text-slate-200">Paste cohort table</strong> —
+              <strong className="text-fg">Paste cohort table</strong> —
               таблица абсолютных или процентных значений из BI / экспорта.
             </li>
             <li>
-              <strong className="text-slate-200">Paste DAU + new users</strong>
+              <strong className="text-fg">Paste DAU + new users</strong>
               {' '}— DAU и новые юзеры по дням; ретеншен восстанавливается
               через свёрточную деконволюцию.
             </li>
@@ -170,30 +170,30 @@ function InputModeToggle({ mode, onChange }) {
 
 function ModeToggle({ mode, onChange, avgRatio }) {
   const radio = (key, label) => (
-    <label className="flex items-center gap-1.5 text-xs text-slate-300">
+    <label className="flex items-center gap-1.5 text-xs text-fg-muted">
       <input
         type="radio"
         name="adjust-mode"
         value={key}
         checked={mode === key}
         onChange={() => onChange(key)}
-        className="accent-cyan-500"
+        className="accent-accent"
       />
       {label}
     </label>
   )
   return (
-    <div className="rounded border border-slate-800 bg-bg-elev/30 p-2">
-      <div className="mb-0.5 flex items-center text-xs font-medium text-slate-300">
+    <div className="rounded border border-line bg-bg-elev/30 p-2">
+      <div className="mb-0.5 flex items-center text-xs font-medium text-fg-muted">
         <span>Forecast mode</span>
         <HoverHint align="left">
           <p>
-            <strong className="text-slate-200">Pure fit</strong> — подгоняет
+            <strong className="text-fg">Pure fit</strong> — подгоняет
             степенную модель только по вашим точкам. Лучше всего работает
             при ≥4 хорошо выстроенных точках с высоким R².
           </p>
           <p className="mt-1.5">
-            <strong className="text-slate-200">Industry-adjusted</strong> —
+            <strong className="text-fg">Industry-adjusted</strong> —
             берёт форму индустриального бенчмарка (выбранный пресет) и
             масштабирует под ваш уровень: считается среднегеометрическое
             отношение ваших точек к бенчмарку и применяется ко всему хвосту.
@@ -207,14 +207,14 @@ function ModeToggle({ mode, onChange, avgRatio }) {
         {radio('adjusted', 'Industry-adjusted')}
       </div>
       {mode === 'adjusted' && avgRatio != null && (
-        <div className="mt-1.5 text-[11px] leading-snug text-slate-500">
+        <div className="mt-1.5 text-[11px] leading-snug text-fg-faint">
           Adjusted = benchmark × {avgRatio.toFixed(2)}× (geometric mean of your
           point/benchmark ratios). Confidence band hidden — synthetic fit doesn't
           carry residual uncertainty.
         </div>
       )}
       {mode === 'pure' && (
-        <div className="mt-1 text-[11px] leading-snug text-slate-500">
+        <div className="mt-1 text-[11px] leading-snug text-fg-faint">
           Fits your points directly. Switch to industry-adjusted if you have
           fewer than 4 points and want a benchmark-shaped tail.
         </div>
@@ -542,13 +542,13 @@ export default function Calculator() {
     <section>
       <header className="mb-6">
         <h1 className="text-3xl font-semibold tracking-tight">Calculator</h1>
-        <p className="mt-1 text-sm text-slate-400">
+        <p className="mt-1 text-sm text-fg-dim">
           Power law fit of retention curve, then ARPU × Σ R(t) for LTV.
         </p>
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[360px,1fr]">
-        <aside className="space-y-5 rounded-lg border border-slate-800 bg-bg-elev/40 p-4">
+        <aside className="space-y-5 rounded-lg border border-line bg-bg-elev/40 p-4">
           {bundleError && (
             <div className="rounded border border-red-900/50 bg-red-950/40 p-2 text-xs text-red-300">
               Failed to load presets: {bundleError}
@@ -575,7 +575,7 @@ export default function Calculator() {
             disabled={!retBand}
           />
 
-          <div className="space-y-3 border-t border-slate-800 pt-4">
+          <div className="space-y-3 border-t border-line pt-4">
             <InputModeToggle mode={inputMode} onChange={setInputMode} />
             {inputMode === 'manual' && (
               <>
@@ -610,7 +610,7 @@ export default function Calculator() {
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-4 border-t border-slate-800 pt-4">
+          <div className="grid grid-cols-2 gap-4 border-t border-line pt-4">
             <NumberField
               label="Cohort size"
               value={cohortSize}
@@ -754,7 +754,7 @@ export default function Calculator() {
                   className={`rounded border px-3 py-1.5 text-xs transition-colors ${
                     shareCopied
                       ? 'border-emerald-700/60 bg-emerald-950/40 text-emerald-300'
-                      : 'border-slate-700 bg-bg-subtle text-slate-300 hover:border-cyan-500/50 hover:text-cyan-300'
+                      : 'border-line-strong bg-bg-subtle text-fg-muted hover:border-accent/50 hover:text-accent-fg'
                   }`}
                 >
                   {shareCopied ? 'Copied ✓' : 'Copy share link'}
@@ -798,7 +798,7 @@ export default function Calculator() {
                       'text/csv;charset=utf-8',
                     )
                   }}
-                  className="rounded border border-slate-700 bg-bg-subtle px-3 py-1.5 text-xs text-slate-300 transition-colors hover:border-cyan-500/50 hover:text-cyan-300"
+                  className="rounded border border-line-strong bg-bg-subtle px-3 py-1.5 text-xs text-fg-muted transition-colors hover:border-accent/50 hover:text-accent-fg"
                 >
                   Download CSV
                 </button>
@@ -854,7 +854,7 @@ export default function Calculator() {
                   horizon={horizon}
                 />
               ) : (
-                <div className="rounded-lg border border-dashed border-slate-800 p-4 text-xs text-slate-500">
+                <div className="rounded-lg border border-dashed border-line p-4 text-xs text-fg-faint">
                   Enter a CAC to see the per-cohort P&amp;L block.
                 </div>
               )}

@@ -48,18 +48,18 @@ export default function ResultsTable({ series, points, horizon, cohortSize, cac 
   const userByT = new Map(points.map((p) => [p.t, p.percent]))
 
   return (
-    <div className="rounded-lg border border-slate-800 bg-bg-elev/40">
-      <div className="border-b border-slate-800 px-4 py-2">
-        <div className="flex items-center text-sm font-medium text-slate-200">
+    <div className="rounded-lg border border-line bg-bg-elev/40">
+      <div className="border-b border-line px-4 py-2">
+        <div className="flex items-center text-sm font-medium text-fg">
           <span>Per-period breakdown</span>
           <HoverHint align="left">
             <p>
               Подробная разбивка ретеншена и дохода по дням.
             </p>
             <p className="mt-1.5">
-              Колонка <strong className="text-slate-200">Input</strong> —
+              Колонка <strong className="text-fg">Input</strong> —
               введённые вами значения (выделены синим);
-              {' '}<strong className="text-slate-200">Fit</strong> — предсказание
+              {' '}<strong className="text-fg">Fit</strong> — предсказание
               степенной модели. Это OLS-подгонка в логарифмах, не интерполяция,
               поэтому Fit может слегка отличаться от Input даже на ваших точках —
               это нормально и отражает попытку модели усреднить шум.
@@ -69,7 +69,7 @@ export default function ResultsTable({ series, points, horizon, cohortSize, cac 
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
-          <thead className="bg-bg-subtle/40 text-xs uppercase tracking-wide text-slate-500">
+          <thead className="bg-bg-subtle/40 text-xs uppercase tracking-wide text-fg-faint">
             <tr>
               <th className="px-3 py-2 text-left font-medium">Period</th>
               <th className="px-3 py-2 text-right font-medium">Input</th>
@@ -82,7 +82,7 @@ export default function ResultsTable({ series, points, horizon, cohortSize, cac 
               )}
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-800/60">
+          <tbody className="divide-y divide-line/60">
             {rows.map((row) => {
               const userPct = userByT.get(row.t)
               const isUserPoint = userPct != null
@@ -90,14 +90,14 @@ export default function ResultsTable({ series, points, horizon, cohortSize, cac 
                 <tr
                   key={row.t}
                   className={`tabular-nums ${
-                    isUserPoint ? 'bg-cyan-950/20' : ''
+                    isUserPoint ? 'bg-accent-surface/20' : ''
                   }`}
                 >
-                  <td className="px-3 py-1.5 text-slate-300">
+                  <td className="px-3 py-1.5 text-fg-muted">
                     Day {row.t}
                     {isUserPoint && (
                       <span
-                        className="ml-1.5 text-[10px] uppercase tracking-wide text-cyan-400"
+                        className="ml-1.5 text-[10px] uppercase tracking-wide text-accent-soft"
                         title="You entered a value at this period"
                       >
                         input
@@ -106,25 +106,25 @@ export default function ResultsTable({ series, points, horizon, cohortSize, cac 
                   </td>
                   <td
                     className={`px-3 py-1.5 text-right ${
-                      isUserPoint ? 'text-cyan-300' : 'text-slate-600'
+                      isUserPoint ? 'text-accent-fg' : 'text-fg-disabled'
                     }`}
                   >
                     {fmtPctFromPercent(userPct)}
                   </td>
-                  <td className="px-3 py-1.5 text-right text-slate-200">
+                  <td className="px-3 py-1.5 text-right text-fg">
                     {fmtPct(row.retention)}
                   </td>
-                  <td className="px-3 py-1.5 text-right text-slate-200">
+                  <td className="px-3 py-1.5 text-right text-fg">
                     {Math.round(row.retention * cohortSize)}
                   </td>
-                  <td className="px-3 py-1.5 text-right text-slate-200">
+                  <td className="px-3 py-1.5 text-right text-fg">
                     {fmtUsd(row.revenue * cohortSize)}
                   </td>
-                  <td className="px-3 py-1.5 text-right text-slate-200">
+                  <td className="px-3 py-1.5 text-right text-fg">
                     {fmtUsd(row.cumLtv)}
                   </td>
                   {showLtvCac && (
-                    <td className="px-3 py-1.5 text-right text-slate-200">
+                    <td className="px-3 py-1.5 text-right text-fg">
                       {(row.cumLtv / cac).toFixed(2)}
                     </td>
                   )}

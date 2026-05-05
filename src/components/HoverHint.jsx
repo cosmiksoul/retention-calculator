@@ -38,7 +38,7 @@ export default function HoverHint({
       <button
         type="button"
         aria-label={label}
-        className="ml-1 inline-flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full border border-slate-700 text-[9px] leading-none text-slate-500 transition-colors hover:border-cyan-500/60 hover:text-cyan-300 focus:border-cyan-500/60 focus:text-cyan-300 focus:outline-none"
+        className="ml-1 inline-flex h-3.5 w-3.5 cursor-help items-center justify-center rounded-full border border-line-strong text-[9px] leading-none text-fg-faint transition-colors hover:border-accent/60 hover:text-accent-fg focus:border-accent/60 focus:text-accent-fg focus:outline-none"
       >
         i
       </button>
@@ -47,7 +47,7 @@ export default function HoverHint({
         // whitespace-normal explicitly resets in case the trigger sits inside
         // a `whitespace-nowrap` ancestor (KPI card titles do this to keep
         // labels on one line).
-        className={`pointer-events-none invisible absolute bottom-full z-30 mb-1.5 ${widthCls} ${positionCls} whitespace-normal break-words rounded border border-slate-700 bg-bg-elev px-3 py-2 text-[11px] font-normal normal-case leading-snug tracking-normal text-slate-300 opacity-0 shadow-lg shadow-black/40 transition-opacity duration-100 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100`}
+        className={`pointer-events-none invisible absolute bottom-full z-30 mb-1.5 ${widthCls} ${positionCls} whitespace-normal break-words rounded border border-line-strong bg-bg-elev px-3 py-2 text-[11px] font-normal normal-case leading-snug tracking-normal text-fg-muted opacity-0 shadow-lg shadow-black/40 transition-opacity duration-100 group-hover:visible group-hover:opacity-100 group-focus-within:visible group-focus-within:opacity-100`}
       >
         {children}
       </span>
