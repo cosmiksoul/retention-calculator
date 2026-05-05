@@ -35,17 +35,17 @@ function NumberField({ label, value, onChange, hint, error, min, step, suffix })
       <span className="mb-1 block text-sm font-medium text-slate-300">
         {label}
       </span>
-      <span className="flex items-center gap-2">
-        <input
-          type="number"
-          min={min}
-          step={step}
-          value={value ?? ''}
-          onChange={(e) => onChange(e.target.value)}
-          className={`${inputCls} w-32`}
-        />
-        {suffix && <span className="text-xs text-slate-500">{suffix}</span>}
-      </span>
+      <input
+        type="number"
+        min={min}
+        step={step}
+        value={value ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+        className={`${inputCls} w-full`}
+      />
+      {suffix && (
+        <span className="mt-1 block text-xs text-slate-500">{suffix}</span>
+      )}
       {hint && !error && (
         <span className="mt-1 block text-xs text-slate-500">{hint}</span>
       )}
@@ -401,6 +401,7 @@ export default function Calculator() {
               value={cohortSize}
               min={1}
               step={1}
+              suffix="users"
               onChange={(v) => setCohortSize(Number(v))}
               error={numericErrors.errors.cohortSize}
             />
