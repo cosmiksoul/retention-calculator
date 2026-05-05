@@ -7,6 +7,7 @@
 // `revenue = ARPU × R(t)`. We just sum it inside each bucket and multiply by
 // cohortSize so the y-axis reads in cohort dollars (matches ResultsTable).
 
+import { useRef } from 'react'
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -19,7 +20,9 @@ import {
 } from 'recharts'
 import { bucketRevenue } from '../lib/revenueBuckets.js'
 import HoverHint from './HoverHint.jsx'
+import ExportPngButton from './ExportPngButton.jsx'
 import { useThemeColors } from '../lib/useThemeColors.js'
+import { pngFilename } from '../lib/exportPng.js'
 
 function fmtUsd(v) {
   if (v == null || !Number.isFinite(v)) return '—'
@@ -71,8 +74,10 @@ export default function RevenueChart({
   horizon,
   baselineSeries,
   baselineCohortSize,
+  presetLabel,
 }) {
   const colors = useThemeColors()
+  const cardRef = useRef(null)
   const buckets = bucketRevenue(series, horizon)
   const totalPerUser = buckets.reduce((s, b) => s + b.revenue, 0)
   const totalCohort = totalPerUser * cohortSize
@@ -91,7 +96,7 @@ export default function RevenueChart({
   }))
 
   return (
-    <div className="rounded-lg border border-line bg-bg-elev/40 p-4">
+    <div ref={cardRef} className="rounded-lg border border-line bg-bg-elev/40 p-4">
       <div className="mb-2 flex items-baseline justify-between">
         <div className="flex items-center text-sm font-medium text-fg">
           <span>Revenue per period</span>
@@ -109,11 +114,17 @@ export default function RevenueChart({
             </p>
           </HoverHint>
         </div>
-        <div className="text-xs text-fg-faint">
-          Cohort total over D1–D{horizon}:{' '}
-          <span className="tabular-nums text-fg-muted">
-            {fmtUsd(totalCohort)}
+        <div className="flex items-baseline gap-1">
+          <span className="text-xs text-fg-faint">
+            Cohort total over D1–D{horizon}:{' '}
+            <span className="tabular-nums text-fg-muted">
+              {fmtUsd(totalCohort)}
+            </span>
           </span>
+          <ExportPngButton
+            targetRef={cardRef}
+            filename={pngFilename('revenue-per-period', presetLabel)}
+          />
         </div>
       </div>
       <div className="h-56 w-full">

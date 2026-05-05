@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -11,7 +12,9 @@ import {
   ReferenceArea,
 } from 'recharts'
 import HoverHint from './HoverHint.jsx'
+import ExportPngButton from './ExportPngButton.jsx'
 import { useThemeColors } from '../lib/useThemeColors.js'
+import { pngFilename } from '../lib/exportPng.js'
 
 function fmtUsd(v) {
   if (v == null || !Number.isFinite(v)) return '—'
@@ -82,8 +85,10 @@ export default function CohortPL({
   horizon,
   baselineSeries,
   baselineCohortSize,
+  presetLabel,
 }) {
   const colors = useThemeColors()
+  const cardRef = useRef(null)
   const acquisitionCost = cohortSize * cac
   const revenueAtHorizon = series[series.length - 1].cumLtv * cohortSize
   const revenueAtBreakeven =
@@ -154,21 +159,27 @@ export default function CohortPL({
   ]
 
   return (
-    <div className="space-y-4 rounded-lg border border-line bg-bg-elev/40 p-4">
+    <div ref={cardRef} className="space-y-4 rounded-lg border border-line bg-bg-elev/40 p-4">
       <div>
-        <div className="flex items-center text-sm font-medium text-fg">
-          <span>Cohort P&amp;L</span>
-          <HoverHint align="left">
-            <p>
-              Абсолютная экономика когорты: per-user LTV × cohort size vs.
-              total acquisition cost (cohort × CAC).
-            </p>
-            <p className="mt-1.5">
-              Profit at horizon, ROI и breakeven day показывают финансовую
-              состоятельность когорты в выбранном окне. Если breakeven позже
-              горизонта — экономика на текущих параметрах не сходится.
-            </p>
-          </HoverHint>
+        <div className="flex items-baseline justify-between">
+          <div className="flex items-center text-sm font-medium text-fg">
+            <span>Cohort P&amp;L</span>
+            <HoverHint align="left">
+              <p>
+                Абсолютная экономика когорты: per-user LTV × cohort size vs.
+                total acquisition cost (cohort × CAC).
+              </p>
+              <p className="mt-1.5">
+                Profit at horizon, ROI и breakeven day показывают финансовую
+                состоятельность когорты в выбранном окне. Если breakeven позже
+                горизонта — экономика на текущих параметрах не сходится.
+              </p>
+            </HoverHint>
+          </div>
+          <ExportPngButton
+            targetRef={cardRef}
+            filename={pngFilename('cohort-pnl', presetLabel)}
+          />
         </div>
         <p className="mt-0.5 text-xs text-fg-faint">
           Absolute economics for a cohort of {cohortSize.toLocaleString()} users

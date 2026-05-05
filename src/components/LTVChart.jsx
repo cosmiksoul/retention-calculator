@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -11,7 +12,9 @@ import {
   ReferenceArea,
 } from 'recharts'
 import HoverHint from './HoverHint.jsx'
+import ExportPngButton from './ExportPngButton.jsx'
 import { useThemeColors } from '../lib/useThemeColors.js'
+import { pngFilename } from '../lib/exportPng.js'
 
 function fmtUsd(v) {
   if (v == null || !Number.isFinite(v)) return '—'
@@ -85,8 +88,10 @@ export default function LTVChart({
   horizon,
   lastUserT,
   baselineSeries,
+  presetLabel,
 }) {
   const colors = useThemeColors()
+  const cardRef = useRef(null)
   const baselineByT = baselineSeries
     ? new Map(baselineSeries.map((p) => [p.t, p.cumLtv]))
     : null
@@ -105,7 +110,7 @@ export default function LTVChart({
   const yMax = yTop * 1.1
 
   return (
-    <div className="rounded-lg border border-line bg-bg-elev/40 p-4">
+    <div ref={cardRef} className="rounded-lg border border-line bg-bg-elev/40 p-4">
       <div className="mb-2 flex items-baseline justify-between">
         <div className="flex items-center text-sm font-medium text-fg">
           <span>Cumulative LTV</span>
@@ -121,18 +126,24 @@ export default function LTVChart({
             </p>
           </HoverHint>
         </div>
-        <div className="text-xs text-fg-faint">
-          {cac != null && beDay != null && (
-            <>
-              Breakeven at <span className="text-fg-muted">Day {beDay}</span>
-            </>
-          )}
-          {cac != null && beDay == null && (
-            <span className="text-amber-400">CAC not reached at horizon</span>
-          )}
-          {bandSeries && cac == null && (
-            <span>shaded = ±{bandSigma}σ ≈ {bandSigma === 1 ? '68%' : '95%'}</span>
-          )}
+        <div className="flex items-baseline gap-1">
+          <span className="text-xs text-fg-faint">
+            {cac != null && beDay != null && (
+              <>
+                Breakeven at <span className="text-fg-muted">Day {beDay}</span>
+              </>
+            )}
+            {cac != null && beDay == null && (
+              <span className="text-amber-400">CAC not reached at horizon</span>
+            )}
+            {bandSeries && cac == null && (
+              <span>shaded = ±{bandSigma}σ ≈ {bandSigma === 1 ? '68%' : '95%'}</span>
+            )}
+          </span>
+          <ExportPngButton
+            targetRef={cardRef}
+            filename={pngFilename('cumulative-ltv', presetLabel)}
+          />
         </div>
       </div>
       <div className="h-72 w-full">

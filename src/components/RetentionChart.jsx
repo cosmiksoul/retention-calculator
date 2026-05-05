@@ -1,3 +1,4 @@
+import { useRef } from 'react'
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -11,7 +12,9 @@ import {
   ReferenceLine,
 } from 'recharts'
 import HoverHint from './HoverHint.jsx'
+import ExportPngButton from './ExportPngButton.jsx'
 import { useThemeColors } from '../lib/useThemeColors.js'
+import { pngFilename } from '../lib/exportPng.js'
 
 function CustomTooltip({ active, payload, label, bandSigma, colors }) {
   if (!active || !payload || !payload.length) return null
@@ -80,8 +83,10 @@ export default function RetentionChart({
   baselineSeries,
   horizon,
   lastUserT,
+  presetLabel,
 }) {
   const colors = useThemeColors()
+  const cardRef = useRef(null)
   const userByT = new Map(userPoints.map((p) => [p.t, p.percent]))
   const benchByT = benchmarkSeries
     ? new Map(benchmarkSeries.map((p) => [p.t, p.r * 100]))
@@ -103,7 +108,7 @@ export default function RetentionChart({
   const showBand = !!bandSeries
 
   return (
-    <div className="rounded-lg border border-line bg-bg-elev/40 p-4">
+    <div ref={cardRef} className="rounded-lg border border-line bg-bg-elev/40 p-4">
       <div className="mb-2 flex items-baseline justify-between">
         <div className="flex items-center text-sm font-medium text-fg">
           <span>Retention curve</span>
@@ -119,11 +124,17 @@ export default function RetentionChart({
             </p>
           </HoverHint>
         </div>
-        {showBand && (
-          <div className="text-xs text-fg-faint">
-            shaded = ±{bandSigma}σ confidence band (≈{bandSigma === 1 ? '68%' : '95%'})
-          </div>
-        )}
+        <div className="flex items-baseline gap-1">
+          {showBand && (
+            <span className="text-xs text-fg-faint">
+              shaded = ±{bandSigma}σ confidence band (≈{bandSigma === 1 ? '68%' : '95%'})
+            </span>
+          )}
+          <ExportPngButton
+            targetRef={cardRef}
+            filename={pngFilename('retention', presetLabel)}
+          />
+        </div>
       </div>
       <div className="h-72 w-full">
         <ResponsiveContainer>

@@ -1,4 +1,7 @@
+import { useRef } from 'react'
 import HoverHint from './HoverHint.jsx'
+import ExportPngButton from './ExportPngButton.jsx'
+import { pngFilename } from '../lib/exportPng.js'
 
 function fmtUsd(v) {
   if (v == null || !Number.isFinite(v)) return '—'
@@ -42,14 +45,15 @@ function pickRows(series, points, horizon) {
  *   cac: number|null,
  * }} props
  */
-export default function ResultsTable({ series, points, horizon, cohortSize, cac }) {
+export default function ResultsTable({ series, points, horizon, cohortSize, cac, presetLabel }) {
   const rows = pickRows(series, points, horizon)
   const showLtvCac = cac != null && cac > 0
   const userByT = new Map(points.map((p) => [p.t, p.percent]))
+  const cardRef = useRef(null)
 
   return (
-    <div className="rounded-lg border border-line bg-bg-elev/40">
-      <div className="border-b border-line px-4 py-2">
+    <div ref={cardRef} className="rounded-lg border border-line bg-bg-elev/40">
+      <div className="flex items-center justify-between border-b border-line px-4 py-2">
         <div className="flex items-center text-sm font-medium text-fg">
           <span>Per-period breakdown</span>
           <HoverHint align="left">
@@ -66,6 +70,10 @@ export default function ResultsTable({ series, points, horizon, cohortSize, cac 
             </p>
           </HoverHint>
         </div>
+        <ExportPngButton
+          targetRef={cardRef}
+          filename={pngFilename('per-period-breakdown', presetLabel)}
+        />
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">

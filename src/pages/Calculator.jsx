@@ -479,6 +479,9 @@ export default function Calculator() {
         : null,
     [bundle, presetState.presetId],
   )
+  const presetLabel = selectedPreset
+    ? presetLabelFor(selectedPreset, presetState)
+    : null
   const selectedVariant = useMemo(
     () =>
       selectedPreset
@@ -559,7 +562,7 @@ export default function Calculator() {
         </p>
       </header>
 
-      <div className="grid gap-8 lg:grid-cols-[360px,1fr]">
+      <div className="grid gap-8 lg:grid-cols-[360px,minmax(0,1fr)]">
         <aside className="space-y-5 rounded-lg border border-line bg-bg-elev/40 p-4">
           {bundleError && (
             <div className="rounded border border-red-900/50 bg-red-950/40 p-2 text-xs text-red-300">
@@ -745,7 +748,6 @@ export default function Calculator() {
                       setBaseline(null)
                       return
                     }
-                    const presetLabel = presetLabelFor(selectedPreset, presetState)
                     setBaseline({
                       fitSeries: fitSeries.map((p) => ({ t: p.t, r: p.r })),
                       ltv: ltv.map((p) => ({
@@ -809,7 +811,6 @@ export default function Calculator() {
                   type="button"
                   onClick={() => {
                     const timestamp = new Date().toISOString()
-                    const presetLabel = presetLabelFor(selectedPreset, presetState)
                     const csv = buildCsv({
                       timestamp,
                       mode: adjustMode,
@@ -851,13 +852,11 @@ export default function Calculator() {
               </div>
               {baseline && (
                 <div className="relative rounded border border-accent/40 bg-accent-surface/20 py-2 pl-3 pr-8 text-xs">
-                  <div className="flex items-baseline gap-x-2 overflow-x-auto whitespace-nowrap tabular-nums">
+                  <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 tabular-nums">
                     <span className="text-fg-faint">📌 Baseline</span>
                     {[
                       ['ARPU', `$${baseline.arpu}`],
                       ['CAC', baseline.cac != null ? `$${baseline.cac}` : '—'],
-                      ['Preset', baseline.presetLabel],
-                      ['Horizon', `D${baseline.horizon}`],
                       ['LTV', fmtMoney(baseline.ltvAtHorizon)],
                       ['R²', Number.isFinite(baseline.rSquared) ? baseline.rSquared.toFixed(3) : '—'],
                       ['BE', baseline.beDay != null ? `D${baseline.beDay}` : 'not reached'],
@@ -868,7 +867,7 @@ export default function Calculator() {
                         ? [['Payback', baseline.beDay != null ? `${baseline.beDay}d` : '—']]
                         : []),
                     ].map(([label, value]) => (
-                      <span key={label} className="flex items-baseline gap-1">
+                      <span key={label} className="flex items-baseline gap-1 whitespace-nowrap">
                         <span className="text-fg-faint">·</span>
                         <span className="text-fg-faint">{label}</span>
                         <span className="text-fg">{value}</span>
@@ -907,6 +906,7 @@ export default function Calculator() {
                 baselineSeries={baseline?.fitSeries}
                 horizon={horizon}
                 lastUserT={lastUserT}
+                presetLabel={presetLabel}
               />
               <LTVChart
                 series={ltv}
@@ -917,6 +917,7 @@ export default function Calculator() {
                 horizon={horizon}
                 lastUserT={lastUserT}
                 baselineSeries={baseline?.ltv}
+                presetLabel={presetLabel}
               />
               <RevenueChart
                 series={ltv}
@@ -924,6 +925,7 @@ export default function Calculator() {
                 horizon={horizon}
                 baselineSeries={baseline?.ltv}
                 baselineCohortSize={baseline?.cohortSize}
+                presetLabel={presetLabel}
               />
               <ResultsTable
                 series={ltv}
@@ -931,6 +933,7 @@ export default function Calculator() {
                 horizon={horizon}
                 cohortSize={cohortSize}
                 cac={cac}
+                presetLabel={presetLabel}
               />
               {cac != null && cac > 0 ? (
                 <CohortPL
@@ -941,6 +944,7 @@ export default function Calculator() {
                   horizon={horizon}
                   baselineSeries={baseline?.ltv}
                   baselineCohortSize={baseline?.cohortSize}
+                  presetLabel={presetLabel}
                 />
               ) : (
                 <div className="rounded-lg border border-dashed border-line p-4 text-xs text-fg-faint">
