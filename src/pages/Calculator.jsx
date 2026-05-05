@@ -45,6 +45,8 @@ import {
 } from '../lib/modeState.js'
 import ModeToggle from '../components/ModeToggle.jsx'
 import CadenceToggle from '../components/subscription/CadenceToggle.jsx'
+import SubscriptionInput from '../components/subscription/SubscriptionInput.jsx'
+import { defaultsFor, validateSubscriptionInputs } from '../lib/subscriptionInputs.js'
 
 const inputCls =
   'rounded border border-line-strong bg-bg-subtle px-2 py-1 text-sm tabular-nums ' +
@@ -321,6 +323,20 @@ export default function Calculator() {
     syncUrlState({ mode, cadence })
   }, [mode, cadence])
 
+  // Subscription input state. Initialised from cadence-specific defaults;
+  // cadence switch resets to fresh defaults of the new cadence (per
+  // spec-v2 §3.4 design principle). Stage 8 will override on preset select.
+  const [subInput, setSubInput] = useState(() => defaultsFor(readInitialCadence()))
+  const handleCadenceChange = (next) => {
+    if (next === cadence) return
+    setCadence(next)
+    setSubInput(defaultsFor(next))
+  }
+  const subValidation = useMemo(
+    () => validateSubscriptionInputs(subInput),
+    [subInput],
+  )
+
   // Read once — share-link decoding seeds the initial state below.
   const [shareInitial] = useState(readInitialFromUrl)
 
@@ -590,10 +606,44 @@ export default function Calculator() {
       </header>
 
       {mode === 'subscription' && (
-        <SubscriptionStub
-          cadence={cadence}
-          onCadenceChange={setCadence}
-        />
+        <div className="grid gap-8 lg:grid-cols-[360px,minmax(0,1fr)]">
+          <aside className="space-y-5 rounded-lg border border-line bg-bg-elev/40 p-4">
+            <CadenceToggle value={cadence} onChange={handleCadenceChange} />
+            <SubscriptionInput
+              state={subInput}
+              cadence={cadence}
+              errors={subValidation.errors}
+              onPatch={(partial) =>
+                setSubInput((prev) => ({ ...prev, ...partial }))
+              }
+            />
+          </aside>
+          <div className="space-y-5">
+            {!subValidation.valid && (
+              <div className="rounded-lg border border-amber-700/40 bg-amber-950/20 p-4 text-sm text-amber-200">
+                Fix the input panel to see the model output.
+              </div>
+            )}
+            <div className="rounded-lg border border-dashed border-line bg-bg-elev/30 p-6 text-sm text-fg-faint">
+              Subscription outputs (KPIs, funnel waterfall, retention curve,
+              cumulative LTV per install, cohort P&amp;L) рендерятся в Stage 5–6.
+              <div className="mt-2 text-xs">
+                Active cadence: <span className="text-fg">{cadence}</span> ·
+                paying@0 ≈ {' '}
+                <span className="tabular-nums text-fg">
+                  {subValidation.valid
+                    ? Math.round(
+                        subInput.cohortSize *
+                          (subInput.installToTrial / 100) *
+                          (subInput.trialToPaid / 100) *
+                          10,
+                      ) / 10
+                    : '—'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
 
       {mode === 'session' && (
@@ -995,27 +1045,3 @@ export default function Calculator() {
   )
 }
 
-function SubscriptionStub({ cadence, onCadenceChange }) {
-  return (
-    <div className="grid gap-8 lg:grid-cols-[360px,minmax(0,1fr)]">
-      <aside className="space-y-5 rounded-lg border border-line bg-bg-elev/40 p-4">
-        <CadenceToggle value={cadence} onChange={onCadenceChange} />
-        <div className="rounded border border-dashed border-line p-3 text-xs text-fg-faint">
-          Subscription input form coming in stage 4. Toggle above and at the
-          page header are wired — try refreshing or sharing the URL, the mode
-          and cadence persist.
-        </div>
-      </aside>
-      <div className="space-y-5">
-        <div className="rounded-lg border border-dashed border-line bg-bg-elev/30 p-6 text-sm text-fg-faint">
-          Subscription mode placeholder.
-          <div className="mt-1 text-xs">
-            Active cadence: <span className="text-fg">{cadence}</span>. KPIs,
-            funnel waterfall, retention curve, cumulative LTV per install,
-            cohort P&amp;L — все рендерятся в Stage 5–6.
-          </div>
-        </div>
-      </div>
-    </div>
-  )
-}
