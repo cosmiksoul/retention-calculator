@@ -75,6 +75,7 @@ function Row({ color, label, value }) {
  *   fitSeries: Array<{t:number, retention:number}>,
  *   bandSeries: Array<{t:number, lower:number, upper:number}>|null,
  *   bandSigma: 1|2,
+ *   benchmarkSeries: Array<{t:number, r:number}>|null,
  *   horizon: number,
  *   cadence: 'weekly'|'monthly',
  *   rSquared: number,
@@ -86,6 +87,7 @@ export default function SubscriptionRetentionChart({
   fitSeries,
   bandSeries,
   bandSigma = 1,
+  benchmarkSeries,
   horizon,
   cadence,
   rSquared,
@@ -94,6 +96,9 @@ export default function SubscriptionRetentionChart({
   const colors = useThemeColors()
   const cardRef = useRef(null)
   const userByT = new Map(userPoints.map((p) => [p.t, p.percent]))
+  const benchByT = benchmarkSeries
+    ? new Map(benchmarkSeries.map((p) => [p.t, p.r * 100]))
+    : null
 
   const data = fitSeries.map((p, i) => ({
     t: p.t,
@@ -102,6 +107,7 @@ export default function SubscriptionRetentionChart({
     band: bandSeries
       ? [bandSeries[i].lower * 100, bandSeries[i].upper * 100]
       : null,
+    bench: benchByT?.get(p.t) ?? null,
   }))
 
   const showBand = !!bandSeries
@@ -190,6 +196,18 @@ export default function SubscriptionRetentionChart({
                 isAnimationActive={false}
                 legendType="none"
                 connectNulls
+              />
+            )}
+            {benchmarkSeries && (
+              <Line
+                type="monotone"
+                dataKey="bench"
+                name="Industry benchmark"
+                stroke={colors.secondary}
+                strokeWidth={1.5}
+                strokeDasharray="5 5"
+                dot={false}
+                isAnimationActive={false}
               />
             )}
             <Line

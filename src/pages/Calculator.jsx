@@ -46,6 +46,7 @@ import {
 import ModeToggle from '../components/ModeToggle.jsx'
 import BandSigmaToggle from '../components/BandSigmaToggle.jsx'
 import ExtrapolationBanner from '../components/ExtrapolationBanner.jsx'
+import ForecastModeToggle from '../components/ForecastModeToggle.jsx'
 import PlanBadge from '../components/subscription/PlanBadge.jsx'
 import CadenceToggle from '../components/subscription/CadenceToggle.jsx'
 import SubscriptionInput from '../components/subscription/SubscriptionInput.jsx'
@@ -148,61 +149,6 @@ function InputModeToggle({ mode, onChange }) {
         {radio('paste', 'Paste cohort table')}
         {radio('dau', 'Paste DAU + new users')}
       </div>
-    </div>
-  )
-}
-
-function ForecastModeToggle({ mode, onChange, avgRatio }) {
-  const radio = (key, label) => (
-    <label className="flex items-center gap-1.5 text-xs text-fg-muted">
-      <input
-        type="radio"
-        name="adjust-mode"
-        value={key}
-        checked={mode === key}
-        onChange={() => onChange(key)}
-        className="accent-accent"
-      />
-      {label}
-    </label>
-  )
-  return (
-    <div className="rounded border border-line bg-bg-elev/30 p-2">
-      <div className="mb-0.5 flex items-center text-xs font-medium text-fg-muted">
-        <span>Forecast mode</span>
-        <HoverHint align="left">
-          <p>
-            <strong className="text-fg">Pure fit</strong> — подгоняет
-            степенную модель только по вашим точкам. Лучше всего работает
-            при ≥4 хорошо выстроенных точках с высоким R².
-          </p>
-          <p className="mt-1.5">
-            <strong className="text-fg">Industry-adjusted</strong> —
-            берёт форму индустриального бенчмарка (выбранный пресет) и
-            масштабирует под ваш уровень: считается среднегеометрическое
-            отношение ваших точек к бенчмарку и применяется ко всему хвосту.
-            Полезно когда у вас 1–3 точки — даёт прогноз с реалистичной
-            формой кривой за пределами ваших данных.
-          </p>
-        </HoverHint>
-      </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-        {radio('pure', 'Pure fit')}
-        {radio('adjusted', 'Industry-adjusted')}
-      </div>
-      {mode === 'adjusted' && avgRatio != null && (
-        <div className="mt-1.5 text-[11px] leading-snug text-fg-faint">
-          Adjusted = benchmark × {avgRatio.toFixed(2)}× (geometric mean of your
-          point/benchmark ratios). Confidence band hidden — synthetic fit doesn't
-          carry residual uncertainty.
-        </div>
-      )}
-      {mode === 'pure' && (
-        <div className="mt-1 text-[11px] leading-snug text-fg-faint">
-          Fits your points directly. Switch to industry-adjusted if you have
-          fewer than 4 points and want a benchmark-shaped tail.
-        </div>
-      )}
     </div>
   )
 }
@@ -386,6 +332,27 @@ export default function Calculator() {
     () => shareInitial?.bandSigma ?? 1,
   ) // 1 ≈ 68%, 2 ≈ 95%
 
+  // Cadence-specific benchmark block from the selected subscription preset
+  // (null for session presets or Custom). Drives the industry-adjusted fit
+  // and the dashed benchmark line on the retention chart.
+  const subBenchmarkVariant = useMemo(() => {
+    const p = bundle?.subscription?.presets.find(
+      (pp) => pp.id === presetState.presetId,
+    )
+    const v = p?.variants[`${presetState.quality}|${presetState.geo}`]
+    if (!v) return null
+    return cadence === 'weekly' && v.weekly ? v.weekly : v.monthly
+  }, [bundle, presetState, cadence])
+
+  const subBenchmarkFit = useMemo(() => {
+    if (!subBenchmarkVariant) return null
+    try {
+      return fitPowerLaw(subBenchmarkVariant.retentionPoints)
+    } catch {
+      return null
+    }
+  }, [subBenchmarkVariant])
+
   // Subscription model: funnel cascade + power-law fit on retention paying
   // users + per-cycle revenue/LTV series + payback + ±σ bands. Built once
   // per input change. `null` when inputs are invalid (UI hides outputs).
@@ -404,12 +371,20 @@ export default function Calculator() {
       cadence,
     })
 
-    let fit
+    let userFit
     try {
-      fit = fitPowerLaw(retentionFractions)
+      userFit = fitPowerLaw(retentionFractions)
     } catch {
       return null
     }
+    // Industry-adjusted: benchmark shape × geometric-mean ratio of user vs
+    // benchmark at user's retention checkpoints. Falls back to userFit when
+    // no preset is selected or the math can't form ratios.
+    const adjustedFit =
+      adjustMode === 'adjusted' && subBenchmarkFit
+        ? adjustFitToBenchmark(subInput.retention, subBenchmarkFit)
+        : null
+    const fit = adjustedFit ?? userFit
 
     const series = subscriptionLtv({
       fit,
@@ -455,6 +430,8 @@ export default function Calculator() {
     return {
       funnel,
       fit,
+      userFit,
+      adjustedFit,
       series,
       payback,
       longTermAnchor,
@@ -466,7 +443,20 @@ export default function Calculator() {
       trialsStarted: subInput.cohortSize * (subInput.installToTrial / 100),
       payingAtZero: funnel.payingAtZero,
     }
-  }, [subInput, cadence, subValidation.valid, bandSigma])
+  }, [
+    subInput,
+    cadence,
+    subValidation.valid,
+    bandSigma,
+    adjustMode,
+    subBenchmarkFit,
+  ])
+
+  // Dashed benchmark series for the retention chart (cadence in cycle units).
+  const subBenchmarkSeries = useMemo(() => {
+    if (!subBenchmarkFit) return null
+    return retentionCurve(subBenchmarkFit, subInput.horizon)
+  }, [subBenchmarkFit, subInput.horizon])
 
   const [shareCopied, setShareCopied] = useState(false)
   // Frozen snapshot of the current outputs — pinned via the "Pin as baseline"
@@ -758,6 +748,13 @@ export default function Calculator() {
                   : null
               }
             />
+            {subBenchmarkFit && (
+              <ForecastModeToggle
+                mode={adjustMode}
+                onChange={setAdjustMode}
+                avgRatio={subModel?.adjustedFit?.avgRatio}
+              />
+            )}
             <SubscriptionInput
               state={subInput}
               cadence={cadence}
@@ -857,6 +854,7 @@ export default function Calculator() {
                   fitSeries={subModel.series}
                   bandSeries={subModel.retentionBand}
                   bandSigma={bandSigma}
+                  benchmarkSeries={subBenchmarkSeries}
                   horizon={subInput.horizon}
                   cadence={cadence}
                   rSquared={subModel.fit.rSquared}
