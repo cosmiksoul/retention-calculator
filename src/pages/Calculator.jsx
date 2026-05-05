@@ -17,6 +17,7 @@ import {
   extrapolationLevel,
 } from '../lib/powerLaw.js'
 import { ltvSeries, ltvBand, breakevenDay } from '../lib/ltv.js'
+import { adjustFitToBenchmark } from '../lib/industryAdjusted.js'
 import {
   validateRetentionPoints,
   validateNumericInputs,
@@ -48,6 +49,44 @@ function NumberField({ label, value, onChange, hint, error, min, step, suffix })
       )}
       {error && <span className="mt-1 block text-xs text-red-400">{error}</span>}
     </label>
+  )
+}
+
+function ModeToggle({ mode, onChange, avgRatio }) {
+  const radio = (key, label) => (
+    <label className="flex items-center gap-1.5 text-xs text-slate-300">
+      <input
+        type="radio"
+        name="adjust-mode"
+        value={key}
+        checked={mode === key}
+        onChange={() => onChange(key)}
+        className="accent-cyan-500"
+      />
+      {label}
+    </label>
+  )
+  return (
+    <div className="rounded border border-slate-800 bg-bg-elev/30 p-2">
+      <div className="mb-1.5 text-xs font-medium text-slate-300">Forecast mode</div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        {radio('pure', 'Pure fit')}
+        {radio('adjusted', 'Industry-adjusted')}
+      </div>
+      {mode === 'adjusted' && avgRatio != null && (
+        <div className="mt-1.5 text-[11px] leading-snug text-slate-500">
+          Adjusted = benchmark × {avgRatio.toFixed(2)}× (geometric mean of your
+          point/benchmark ratios). Confidence band hidden — synthetic fit doesn't
+          carry residual uncertainty.
+        </div>
+      )}
+      {mode === 'pure' && (
+        <div className="mt-1 text-[11px] leading-snug text-slate-500">
+          Fits your points directly. Switch to industry-adjusted if you have
+          fewer than 4 points and want a benchmark-shaped tail.
+        </div>
+      )}
+    </div>
   )
 }
 
@@ -96,6 +135,7 @@ export default function Calculator() {
     quality: 'median',
     geo: 'tier_1',
   })
+  const [adjustMode, setAdjustMode] = useState('pure') // 'pure' | 'adjusted'
 
   useEffect(() => {
     let cancelled = false
@@ -150,17 +190,36 @@ export default function Calculator() {
     [selectedPreset, presetState.quality, presetState.geo],
   )
 
-  const fit = useMemo(
+  const userFit = useMemo(
     () => (allValid ? safeFit(points) : null),
     [allValid, points],
   )
+  const benchmarkFit = useMemo(
+    () => safeBenchmarkFit(selectedVariant),
+    [selectedVariant],
+  )
+  // Adjusted-mode synthetic fit: only meaningful with both a benchmark and user data.
+  const adjustedFit = useMemo(
+    () =>
+      adjustMode === 'adjusted' && benchmarkFit && allValid
+        ? adjustFitToBenchmark(points, benchmarkFit)
+        : null,
+    [adjustMode, benchmarkFit, points, allValid],
+  )
+  const fit = adjustedFit ?? userFit
   const fitSeries = useMemo(
     () => (fit ? retentionCurve(fit, horizon) : null),
     [fit, horizon],
   )
-  // ±1σ band only meaningful when we have residual degrees of freedom (n > 2),
-  // i.e. fit.se > 0. With exactly 2 points the line passes perfectly through
-  // them and the band collapses — no point shading.
+  // When in adjusted mode, also surface the pure user fit as a dashed alternate.
+  const alternateFitSeries = useMemo(
+    () => (adjustedFit && userFit ? retentionCurve(userFit, horizon) : null),
+    [adjustedFit, userFit, horizon],
+  )
+  // ±1σ band only meaningful when we have residual dof (se > 0). Adjusted fit
+  // sets se = 0 deliberately (see industryAdjusted.js), so band is hidden in
+  // adjusted mode — that's correct: the synthetic fit doesn't carry residual
+  // uncertainty in a defensible way.
   const retBand = useMemo(
     () => (fit && fit.se > 0 ? retentionBand(fit, horizon) : null),
     [fit, horizon],
@@ -184,10 +243,6 @@ export default function Calculator() {
   const extrap = useMemo(
     () => extrapolationLevel(lastUserT, horizon),
     [lastUserT, horizon],
-  )
-  const benchmarkFit = useMemo(
-    () => safeBenchmarkFit(selectedVariant),
-    [selectedVariant],
   )
   const benchmarkSeries = useMemo(
     () => (benchmarkFit ? retentionCurve(benchmarkFit, horizon) : null),
@@ -218,6 +273,14 @@ export default function Calculator() {
             value={presetState}
             onChange={handlePresetChange}
           />
+
+          {selectedPreset && (
+            <ModeToggle
+              mode={adjustMode}
+              onChange={setAdjustMode}
+              avgRatio={adjustedFit?.avgRatio}
+            />
+          )}
 
           <div className="border-t border-slate-800 pt-4">
             <RetentionInput
@@ -294,6 +357,8 @@ export default function Calculator() {
               <RetentionChart
                 userPoints={points}
                 fitSeries={fitSeries}
+                alternateFitSeries={alternateFitSeries}
+                alternateLabel="Pure user fit"
                 bandSeries={retBand}
                 benchmarkSeries={benchmarkSeries}
                 horizon={horizon}

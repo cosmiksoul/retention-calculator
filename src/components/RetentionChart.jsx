@@ -70,6 +70,8 @@ function Row({ color, label, value }) {
 export default function RetentionChart({
   userPoints,
   fitSeries,
+  alternateFitSeries,
+  alternateLabel,
   bandSeries,
   benchmarkSeries,
   horizon,
@@ -86,6 +88,7 @@ export default function RetentionChart({
     user: userByT.get(p.t) ?? null,
     bench: benchByT?.get(p.t) ?? null,
     band: bandSeries ? [bandSeries[i].lower * 100, bandSeries[i].upper * 100] : null,
+    alt: alternateFitSeries ? alternateFitSeries[i].retention * 100 : null,
   }))
 
   const showBand = !!bandSeries
@@ -141,6 +144,19 @@ export default function RetentionChart({
                 stroke={BENCH_COLOR}
                 strokeWidth={1.5}
                 strokeDasharray="5 5"
+                dot={false}
+                isAnimationActive={false}
+              />
+            )}
+            {alternateFitSeries && (
+              <Line
+                type="monotone"
+                dataKey="alt"
+                name={alternateLabel ?? 'Alternate fit'}
+                stroke={FIT_COLOR}
+                strokeOpacity={0.7}
+                strokeWidth={1.5}
+                strokeDasharray="4 3"
                 dot={false}
                 isAnimationActive={false}
               />
