@@ -44,11 +44,16 @@ import {
   syncUrlState,
 } from '../lib/modeState.js'
 import ModeToggle from '../components/ModeToggle.jsx'
+import BandSigmaToggle from '../components/BandSigmaToggle.jsx'
 import CadenceToggle from '../components/subscription/CadenceToggle.jsx'
 import SubscriptionInput from '../components/subscription/SubscriptionInput.jsx'
 import SubscriptionKPI from '../components/subscription/SubscriptionKPI.jsx'
 import FunnelWaterfall from '../components/subscription/FunnelWaterfall.jsx'
 import SubscriptionCohortPL from '../components/subscription/SubscriptionCohortPL.jsx'
+import SubscriptionRetentionChart from '../components/subscription/SubscriptionRetentionChart.jsx'
+import SubscriptionLTVChart from '../components/subscription/SubscriptionLTVChart.jsx'
+import SubscriptionRevenueChart from '../components/subscription/SubscriptionRevenueChart.jsx'
+import SubscriptionResultsTable from '../components/subscription/SubscriptionResultsTable.jsx'
 import { defaultsFor, validateSubscriptionInputs } from '../lib/subscriptionInputs.js'
 import {
   funnelCascade,
@@ -96,56 +101,6 @@ function NumberField({ label, value, onChange, hint, error, min, step, suffix, r
         </span>
       )}
     </label>
-  )
-}
-
-function BandSigmaToggle({ sigma, onChange, disabled }) {
-  const radio = (k, label) => (
-    <label
-      className={`flex items-center gap-1.5 text-xs ${
-        disabled ? 'text-fg-disabled' : 'text-fg-muted'
-      }`}
-    >
-      <input
-        type="radio"
-        name="band-sigma"
-        value={k}
-        checked={sigma === k}
-        onChange={() => onChange(k)}
-        disabled={disabled}
-        className="accent-accent"
-      />
-      {label}
-    </label>
-  )
-  return (
-    <div className="rounded border border-line bg-bg-elev/30 p-2">
-      <div className="mb-0.5 flex items-center text-xs font-medium text-fg-muted">
-        <span>Confidence band</span>
-        <HoverHint align="left">
-          <p>
-            Полоса вокруг прогноза, отражающая неопределённость подгонки
-            модели — насколько уверенно мы знаем параметры степенной кривой
-            при текущем числе точек и их разбросе.
-          </p>
-          <p className="mt-1.5">
-            ±1σ ≈ 68% вероятности, ±2σ ≈ 95%. Чем меньше точек и хуже R²,
-            тем шире полоса. В industry-adjusted режиме скрыта —
-            синтетическая подгонка не несёт остаточной неопределённости.
-          </p>
-        </HoverHint>
-      </div>
-      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
-        {radio(1, '±1σ ≈ 68%')}
-        {radio(2, '±2σ ≈ 95%')}
-      </div>
-      {disabled && (
-        <div className="mt-1 text-[11px] leading-snug text-fg-faint">
-          Band requires ≥3 user points (residual degrees of freedom). It is also
-          hidden in industry-adjusted mode.
-        </div>
-      )}
-    </div>
   )
 }
 
@@ -346,62 +301,6 @@ export default function Calculator() {
     [subInput],
   )
 
-  // Subscription model: funnel cascade + power-law fit on retention paying
-  // users + per-cycle revenue/LTV series + payback. Built once per input
-  // change. `null` when inputs are invalid (UI hides outputs in that case).
-  const subModel = useMemo(() => {
-    if (!subValidation.valid) return null
-    const retentionFractions = subInput.retention
-      .filter((p) => Number.isFinite(p.percent) && p.percent > 0)
-      .map((p) => ({ t: p.t, r: p.percent / 100 }))
-    if (retentionFractions.length < 2) return null
-
-    const funnel = funnelCascade({
-      cohortSize: subInput.cohortSize,
-      installToTrial: subInput.installToTrial / 100,
-      trialToPaid: subInput.trialToPaid / 100,
-      retention: retentionFractions,
-      cadence,
-    })
-
-    let fit
-    try {
-      fit = fitPowerLaw(retentionFractions)
-    } catch {
-      return null
-    }
-
-    const series = subscriptionLtv({
-      fit,
-      payingAtZero: funnel.payingAtZero,
-      arpuPaid: subInput.arpuPaid,
-      cohortSize: subInput.cohortSize,
-      horizon: subInput.horizon,
-    })
-    const payback = subscriptionPayback(series, subInput.cohortSize, subInput.cac)
-
-    // Long-term retention anchor: M12 for monthly, W26 for weekly. Computed
-    // from the fit (not a raw input lookup) so it works regardless of which
-    // checkpoints the user keeps in the form.
-    const longTermAnchor = cadence === 'weekly' ? 26 : 12
-    const r1 = predict(1, fit)
-    const longTermRetention = Math.max(
-      0,
-      Math.min(predict(longTermAnchor, fit), r1),
-    )
-
-    return {
-      funnel,
-      fit,
-      series,
-      payback,
-      longTermAnchor,
-      longTermRetention,
-      trialsStarted: subInput.cohortSize * (subInput.installToTrial / 100),
-      payingAtZero: funnel.payingAtZero,
-    }
-  }, [subInput, cadence, subValidation.valid])
-
   // Read once — share-link decoding seeds the initial state below.
   const [shareInitial] = useState(readInitialFromUrl)
 
@@ -443,6 +342,84 @@ export default function Calculator() {
   const [bandSigma, setBandSigma] = useState(
     () => shareInitial?.bandSigma ?? 1,
   ) // 1 ≈ 68%, 2 ≈ 95%
+
+  // Subscription model: funnel cascade + power-law fit on retention paying
+  // users + per-cycle revenue/LTV series + payback + ±σ bands. Built once
+  // per input change. `null` when inputs are invalid (UI hides outputs).
+  const subModel = useMemo(() => {
+    if (!subValidation.valid) return null
+    const retentionFractions = subInput.retention
+      .filter((p) => Number.isFinite(p.percent) && p.percent > 0)
+      .map((p) => ({ t: p.t, r: p.percent / 100 }))
+    if (retentionFractions.length < 2) return null
+
+    const funnel = funnelCascade({
+      cohortSize: subInput.cohortSize,
+      installToTrial: subInput.installToTrial / 100,
+      trialToPaid: subInput.trialToPaid / 100,
+      retention: retentionFractions,
+      cadence,
+    })
+
+    let fit
+    try {
+      fit = fitPowerLaw(retentionFractions)
+    } catch {
+      return null
+    }
+
+    const series = subscriptionLtv({
+      fit,
+      payingAtZero: funnel.payingAtZero,
+      arpuPaid: subInput.arpuPaid,
+      cohortSize: subInput.cohortSize,
+      horizon: subInput.horizon,
+    })
+    const payback = subscriptionPayback(series, subInput.cohortSize, subInput.cac)
+
+    // ±k·σ confidence bands. retentionBand returns retention fractions;
+    // ltvBand integrates `arpu × R(t)` cumulatively — passing cohort-level
+    // dollar-per-cycle (arpuPaid × payingAtZero) gives total-cohort revenue
+    // bounds, which the chart converts to per-install by dividing by
+    // cohortSize. Both bands require fit.se > 0 (≥3 user points).
+    const subRetentionBand =
+      fit.se > 0
+        ? retentionBand(fit, subInput.horizon, bandSigma)
+        : null
+    const subLtvBandSeries =
+      fit.se > 0
+        ? ltvBand(
+            fit,
+            subInput.arpuPaid * funnel.payingAtZero,
+            subInput.horizon,
+            bandSigma,
+          )
+        : null
+
+    // Long-term retention anchor: M12 for monthly, W26 for weekly. Computed
+    // from the fit (not raw input) so it works regardless of which
+    // checkpoints the user keeps in the form.
+    const longTermAnchor = cadence === 'weekly' ? 26 : 12
+    const r1 = predict(1, fit)
+    const longTermRetention = Math.max(
+      0,
+      Math.min(predict(longTermAnchor, fit), r1),
+    )
+
+    return {
+      funnel,
+      fit,
+      series,
+      payback,
+      longTermAnchor,
+      longTermRetention,
+      retentionBand: subRetentionBand,
+      ltvBand: subLtvBandSeries,
+      trialsStarted: subInput.cohortSize * (subInput.installToTrial / 100),
+      payingAtZero: funnel.payingAtZero,
+    }
+  }, [subInput, cadence, subValidation.valid, bandSigma])
+
   const [shareCopied, setShareCopied] = useState(false)
   // Frozen snapshot of the current outputs — pinned via the "Pin as baseline"
   // button. The live calculator becomes the comparison; charts overlay the
@@ -681,6 +658,13 @@ export default function Calculator() {
               onPatch={(partial) =>
                 setSubInput((prev) => ({ ...prev, ...partial }))
               }
+              bandSlot={
+                <BandSigmaToggle
+                  sigma={bandSigma}
+                  onChange={setBandSigma}
+                  disabled={!subModel?.retentionBand}
+                />
+              }
             />
           </aside>
           <div className="space-y-5">
@@ -704,6 +688,37 @@ export default function Calculator() {
                   cadence={cadence}
                 />
                 <FunnelWaterfall steps={subModel.funnel.steps} />
+                <SubscriptionRetentionChart
+                  userPoints={subInput.retention}
+                  fitSeries={subModel.series}
+                  bandSeries={subModel.retentionBand}
+                  bandSigma={bandSigma}
+                  horizon={subInput.horizon}
+                  cadence={cadence}
+                  rSquared={subModel.fit.rSquared}
+                />
+                <SubscriptionLTVChart
+                  series={subModel.series}
+                  bandSeries={subModel.ltvBand}
+                  bandSigma={bandSigma}
+                  cohortSize={subInput.cohortSize}
+                  cac={subInput.cac}
+                  payback={subModel.payback}
+                  horizon={subInput.horizon}
+                  cadence={cadence}
+                />
+                <SubscriptionRevenueChart
+                  series={subModel.series}
+                  horizon={subInput.horizon}
+                  cadence={cadence}
+                />
+                <SubscriptionResultsTable
+                  series={subModel.series}
+                  userPoints={subInput.retention}
+                  horizon={subInput.horizon}
+                  cadence={cadence}
+                  cac={subInput.cac}
+                />
                 <SubscriptionCohortPL
                   cohortSize={subInput.cohortSize}
                   cac={subInput.cac}
@@ -714,9 +729,6 @@ export default function Calculator() {
                   payback={subModel.payback}
                   cadence={cadence}
                 />
-                <div className="rounded-lg border border-dashed border-line bg-bg-elev/30 p-4 text-xs text-fg-faint">
-                  Retention curve и Cumulative LTV chart — Stage 6.
-                </div>
               </>
             )}
           </div>

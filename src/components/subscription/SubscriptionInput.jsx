@@ -62,9 +62,10 @@ function NumberField({ label, value, onChange, suffix, error, tooltip, tooltipAl
  *     retentionFormError: string|null,
  *   },
  *   onPatch: (partial: Object) => void,
+ *   bandSlot?: import('react').ReactNode,
  * }} props
  */
-export default function SubscriptionInput({ state, cadence, validation, onPatch }) {
+export default function SubscriptionInput({ state, cadence, validation, onPatch, bandSlot }) {
   const isWeekly = cadence === 'weekly'
   const cycleWord = isWeekly ? 'week' : 'month'
   const cycleAbbr = isWeekly ? 'wk' : 'mo'
@@ -121,6 +122,8 @@ export default function SubscriptionInput({ state, cadence, validation, onPatch 
           />
         </div>
       </div>
+
+      {bandSlot}
 
       {/* Retention */}
       <div>

@@ -147,7 +147,7 @@ export default function SubscriptionKPI({
         }
       />
       <Card
-        label={`Retention @ ${cycleAbbr}${longTermAnchor}`}
+        label={`${cycleAbbr}${longTermAnchor} retention`}
         value={
           Number.isFinite(longTermRetention)
             ? `${(longTermRetention * 100).toFixed(1)}%`

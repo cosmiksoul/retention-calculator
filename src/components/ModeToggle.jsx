@@ -20,7 +20,7 @@ export default function ModeToggle({ value, onChange }) {
       <Tab
         active={value === 'session'}
         onClick={() => onChange('session')}
-        label="Session retention"
+        label="DAU"
         hint="Daily-scale model — games, iGaming, sportsbook"
       />
       <Tab
