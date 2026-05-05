@@ -17,6 +17,7 @@ import {
   Tooltip,
 } from 'recharts'
 import { bucketRevenue } from '../lib/revenueBuckets.js'
+import HoverHint from './HoverHint.jsx'
 
 function fmtUsd(v) {
   if (v == null || !Number.isFinite(v)) return '—'
@@ -67,13 +68,21 @@ export default function RevenueChart({ series, cohortSize, horizon }) {
   return (
     <div className="rounded-lg border border-slate-800 bg-bg-elev/40 p-4">
       <div className="mb-2 flex items-baseline justify-between">
-        <div>
-          <div className="text-sm font-medium text-slate-200">
-            Revenue per period
-          </div>
-          <div className="text-[11px] italic leading-snug text-slate-500">
-            Где именно во времени сосредоточен доход когорты.
-          </div>
+        <div className="flex items-center text-sm font-medium text-slate-200">
+          <span>Revenue per period</span>
+          <HoverHint align="left">
+            <p>
+              Бары сгруппированы по канонических периодам (D1, D2–7, D8–14,
+              D15–30, D31–60, D61–90, D91–180, D181–365) и показывают
+              суммарный доход когорты в каждом окне: ARPU × R(t),
+              просуммированный по дням × cohort size.
+            </p>
+            <p className="mt-1.5">
+              Резкий перекос в первые ~30 дней — норма для степенного
+              ретеншена. Это и есть «front-loaded revenue»: основной доход
+              приходит от свежих когорт.
+            </p>
+          </HoverHint>
         </div>
         <div className="text-xs text-slate-500">
           Cohort total over D1–D{horizon}:{' '}
@@ -106,11 +115,6 @@ export default function RevenueChart({ series, cohortSize, horizon }) {
             />
           </BarChart>
         </ResponsiveContainer>
-      </div>
-      <div className="mt-2 text-[11px] leading-snug text-slate-500">
-        Buckets sum daily revenue (ARPU × R(t)) over canonical ranges and scale
-        by cohort size. Compare bucket heights to see how front-loaded the
-        revenue is — heavy left tail is normal for power-law retention.
       </div>
     </div>
   )

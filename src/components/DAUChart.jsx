@@ -8,6 +8,7 @@ import {
   Tooltip,
   Legend,
 } from 'recharts'
+import HoverHint from './HoverHint.jsx'
 
 const OBSERVED_COLOR = '#22d3ee'
 const RECON_COLOR = '#22c55e'
@@ -70,13 +71,21 @@ export default function DAUChart({ observed, reconstructed, rmsePct }) {
   return (
     <div className="rounded-lg border border-slate-800 bg-bg-elev/40 p-4">
       <div className="mb-2 flex items-baseline justify-between">
-        <div>
-          <div className="text-sm font-medium text-slate-200">
-            Observed vs reconstructed DAU
-          </div>
-          <div className="text-[11px] italic leading-snug text-slate-500">
-            Диагностика: реконструированный DAU должен совпадать с наблюдаемым.
-          </div>
+        <div className="flex items-center text-sm font-medium text-slate-200">
+          <span>Observed vs reconstructed DAU</span>
+          <HoverHint align="left">
+            <p>
+              Диагностика DAU-деконволюции: вы вводите наблюдаемый DAU и
+              new_users по дням; калькулятор восстанавливает кривую ретеншена
+              и обратно ре-конволвит её для проверки. Реконструированная линия
+              должна совпадать с наблюдаемой.
+            </p>
+            <p className="mt-1.5">
+              RMSE: &lt; 5% отлично, 5–15% приемлемо, &gt; 15% — данные плохо
+              описываются моделью с фиксированной формой ретеншена (заметна
+              реактивация юзеров или сезонные эффекты).
+            </p>
+          </HoverHint>
         </div>
         {rmsePct != null && (
           <div className="text-xs">

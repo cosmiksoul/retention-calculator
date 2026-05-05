@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom'
+import HoverHint from './HoverHint.jsx'
 
 const QUALITY_LABELS = {
   top_quartile: 'Top quartile',
@@ -86,12 +87,20 @@ export default function PresetSelector({ bundle, value, onChange }) {
   return (
     <div className="space-y-3">
       <div>
-        <label className="mb-0.5 block text-sm font-medium text-slate-300">
-          Industry preset
+        <label className="mb-1 flex items-center text-sm font-medium text-slate-300">
+          <span>Industry preset</span>
+          <HoverHint align="left">
+            <p>
+              Каждый пресет — отраслевой бенчмарк: дефолтные точки кривой
+              ретеншена + типичные ARPU и CAC.
+            </p>
+            <p className="mt-1.5">
+              После выбора можно тонко настроить через Quality (квартиль среди
+              игроков) и Geo tier (регион). Источники по каждому пресету и
+              методология подбора чисел — на странице Methodology.
+            </p>
+          </HoverHint>
         </label>
-        <p className="mb-1 text-[11px] italic leading-snug text-slate-500">
-          Загружает дефолтную кривую ретеншена и ARPU/CAC по выбранной индустрии.
-        </p>
         <select
           value={presetId ?? ''}
           onChange={(e) => handleIndustryChange(e.target.value || null)}
@@ -110,10 +119,23 @@ export default function PresetSelector({ bundle, value, onChange }) {
         <>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="mb-0.5 block text-xs text-slate-400">Quality</label>
-              <p className="mb-1 text-[11px] italic leading-snug text-slate-500">
-                Уровень среди игроков отрасли: top quartile = лучшие 25%.
-              </p>
+              <label className="mb-1 flex items-center text-xs text-slate-400">
+                <span>Quality</span>
+                <HoverHint align="left" width="sm">
+                  <p>
+                    Уровень результата среди игроков отрасли:
+                  </p>
+                  <ul className="mt-1.5 list-disc space-y-1 pl-4">
+                    <li><strong className="text-slate-200">top quartile</strong> — лучшие 25%</li>
+                    <li><strong className="text-slate-200">median</strong> — медиана</li>
+                    <li><strong className="text-slate-200">bottom quartile</strong> — худшие 25%</li>
+                  </ul>
+                  <p className="mt-1.5">
+                    Если для текущей пары Industry+Geo квартиль недоступен,
+                    он помечен (n/a).
+                  </p>
+                </HoverHint>
+              </label>
               <select
                 value={quality}
                 onChange={(e) => handleQualityChange(e.target.value)}

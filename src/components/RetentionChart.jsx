@@ -10,6 +10,7 @@ import {
   Legend,
   ReferenceLine,
 } from 'recharts'
+import HoverHint from './HoverHint.jsx'
 
 const USER_COLOR = '#22d3ee'
 const FIT_COLOR = '#22d3ee'
@@ -97,11 +98,19 @@ export default function RetentionChart({
   return (
     <div className="rounded-lg border border-slate-800 bg-bg-elev/40 p-4">
       <div className="mb-2 flex items-baseline justify-between">
-        <div>
-          <div className="text-sm font-medium text-slate-200">Retention curve</div>
-          <div className="text-[11px] italic leading-snug text-slate-500">
-            Кривая удержания: % пользователей, остающихся активными через N дней.
-          </div>
+        <div className="flex items-center text-sm font-medium text-slate-200">
+          <span>Retention curve</span>
+          <HoverHint align="left">
+            <p>
+              Доля пользователей, активных через N дней после привлечения.
+            </p>
+            <p className="mt-1.5">
+              Точки — ваши данные, сплошная линия — степенная подгонка
+              R(t) = a·t<sup>−b</sup>, пунктир — индустриальный бенчмарк
+              (если выбран пресет). Затенённая зона — ±σ доверительный
+              интервал.
+            </p>
+          </HoverHint>
         </div>
         {showBand && (
           <div className="text-xs text-slate-500">

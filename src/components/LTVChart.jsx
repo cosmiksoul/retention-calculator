@@ -10,6 +10,7 @@ import {
   ReferenceLine,
   ReferenceArea,
 } from 'recharts'
+import HoverHint from './HoverHint.jsx'
 
 function fmtUsd(v) {
   if (v == null || !Number.isFinite(v)) return '—'
@@ -87,11 +88,19 @@ export default function LTVChart({
   return (
     <div className="rounded-lg border border-slate-800 bg-bg-elev/40 p-4">
       <div className="mb-2 flex items-baseline justify-between">
-        <div>
-          <div className="text-sm font-medium text-slate-200">Cumulative LTV</div>
-          <div className="text-[11px] italic leading-snug text-slate-500">
-            Накопленный доход с юзера. Пересечение с CAC = breakeven.
-          </div>
+        <div className="flex items-center text-sm font-medium text-slate-200">
+          <span>Cumulative LTV</span>
+          <HoverHint align="left">
+            <p>
+              Накопленный доход с одного юзера к дню t: Σ ARPU·R(τ) для
+              τ = 1…t.
+            </p>
+            <p className="mt-1.5">
+              Горизонтальная линия — CAC, точка пересечения с LTV — breakeven.
+              Зелёная зона = период прибыли (LTV ≥ CAC), красная = период
+              убытка.
+            </p>
+          </HoverHint>
         </div>
         <div className="text-xs text-slate-500">
           {cac != null && beDay != null && (

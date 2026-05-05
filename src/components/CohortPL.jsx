@@ -9,6 +9,7 @@ import {
   ReferenceLine,
   ReferenceArea,
 } from 'recharts'
+import HoverHint from './HoverHint.jsx'
 
 function fmtUsd(v) {
   if (v == null || !Number.isFinite(v)) return '—'
@@ -126,10 +127,20 @@ export default function CohortPL({ series, cohortSize, cac, beDay, horizon }) {
   return (
     <div className="space-y-4 rounded-lg border border-slate-800 bg-bg-elev/40 p-4">
       <div>
-        <div className="text-sm font-medium text-slate-200">Cohort P&amp;L</div>
-        <p className="mt-0.5 text-[11px] italic leading-snug text-slate-500">
-          Абсолютная экономика когорты в долларах.
-        </p>
+        <div className="flex items-center text-sm font-medium text-slate-200">
+          <span>Cohort P&amp;L</span>
+          <HoverHint align="left">
+            <p>
+              Абсолютная экономика когорты: per-user LTV × cohort size vs.
+              total acquisition cost (cohort × CAC).
+            </p>
+            <p className="mt-1.5">
+              Profit at horizon, ROI и breakeven day показывают финансовую
+              состоятельность когорты в выбранном окне. Если breakeven позже
+              горизонта — экономика на текущих параметрах не сходится.
+            </p>
+          </HoverHint>
+        </div>
         <p className="mt-0.5 text-xs text-slate-500">
           Absolute economics for a cohort of {cohortSize.toLocaleString()} users
           at CAC {fmtUsd(cac)}.

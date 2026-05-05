@@ -3,6 +3,7 @@ import RetentionInput, {
   DEFAULT_POINTS,
   newPointId,
 } from '../components/RetentionInput.jsx'
+import HoverHint from '../components/HoverHint.jsx'
 import PresetSelector from '../components/PresetSelector.jsx'
 import CohortPaste from '../components/CohortPaste.jsx'
 import DAUInput from '../components/DAUInput.jsx'
@@ -40,11 +41,12 @@ const inputCls =
   'rounded border border-slate-700 bg-bg-subtle px-2 py-1 text-sm tabular-nums ' +
   'text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40'
 
-function NumberField({ label, value, onChange, hint, error, min, step, suffix, ru }) {
+function NumberField({ label, value, onChange, hint, error, min, step, suffix, ru, tooltip, tooltipAlign = 'left' }) {
   return (
     <label className="block">
-      <span className="mb-1 block text-sm font-medium text-slate-300">
-        {label}
+      <span className="mb-1 flex items-center text-sm font-medium text-slate-300">
+        <span>{label}</span>
+        {tooltip && <HoverHint align={tooltipAlign}>{tooltip}</HoverHint>}
       </span>
       <input
         type="number"
@@ -91,13 +93,22 @@ function BandSigmaToggle({ sigma, onChange, disabled }) {
   )
   return (
     <div className="rounded border border-slate-800 bg-bg-elev/30 p-2">
-      <div className="mb-0.5 text-xs font-medium text-slate-300">
-        Confidence band
+      <div className="mb-0.5 flex items-center text-xs font-medium text-slate-300">
+        <span>Confidence band</span>
+        <HoverHint align="left">
+          <p>
+            Полоса вокруг прогноза, отражающая неопределённость подгонки
+            модели — насколько уверенно мы знаем параметры степенной кривой
+            при текущем числе точек и их разбросе.
+          </p>
+          <p className="mt-1.5">
+            ±1σ ≈ 68% вероятности, ±2σ ≈ 95%. Чем меньше точек и хуже R²,
+            тем шире полоса. В industry-adjusted режиме скрыта —
+            синтетическая подгонка не несёт остаточной неопределённости.
+          </p>
+        </HoverHint>
       </div>
-      <div className="mb-1.5 text-[11px] italic leading-snug text-slate-500">
-        Полоса неопределённости прогноза. ±1σ ≈ 68%, ±2σ ≈ 95% вероятности.
-      </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
         {radio(1, '±1σ ≈ 68%')}
         {radio(2, '±2σ ≈ 95%')}
       </div>
@@ -127,8 +138,26 @@ function InputModeToggle({ mode, onChange }) {
   )
   return (
     <div>
-      <div className="mb-1 text-[11px] italic leading-snug text-slate-500">
-        Способ ввода данных по ретеншену.
+      <div className="mb-1 flex items-center text-xs font-medium text-slate-300">
+        <span>Input mode</span>
+        <HoverHint align="left">
+          <p>Три способа задать кривую ретеншена:</p>
+          <ul className="mt-1.5 list-disc space-y-1 pl-4">
+            <li>
+              <strong className="text-slate-200">Manual</strong> — точки t/%
+              вручную, минимум 3.
+            </li>
+            <li>
+              <strong className="text-slate-200">Paste cohort table</strong> —
+              таблица абсолютных или процентных значений из BI / экспорта.
+            </li>
+            <li>
+              <strong className="text-slate-200">Paste DAU + new users</strong>
+              {' '}— DAU и новые юзеры по дням; ретеншен восстанавливается
+              через свёрточную деконволюцию.
+            </li>
+          </ul>
+        </HoverHint>
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         {radio('manual', 'Manual input')}
@@ -155,13 +184,25 @@ function ModeToggle({ mode, onChange, avgRatio }) {
   )
   return (
     <div className="rounded border border-slate-800 bg-bg-elev/30 p-2">
-      <div className="mb-0.5 text-xs font-medium text-slate-300">Forecast mode</div>
-      <div className="mb-1.5 text-[11px] italic leading-snug text-slate-500">
-        {mode === 'adjusted'
-          ? 'Берёт форму индустриального бенчмарка и масштабирует под ваш уровень.'
-          : 'Подгоняет степенную модель только по вашим точкам.'}
+      <div className="mb-0.5 flex items-center text-xs font-medium text-slate-300">
+        <span>Forecast mode</span>
+        <HoverHint align="left">
+          <p>
+            <strong className="text-slate-200">Pure fit</strong> — подгоняет
+            степенную модель только по вашим точкам. Лучше всего работает
+            при ≥4 хорошо выстроенных точках с высоким R².
+          </p>
+          <p className="mt-1.5">
+            <strong className="text-slate-200">Industry-adjusted</strong> —
+            берёт форму индустриального бенчмарка (выбранный пресет) и
+            масштабирует под ваш уровень: считается среднегеометрическое
+            отношение ваших точек к бенчмарку и применяется ко всему хвосту.
+            Полезно когда у вас 1–3 точки — даёт прогноз с реалистичной
+            формой кривой за пределами ваших данных.
+          </p>
+        </HoverHint>
       </div>
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1">
         {radio('pure', 'Pure fit')}
         {radio('adjusted', 'Industry-adjusted')}
       </div>
@@ -572,27 +613,52 @@ export default function Calculator() {
           <div className="grid grid-cols-2 gap-4 border-t border-slate-800 pt-4">
             <NumberField
               label="Cohort size"
-              ru="Сколько новых пользователей в когорте."
               value={cohortSize}
               min={1}
               step={1}
               suffix="users"
               onChange={(v) => setCohortSize(Number(v))}
               error={numericErrors.errors.cohortSize}
+              tooltip={
+                <>
+                  <p>
+                    Размер привлекаемой когорты — сколько новых юзеров приходит
+                    в один заход.
+                  </p>
+                  <p className="mt-1.5">
+                    Влияет только на абсолютные значения в Cohort P&amp;L
+                    (умножает revenue и CAC). Per-user метрики (LTV, R²,
+                    LTV/CAC) от размера когорты не зависят.
+                  </p>
+                </>
+              }
             />
             <NumberField
               label="ARPU"
-              ru="Средний доход с одного активного юзера в день."
               value={arpu}
               min={0}
               step={0.01}
               suffix="$ / day"
               onChange={(v) => setArpu(Number(v))}
               error={numericErrors.errors.arpu}
+              tooltipAlign="right"
+              tooltip={
+                <>
+                  <p>
+                    Average Revenue Per User — каноническая величина в этом
+                    калькуляторе именно дневная (per-day), а не ARPDAU и не
+                    monthly.
+                  </p>
+                  <p className="mt-1.5">
+                    Для подписочных продуктов берите monthly subscription / 30.
+                    Для рекламной монетизации — общий дневной доход / число
+                    DAU. Для iGaming — daily NGR на активного депозитора.
+                  </p>
+                </>
+              }
             />
             <NumberField
               label="CAC"
-              ru="Стоимость привлечения одного юзера. Пусто — не считается breakeven."
               value={cacInput}
               min={0}
               step={0.01}
@@ -600,16 +666,44 @@ export default function Calculator() {
               onChange={setCacInput}
               error={numericErrors.errors.cac}
               hint="Empty hides breakeven"
+              tooltip={
+                <>
+                  <p>
+                    Customer Acquisition Cost — полная стоимость привлечения
+                    одного юзера: paid acquisition + креативы + агентские fees.
+                  </p>
+                  <p className="mt-1.5">
+                    Для iGaming используйте CAC per FTD (per first-time
+                    depositor), не per install — иначе соотношение с LTV
+                    бессмысленно. Если оставить пусто, KPI Breakeven, LTV/CAC
+                    и Payback не считаются.
+                  </p>
+                </>
+              }
             />
             <NumberField
               label="Horizon"
-              ru="Горизонт прогноза LTV в днях."
               value={horizon}
               min={30}
               step={1}
               suffix="days"
               onChange={(v) => setHorizon(Number(v))}
               error={numericErrors.errors.horizon}
+              tooltipAlign="right"
+              tooltip={
+                <>
+                  <p>
+                    Окно прогноза LTV в днях. Predicted LTV =
+                    Σ ARPU·R(t) от t=1 до t=horizon.
+                  </p>
+                  <p className="mt-1.5">
+                    Чем больше горизонт, тем больше неопределённость прогноза —
+                    после ~3× от вашей последней точки данных модель
+                    экстраполирует. Стандартные значения: 30 / 60 / 90 / 180 /
+                    365.
+                  </p>
+                </>
+              }
             />
           </div>
         </aside>

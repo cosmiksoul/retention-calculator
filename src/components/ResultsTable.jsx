@@ -1,3 +1,5 @@
+import HoverHint from './HoverHint.jsx'
+
 function fmtUsd(v) {
   if (v == null || !Number.isFinite(v)) return '—'
   if (Math.abs(v) >= 1000) return `$${v.toFixed(0)}`
@@ -46,16 +48,23 @@ export default function ResultsTable({ series, points, horizon, cohortSize, cac 
   const userByT = new Map(points.map((p) => [p.t, p.percent]))
 
   return (
-    <div className="overflow-hidden rounded-lg border border-slate-800 bg-bg-elev/40">
+    <div className="rounded-lg border border-slate-800 bg-bg-elev/40">
       <div className="border-b border-slate-800 px-4 py-2">
-        <div className="text-sm font-medium text-slate-200">
-          Per-period breakdown
-          <span className="ml-2 text-xs font-normal text-slate-500">
-            Input rows are highlighted; "Fit" is the power-law prediction (OLS, not interpolation — values can differ slightly from input).
-          </span>
-        </div>
-        <div className="mt-0.5 text-[11px] italic leading-snug text-slate-500">
-          Подробная таблица: ретеншен и доход по дням.
+        <div className="flex items-center text-sm font-medium text-slate-200">
+          <span>Per-period breakdown</span>
+          <HoverHint align="left">
+            <p>
+              Подробная разбивка ретеншена и дохода по дням.
+            </p>
+            <p className="mt-1.5">
+              Колонка <strong className="text-slate-200">Input</strong> —
+              введённые вами значения (выделены синим);
+              {' '}<strong className="text-slate-200">Fit</strong> — предсказание
+              степенной модели. Это OLS-подгонка в логарифмах, не интерполяция,
+              поэтому Fit может слегка отличаться от Input даже на ваших точках —
+              это нормально и отражает попытку модели усреднить шум.
+            </p>
+          </HoverHint>
         </div>
       </div>
       <div className="overflow-x-auto">
