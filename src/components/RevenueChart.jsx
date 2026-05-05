@@ -1,11 +1,15 @@
 // Per-period revenue from one acquired cohort, bucketed into the canonical
 // ranges (D1, D2-7, D8-14, …). Complements Cumulative LTV by showing *where*
-// the money actually arrives in the cohort's lifetime — most curves
-// concentrate revenue in the first 14-30 days.
+// the money actually arrives — most curves concentrate revenue in the first
+// 14–30 days.
 //
-// The math comes straight from `ltvSeries`: each row already carries
-// `revenue = ARPU × R(t)`. We just sum it inside each bucket and multiply by
-// cohortSize so the y-axis reads in cohort dollars (matches ResultsTable).
+// Bar height = average daily cohort revenue inside the bucket, NOT the bucket
+// total. We do this because canonical bucket widths are uneven (D1 = 1 day,
+// D181–365 = 185 days), and plotting raw sums makes late buckets visually
+// dominate even though daily revenue is decaying. Normalising by days makes
+// the bars decline monotonically along the power-law, matching the chart's
+// claim of front-loaded revenue. The bucket total is preserved in the
+// tooltip so users can still read absolute dollars.
 
 import { useRef } from 'react'
 import {
@@ -36,23 +40,34 @@ function CustomTooltip({ active, payload }) {
   const p = payload[0].payload
   return (
     <div className="rounded border border-line-strong bg-bg-elev/95 px-3 py-2 text-xs">
-      <div className="font-medium text-fg">{p.label}</div>
-      <div className="mt-1 flex items-center gap-3">
-        <span className="text-fg-dim">Cohort revenue</span>
-        <span className="ml-auto tabular-nums text-emerald-300">
-          {fmtUsd(p.revenue)}
+      <div className="font-medium text-fg">
+        {p.label}
+        <span className="ml-1 text-fg-faint">
+          ({p.days} {p.days === 1 ? 'day' : 'days'})
         </span>
       </div>
-      {p.baseline != null && (
+      <div className="mt-1 flex items-center gap-3">
+        <span className="text-fg-dim">Avg / day</span>
+        <span className="ml-auto tabular-nums text-emerald-300">
+          {fmtUsd(p.revenuePerDay)}
+        </span>
+      </div>
+      {p.baselinePerDay != null && (
         <div className="flex items-center gap-3">
-          <span className="text-fg-dim">Baseline</span>
+          <span className="text-fg-dim">Baseline / day</span>
           <span className="ml-auto tabular-nums" style={{ color: 'rgb(234 179 8)' }}>
-            {fmtUsd(p.baseline)}
+            {fmtUsd(p.baselinePerDay)}
           </span>
         </div>
       )}
       <div className="flex items-center gap-3">
-        <span className="text-fg-dim">Share</span>
+        <span className="text-fg-dim">Period total</span>
+        <span className="ml-auto tabular-nums text-fg">
+          {fmtUsd(p.revenue)}
+        </span>
+      </div>
+      <div className="flex items-center gap-3">
+        <span className="text-fg-dim">Share of total</span>
         <span className="ml-auto tabular-nums text-fg-muted">
           {p.pct.toFixed(1)}%
         </span>
@@ -85,32 +100,44 @@ export default function RevenueChart({
     baselineSeries && baselineCohortSize != null
       ? bucketRevenue(baselineSeries, horizon)
       : null
-  const data = buckets.map((b, i) => ({
-    label: b.label,
-    revenue: b.revenue * cohortSize,
-    pct: totalPerUser > 0 ? (b.revenue / totalPerUser) * 100 : 0,
-    baseline:
+  const data = buckets.map((b, i) => {
+    const days = b.to - b.from + 1
+    const cohortRevenue = b.revenue * cohortSize
+    const baselineCohort =
       baselineBuckets && baselineBuckets[i]
         ? baselineBuckets[i].revenue * baselineCohortSize
-        : null,
-  }))
+        : null
+    return {
+      label: b.label,
+      days,
+      revenue: cohortRevenue,
+      revenuePerDay: cohortRevenue / days,
+      pct: totalPerUser > 0 ? (b.revenue / totalPerUser) * 100 : 0,
+      baselinePerDay: baselineCohort != null ? baselineCohort / days : null,
+    }
+  })
 
   return (
     <div ref={cardRef} className="rounded-lg border border-line bg-bg-elev/40 p-4">
       <div className="mb-2 flex items-baseline justify-between">
         <div className="flex items-center text-sm font-medium text-fg">
-          <span>Revenue per period</span>
+          <span>Daily revenue (averaged in period)</span>
           <HoverHint align="left">
             <p>
-              Бары сгруппированы по канонических периодам (D1, D2–7, D8–14,
-              D15–30, D31–60, D61–90, D91–180, D181–365) и показывают
-              суммарный доход когорты в каждом окне: ARPU × R(t),
-              просуммированный по дням × cohort size.
+              Высота бара — средняя дневная выручка когорты внутри периода
+              (D1, D2–7, D8–14, D15–30, D31–60, D61–90, D91–180, D181–365):
+              сумма ARPU × R(t) внутри окна, делённая на число дней в нём
+              и умноженная на cohort size.
             </p>
             <p className="mt-1.5">
-              Резкий перекос в первые ~30 дней — норма для степенного
-              ретеншена. Это и есть «front-loaded revenue»: основной доход
-              приходит от свежих когорт.
+              Нормировка на день нужна, чтобы сравнивать узкие окна (D1) с
+              широкими (D91–180): иначе поздние периоды визуально «перевешивают»
+              просто потому, что они длиннее.
+            </p>
+            <p className="mt-1.5">
+              Кривая монотонно убывает по power-law — это и есть
+              «front-loaded revenue»: основной доход приходит в первые
+              ~30 дней. Полная сумма за каждый период видна в тултипе.
             </p>
           </HoverHint>
         </div>
@@ -143,7 +170,7 @@ export default function RevenueChart({
             />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: colors.grid, fillOpacity: 0.4 }} />
             <Bar
-              dataKey="revenue"
+              dataKey="revenuePerDay"
               fill={colors.line}
               fillOpacity={0.85}
               isAnimationActive={false}
@@ -152,7 +179,7 @@ export default function RevenueChart({
             {baselineBuckets && (
               <Line
                 type="monotone"
-                dataKey="baseline"
+                dataKey="baselinePerDay"
                 name="Baseline"
                 stroke={colors.baseline}
                 strokeWidth={2}

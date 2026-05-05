@@ -995,6 +995,19 @@ export default function Calculator() {
                     </button>
                   </div>
                 )}
+                <SubscriptionKPI
+                  ltvPerInstall={
+                    subModel.series[subModel.series.length - 1].cumLtvPerInstall
+                  }
+                  cac={subInput.cac}
+                  payback={subModel.payback}
+                  trialToPaid={subInput.trialToPaid}
+                  longTermRetention={subModel.longTermRetention}
+                  longTermAnchor={subModel.longTermAnchor}
+                  horizon={subInput.horizon}
+                  cadence={cadence}
+                  baseline={subBaseline?.summary ?? null}
+                />
                 <PlanBadge
                   dominantPlan={
                     selectedPreset?.dominantPlan ?? null
@@ -1009,19 +1022,6 @@ export default function Calculator() {
                     cadence={cadence}
                   />
                 )}
-                <SubscriptionKPI
-                  ltvPerInstall={
-                    subModel.series[subModel.series.length - 1].cumLtvPerInstall
-                  }
-                  cac={subInput.cac}
-                  payback={subModel.payback}
-                  trialToPaid={subInput.trialToPaid}
-                  longTermRetention={subModel.longTermRetention}
-                  longTermAnchor={subModel.longTermAnchor}
-                  horizon={subInput.horizon}
-                  cadence={cadence}
-                  baseline={subBaseline?.summary ?? null}
-                />
                 <FunnelWaterfall
                   steps={subModel.funnel.steps}
                   presetLabel={presetLabel}

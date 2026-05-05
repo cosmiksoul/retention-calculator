@@ -166,12 +166,13 @@ export default function Methodology() {
         </ul>
       </aside>
       <article className="prose prose-invert max-w-none prose-headings:scroll-mt-20 prose-a:text-accent-fg">
-        <h1>Methodology</h1>
+        <h1>Методология</h1>
         <p className="lead">
-          Calculator поддерживает две модели — <strong>DAU</strong> (дневная
-          шкала, для игр / iGaming / sportsbook) и <strong>Subscription</strong>
-          {' '}(weekly / monthly cadence, для consumer subscription apps).
-          Источники пресетов разнесены по двум разделам ниже.
+          Калькулятор LTV поддерживает две модели — <strong>DAU</strong>{' '}
+          (дневная шкала, для игр / iGaming / sportsbook) и{' '}
+          <strong>Subscription</strong> (weekly / monthly cadence, для
+          consumer subscription apps). Источники пресетов разнесены по двум
+          разделам ниже.
         </p>
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}

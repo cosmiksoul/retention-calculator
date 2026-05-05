@@ -40,7 +40,7 @@
 | median T2 | UK Gambling Commission quarterly aggregates; W.EU regulator data (DK, SE, IT) | Regulator transparency (depositor avg) | Industry estimates from operator-vendor blogs |
 | median T3 | Affiliate program disclosures (888Starz Reg2Dep>35%, retention >50%); RichAds 2024 | Affroom 2026 affiliate program data | Affroom 2026 (.com offshore CPA $20–$80) |
 
-**Главная переменная:** канал привлечения. SEO/affiliate cohorts показывают на 30–50% лучше D7/D30 retention vs. paid social (888Starz, RichAds disclosures). Это не отражено в пресетах — нужно оставить как user input в калькуляторе.
+**Главная переменная:** канал привлечения. SEO/affiliate-когорты показывают на 30–50% лучше D7/D30 retention по сравнению с paid social (888Starz, RichAds disclosures). Это не отражено в пресетах — оставлено на ввод пользователя в калькуляторе.
 
 ---
 
@@ -88,7 +88,7 @@
 | median T2 | GameAnalytics 2025 EMEA/APAC | Liftoff 2025 EMEA/APAC | Liftoff 2025 (EMEA $1.11 / APAC $1.05) |
 | median T3 | GameAnalytics 2025 LATAM | Liftoff 2025 LATAM | Liftoff 2025 (LATAM $0.44) |
 
-**Главное:** top vs. median spread ARPDAU 5–10× — самый большой из всех вертикалей. В калькуляторе стоит явно сигналить юзеру, что median ≠ "хороший" продукт.
+**Главное:** разброс ARPDAU между топом и медианой 5–10× — самый большой из всех вертикалей. В калькуляторе стоит явно показывать, что медиана ≠ «хороший» продукт.
 
 ---
 
@@ -104,7 +104,7 @@
 | median T2 | Liftoff 2025 EMEA/APAC midcore | Adjust 2024 EMEA/APAC | Liftoff 2025 EMEA/APAC |
 | median T3 | Liftoff 2025 LATAM midcore | Adjust 2024 LATAM | Liftoff 2025 (LATAM RPG $0.27) |
 
-**Caveat:** ATT opt-in для midcore только ~30–35% NAMER → top-quartile iOS retention/ROAS *вероятно занижены* в публичных отчётах. Если у юзера свои MMP-данные — они могут быть точнее наших дефолтов.
+**Оговорка:** ATT opt-in для midcore только ~30–35% NAMER → top-quartile iOS retention/ROAS *вероятно занижены* в публичных отчётах. Если у пользователя есть собственные MMP-данные — они могут быть точнее наших дефолтных значений.
 
 ---
 
@@ -120,7 +120,7 @@
 | median T2 | AppsFlyer EMEA 2024; Adjust 2025 EMEA | EMEA AOV/frequency data | Mobiloud 2026 (EMEA estimate) |
 | median T3 | AppsFlyer LATAM/SEA 2024; Adjust 2025 | LATAM/SEA AOV data | Mobiloud 2026 (SEA 40–60% lower); Mapendo 2024 |
 
-**Caveat:** Маркетплейсы (Amazon/Temu) и DTC-бренды — это разные бизнесы. Top quartile в пресете = маркетплейс; median = generic shopping; bottom = DTC single-purchase. В реальном калькуляторе стоит сделать sub-type toggle.
+**Оговорка:** маркетплейсы (Amazon/Temu) и DTC-бренды — это разные бизнесы. Top quartile в пресете = маркетплейс; median = generic shopping; bottom = DTC single-purchase. В калькуляторе имеет смысл добавить выбор подтипа.
 
 ---
 
@@ -136,7 +136,7 @@
 | median T2 | Adjust 2025 EMEA fintech | Revolut blended ARPU 2023 commentary | Revolut blended £20 (~$25, 2023, doubled from £10 in 2021) |
 | median T3 | LATAM fintech data (Nubank cohort proxies) | Nubank LATAM disclosures | MEXC 2024 (Nubank LATAM <$1 organic CAC) |
 
-**Caveat:** Если юзер — традиционный банк или crypto-app, дефолты из коробки сильно врут (10× variance). В калькуляторе стоит сделать sub-segment selector: neobank / traditional / investment / crypto.
+**Оговорка:** если у пользователя традиционный банк или крипто-приложение, значения по умолчанию сильно отклоняются от реальности (разброс до 10×). В калькуляторе имеет смысл добавить выбор подсегмента: neobank / traditional / investment / crypto.
 
 ---
 

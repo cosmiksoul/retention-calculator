@@ -91,13 +91,14 @@ export default function SubscriptionRevenueChart({
           <span>Revenue per {cadence === 'weekly' ? 'week' : 'month'}</span>
           <HoverHint align="left">
             <p>
-              Один бар на cycle: revenue(t) × cohort size = paying users в
-              этом cycle × ARPU × cohort. Распределение revenue по времени.
+              Один бар на cycle: revenue(t) × cohort size = платящих
+              пользователей в этом cycle × ARPU × cohort. Распределение
+              выручки по времени.
             </p>
             <p className="mt-1.5">
-              Передние cycle всегда самые жирные — retention паяющих юзеров
-              убывающая, поэтому деньги front-loaded. Лонг-тейл важен для
-              annual-dominant подписок (M12 cliff).
+              Ранние cycle всегда самые жирные — retention платящих убывает,
+              поэтому деньги приходят front-loaded. Длинный хвост важен для
+              подписок с упором на annual (M12 cliff).
             </p>
           </HoverHint>
         </div>
