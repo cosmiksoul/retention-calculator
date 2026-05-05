@@ -33,6 +33,7 @@ import {
   validateRetentionPoints,
   validateNumericInputs,
 } from '../lib/validate.js'
+import { buildCsv, buildFilename } from '../lib/exportCsv.js'
 
 const inputCls =
   'rounded border border-slate-700 bg-bg-subtle px-2 py-1 text-sm tabular-nums ' +
@@ -174,6 +175,30 @@ function ExtrapolationBanner({ level, lastUserT, horizon }) {
   return (
     <div className={`rounded-lg border p-3 text-xs ${cls}`}>{text}</div>
   )
+}
+
+const QUALITY_LABEL = {
+  top_quartile: 'top quartile',
+  median: 'median',
+  bottom_quartile: 'bottom quartile',
+}
+const GEO_LABEL = { tier_1: 'Tier 1', tier_2: 'Tier 2', tier_3: 'Tier 3' }
+
+function presetLabelFor(preset, presetState) {
+  if (!preset) return null
+  return `${preset.label} · ${QUALITY_LABEL[presetState.quality] ?? presetState.quality} · ${GEO_LABEL[presetState.geo] ?? presetState.geo}`
+}
+
+function downloadFile(content, filename, mime) {
+  const blob = new Blob([content], { type: mime })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
 function safeFit(points) {
@@ -532,6 +557,51 @@ export default function Calculator() {
 
           {allValid && fit && ltv && fitSeries && (
             <>
+              <div className="flex items-center justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const timestamp = new Date().toISOString()
+                    const presetLabel = presetLabelFor(selectedPreset, presetState)
+                    const csv = buildCsv({
+                      timestamp,
+                      mode: adjustMode,
+                      presetLabel,
+                      bandSigma,
+                      inputs: {
+                        arpuPerDay: arpu,
+                        cac,
+                        cohortSize,
+                        horizon,
+                      },
+                      fit: {
+                        a: fit.a,
+                        b: fit.b,
+                        se: fit.se,
+                        rSquared: fit.rSquared,
+                        n: fit.n ?? points.length,
+                      },
+                      kpi: {
+                        ltvAtHorizon,
+                        beDay,
+                        ltvCacRatio:
+                          cac != null && cac > 0 ? ltvAtHorizon / cac : null,
+                        paybackDays: cac != null && cac > 0 ? beDay : null,
+                      },
+                      userPoints: points.map((p) => ({ t: p.t, percent: p.percent })),
+                      series: ltv,
+                    })
+                    downloadFile(
+                      csv,
+                      buildFilename({ timestamp, presetLabel }),
+                      'text/csv;charset=utf-8',
+                    )
+                  }}
+                  className="rounded border border-slate-700 bg-bg-subtle px-3 py-1.5 text-xs text-slate-300 transition-colors hover:border-cyan-500/50 hover:text-cyan-300"
+                >
+                  Download CSV
+                </button>
+              </div>
               <KPICards
                 ltvAtHorizon={ltvAtHorizon}
                 horizon={horizon}
