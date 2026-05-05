@@ -1,0 +1,519 @@
+{
+  "$schema_version": "1.0",
+  "$last_updated": "2026-05-05",
+  "$mode": "subscription",
+  "$notes": "These verticals operate on subscription metrics, NOT daily session retention. Retention is measured against PAYING SUBSCRIBERS (not installs). To compute LTV per install, multiply: install_to_trial × trial_to_paid × ARPU × avg_subscription_months. Tier definitions: T1=US/UK/CA/AU/DACH/Nordics; T2=W/S Europe + JP/KR; T3=LATAM/SEA/India/EE/CIS.",
+  "$metric_definitions": {
+    "install_to_trial": "% of installs that start a free trial (RevenueCat: 7-day window)",
+    "trial_to_paid": "% of trials that convert to paid subscription",
+    "M1_retention": "% of paid subscribers still active at month 1",
+    "M3_retention": "% of paid subscribers still active at month 3",
+    "M6_retention": "% of paid subscribers still active at month 6",
+    "M12_retention": "% of paid subscribers still active at month 12 (annual plan renewal)",
+    "rpi_d14": "Revenue per install at day 14 USD (RevenueCat standard)",
+    "rpi_d60": "Revenue per install at day 60 USD",
+    "arpu_paid_monthly": "Average revenue per PAYING user per month USD",
+    "cpi_blended": "Cost per install blended across iOS/Android USD",
+    "cpi_ios": "iOS CPI USD",
+    "cpi_android": "Android CPI USD"
+  },
+  "presets": [
+    {
+      "id": "subs_utilities",
+      "label": "Utilities (VPN, cleaners, scanners)",
+      "category": "Subscription Apps",
+      "metric_type": "subscription",
+      "data_quality": "robust",
+      "quality_warning": "Heavily weekly-plan dominant (73.6% revenue from weekly per Adapty 2026). Utilities have shortest avg session, highest weekly retention but lowest annual retention. VPN is sub-segment with highest pricing power. CIS-built leaders: many VPN apps in this space.",
+      "dominant_plan": "weekly",
+      "examples": ["NordVPN", "Surfshark", "CCleaner", "CamScanner", "TurboVPN"],
+      "variants": {
+        "top_quartile|tier_1": {
+          "install_to_trial": 12.0,
+          "trial_to_paid": 60.0,
+          "retention": {"M1": 70, "M3": 55, "M6": 45, "M12": 35},
+          "rpi_d14": 0.65,
+          "rpi_d60": 0.95,
+          "arpu_paid_monthly": 30,
+          "ltv_12m_per_paying_user": 68.9,
+          "cpi_blended": 4.50,
+          "cpi_ios": 6.50,
+          "cpi_android": 2.50,
+          "sources": ["Adapty State of In-App Subscriptions 2026 (Utilities first-renewal 58.1%, LTV $68.90)", "RevenueCat 2025 Utilities trial start 86%"]
+        },
+        "median|tier_1": {
+          "install_to_trial": 8.6,
+          "trial_to_paid": 35.0,
+          "retention": {"M1": 50, "M3": 32, "M6": 22, "M12": 12},
+          "rpi_d14": 0.20,
+          "rpi_d60": 0.32,
+          "arpu_paid_monthly": 12,
+          "ltv_12m_per_paying_user": 28,
+          "cpi_blended": 2.10,
+          "cpi_ios": 2.90,
+          "cpi_android": 1.30,
+          "sources": ["RevenueCat 2025 (Utilities median trial start)", "AppTweak 2025 (Utilities CPI $2.90 US)", "Adapty 2026"]
+        },
+        "bottom_quartile|tier_1": {
+          "install_to_trial": 3.0,
+          "trial_to_paid": 18.0,
+          "retention": {"M1": 30, "M3": 15, "M6": 8, "M12": 3},
+          "rpi_d14": 0.06,
+          "rpi_d60": 0.10,
+          "arpu_paid_monthly": 6,
+          "ltv_12m_per_paying_user": 12,
+          "cpi_blended": 1.40,
+          "sources": ["RevenueCat 2025 bottom-quartile estimates"]
+        },
+        "median|tier_2": {
+          "install_to_trial": 7.0,
+          "trial_to_paid": 30.0,
+          "retention": {"M1": 48, "M3": 30, "M6": 20, "M12": 11},
+          "rpi_d14": 0.14,
+          "rpi_d60": 0.22,
+          "arpu_paid_monthly": 10,
+          "ltv_12m_per_paying_user": 22,
+          "cpi_blended": 1.00,
+          "sources": ["AppTweak 2025 EU/Japan", "RevenueCat geo data"]
+        },
+        "median|tier_3": {
+          "install_to_trial": 4.0,
+          "trial_to_paid": 25.0,
+          "retention": {"M1": 42, "M3": 25, "M6": 16, "M12": 8},
+          "rpi_d14": 0.08,
+          "rpi_d60": 0.12,
+          "arpu_paid_monthly": 5,
+          "ltv_12m_per_paying_user": 10,
+          "cpi_blended": 0.40,
+          "sources": ["RevenueCat 2025 (LATAM median 25%)", "AppsFlyer LATAM/SEA"]
+        }
+      }
+    },
+    {
+      "id": "subs_lifestyle_wellness",
+      "label": "Lifestyle / Wellness (habit trackers, meditation)",
+      "category": "Subscription Apps",
+      "metric_type": "subscription",
+      "data_quality": "robust",
+      "quality_warning": "RevenueCat groups Lifestyle with Social, which includes Dating — Lifestyle-only numbers are estimates within that group. Meditation apps (Calm, Headspace) drive the high end; habit trackers struggle. Annual plans dominate revenue mix.",
+      "dominant_plan": "annual_then_monthly",
+      "examples": ["Calm", "Headspace", "Reflectly", "Fabulous", "Stoic", "Insight Timer"],
+      "variants": {
+        "top_quartile|tier_1": {
+          "install_to_trial": 8.0,
+          "trial_to_paid": 55.0,
+          "retention": {"M1": 75, "M3": 58, "M6": 45, "M12": 35},
+          "rpi_d14": 0.40,
+          "rpi_d60": 0.65,
+          "arpu_paid_monthly": 12,
+          "ltv_12m_per_paying_user": 82,
+          "cpi_blended": 5.50,
+          "cpi_ios": 7.50,
+          "cpi_android": 3.20,
+          "sources": ["RevenueCat 2025 Social & Lifestyle top quartile", "Headspace/Calm operator commentary"]
+        },
+        "median|tier_1": {
+          "install_to_trial": 4.2,
+          "trial_to_paid": 28.0,
+          "retention": {"M1": 55, "M3": 35, "M6": 22, "M12": 14},
+          "rpi_d14": 0.12,
+          "rpi_d60": 0.20,
+          "arpu_paid_monthly": 7,
+          "ltv_12m_per_paying_user": 35,
+          "cpi_blended": 3.20,
+          "cpi_ios": 4.50,
+          "cpi_android": 1.80,
+          "sources": ["RevenueCat 2025 Social & Lifestyle median (lower retention category)", "AppTweak 2025"]
+        },
+        "bottom_quartile|tier_1": {
+          "install_to_trial": 1.5,
+          "trial_to_paid": 12.0,
+          "retention": {"M1": 30, "M3": 14, "M6": 6, "M12": 2},
+          "rpi_d14": 0.04,
+          "rpi_d60": 0.07,
+          "arpu_paid_monthly": 4,
+          "ltv_12m_per_paying_user": 12,
+          "cpi_blended": 2.00,
+          "sources": ["RevenueCat 2025 bottom-quartile"]
+        },
+        "median|tier_2": {
+          "install_to_trial": 3.5,
+          "trial_to_paid": 24.0,
+          "retention": {"M1": 52, "M3": 32, "M6": 20, "M12": 12},
+          "rpi_d14": 0.08,
+          "rpi_d60": 0.14,
+          "arpu_paid_monthly": 6,
+          "ltv_12m_per_paying_user": 28,
+          "cpi_blended": 1.60,
+          "sources": ["RevenueCat 2025 EU geo data"]
+        },
+        "median|tier_3": {
+          "install_to_trial": 2.0,
+          "trial_to_paid": 20.0,
+          "retention": {"M1": 48, "M3": 28, "M6": 16, "M12": 9},
+          "rpi_d14": 0.04,
+          "rpi_d60": 0.07,
+          "arpu_paid_monthly": 3,
+          "ltv_12m_per_paying_user": 15,
+          "cpi_blended": 0.60,
+          "sources": ["RevenueCat 2025 LATAM/SEA"]
+        }
+      }
+    },
+    {
+      "id": "subs_health_fitness",
+      "label": "Health & Fitness (workout, calorie tracking, weight loss)",
+      "category": "Subscription Apps",
+      "metric_type": "subscription",
+      "data_quality": "robust",
+      "quality_warning": "Best-monetizing category in RevenueCat data: median D60 RPI $0.63 (2x category avg). Annual plans dominate (60.6% revenue). Top 10% trial-to-paid 68.3% — exceptional. CIS-built leader: BetterMe (large H&F player).",
+      "dominant_plan": "annual",
+      "examples": ["MyFitnessPal", "Strava", "Nike Training", "Fitbit", "Noom", "BetterMe", "Yazio", "Lose It!"],
+      "variants": {
+        "top_quartile|tier_1": {
+          "install_to_trial": 10.0,
+          "trial_to_paid": 68.3,
+          "retention": {"M1": 80, "M3": 65, "M6": 52, "M12": 40},
+          "rpi_d14": 1.31,
+          "rpi_d60": 2.97,
+          "arpu_paid_monthly": 15,
+          "ltv_12m_per_paying_user": 110,
+          "cpi_blended": 6.50,
+          "cpi_ios": 9.00,
+          "cpi_android": 3.80,
+          "sources": ["RevenueCat 2025 (top 10% trial-to-paid 68.3%, P90 RPI $2.97)", "Athletech News on RevenueCat 2025"]
+        },
+        "median|tier_1": {
+          "install_to_trial": 6.5,
+          "trial_to_paid": 39.9,
+          "retention": {"M1": 65, "M3": 45, "M6": 32, "M12": 22},
+          "rpi_d14": 0.44,
+          "rpi_d60": 0.63,
+          "arpu_paid_monthly": 9,
+          "ltv_12m_per_paying_user": 55,
+          "cpi_blended": 4.20,
+          "cpi_ios": 6.50,
+          "cpi_android": 2.20,
+          "sources": ["RevenueCat 2025 (median trial-to-paid 39.9%, RPI $0.44 D14, $0.63 D60)", "Adapty 2026 (H&F first-renewal 30.3%)"]
+        },
+        "bottom_quartile|tier_1": {
+          "install_to_trial": 2.5,
+          "trial_to_paid": 22.0,
+          "retention": {"M1": 40, "M3": 22, "M6": 12, "M12": 5},
+          "rpi_d14": 0.10,
+          "rpi_d60": 0.15,
+          "arpu_paid_monthly": 5,
+          "ltv_12m_per_paying_user": 18,
+          "cpi_blended": 2.50,
+          "sources": ["RevenueCat 2025 bottom-quartile"]
+        },
+        "median|tier_2": {
+          "install_to_trial": 5.5,
+          "trial_to_paid": 35.0,
+          "retention": {"M1": 62, "M3": 42, "M6": 30, "M12": 20},
+          "rpi_d14": 0.32,
+          "rpi_d60": 0.45,
+          "arpu_paid_monthly": 7,
+          "ltv_12m_per_paying_user": 42,
+          "cpi_blended": 2.00,
+          "sources": ["RevenueCat 2025 EU geo"]
+        },
+        "median|tier_3": {
+          "install_to_trial": 3.5,
+          "trial_to_paid": 25.0,
+          "retention": {"M1": 55, "M3": 35, "M6": 22, "M12": 14},
+          "rpi_d14": 0.12,
+          "rpi_d60": 0.18,
+          "arpu_paid_monthly": 4,
+          "ltv_12m_per_paying_user": 22,
+          "cpi_blended": 0.80,
+          "sources": ["RevenueCat 2025 LATAM (median 25%, top 53.3%)"]
+        }
+      }
+    },
+    {
+      "id": "subs_photo_video",
+      "label": "Photo / Video Editors",
+      "category": "Subscription Apps",
+      "metric_type": "subscription",
+      "data_quality": "robust",
+      "quality_warning": "Lowest median trial-to-paid of consumer subs (26.2% RevenueCat 2024) but highest spread top vs. bottom (3x). Heavily weekly-plan, refund-rate prone. CIS-built leaders: Reface, FaceApp, Prequel — typical viral spike + churn pattern.",
+      "dominant_plan": "weekly",
+      "examples": ["Prequel", "FaceApp", "Reface", "VSCO", "Lightroom Mobile", "CapCut", "Snapseed"],
+      "variants": {
+        "top_quartile|tier_1": {
+          "install_to_trial": 15.0,
+          "trial_to_paid": 70.0,
+          "retention": {"M1": 60, "M3": 38, "M6": 25, "M12": 15},
+          "rpi_d14": 0.80,
+          "rpi_d60": 1.20,
+          "arpu_paid_monthly": 18,
+          "ltv_12m_per_paying_user": 65,
+          "cpi_blended": 4.80,
+          "cpi_ios": 7.20,
+          "cpi_android": 2.50,
+          "sources": ["RevenueCat 2025 (Photo/Video top quartile 5-7x median)", "Reface/FaceApp viral spike data"]
+        },
+        "median|tier_1": {
+          "install_to_trial": 7.0,
+          "trial_to_paid": 26.2,
+          "retention": {"M1": 38, "M3": 20, "M6": 11, "M12": 5},
+          "rpi_d14": 0.15,
+          "rpi_d60": 0.22,
+          "arpu_paid_monthly": 9,
+          "ltv_12m_per_paying_user": 22,
+          "cpi_blended": 3.00,
+          "cpi_ios": 4.20,
+          "cpi_android": 1.70,
+          "sources": ["RevenueCat 2024 (Photo/Video trial-to-paid 26.2%)", "AppTweak 2025"]
+        },
+        "bottom_quartile|tier_1": {
+          "install_to_trial": 2.5,
+          "trial_to_paid": 10.0,
+          "retention": {"M1": 18, "M3": 7, "M6": 3, "M12": 1},
+          "rpi_d14": 0.04,
+          "rpi_d60": 0.06,
+          "arpu_paid_monthly": 5,
+          "ltv_12m_per_paying_user": 8,
+          "cpi_blended": 1.80,
+          "sources": ["RevenueCat 2025 bottom-quartile"]
+        },
+        "median|tier_2": {
+          "install_to_trial": 6.0,
+          "trial_to_paid": 23.0,
+          "retention": {"M1": 36, "M3": 19, "M6": 10, "M12": 4},
+          "rpi_d14": 0.10,
+          "rpi_d60": 0.15,
+          "arpu_paid_monthly": 7,
+          "ltv_12m_per_paying_user": 16,
+          "cpi_blended": 1.50,
+          "sources": ["RevenueCat EU geo"]
+        },
+        "median|tier_3": {
+          "install_to_trial": 4.0,
+          "trial_to_paid": 18.0,
+          "retention": {"M1": 32, "M3": 16, "M6": 8, "M12": 3},
+          "rpi_d14": 0.05,
+          "rpi_d60": 0.08,
+          "arpu_paid_monthly": 4,
+          "ltv_12m_per_paying_user": 9,
+          "cpi_blended": 0.55,
+          "sources": ["RevenueCat LATAM/SEA"]
+        }
+      }
+    },
+    {
+      "id": "subs_language_learning",
+      "label": "Language Learning",
+      "category": "Subscription Apps",
+      "metric_type": "subscription",
+      "data_quality": "robust",
+      "quality_warning": "Duolingo dominates: 8.5-8.9% paid penetration of 113M MAU in 2024. Long trials (5-9 days dominate) lead to higher conversion. Heavy organic growth (Duolingo S&M only 10-12% of revenue).",
+      "dominant_plan": "annual",
+      "examples": ["Duolingo", "Babbel", "Memrise", "Drops", "Mondly", "Lingvist", "Busuu"],
+      "variants": {
+        "top_quartile|tier_1": {
+          "install_to_trial": 14.0,
+          "trial_to_paid": 58.0,
+          "retention": {"M1": 78, "M3": 60, "M6": 48, "M12": 38},
+          "rpi_d14": 0.70,
+          "rpi_d60": 1.10,
+          "arpu_paid_monthly": 9.5,
+          "ltv_12m_per_paying_user": 75,
+          "cpi_blended": 4.50,
+          "cpi_ios": 6.20,
+          "cpi_android": 2.50,
+          "sources": ["Duolingo 10-Q Q1-Q4 2024 (paid penetration 8.5-8.9%, ARPU ~$75/yr)", "Duolingo CAC fell from $158 (2021) to $28 (2024)"]
+        },
+        "median|tier_1": {
+          "install_to_trial": 7.5,
+          "trial_to_paid": 38.0,
+          "retention": {"M1": 60, "M3": 40, "M6": 28, "M12": 18},
+          "rpi_d14": 0.30,
+          "rpi_d60": 0.45,
+          "arpu_paid_monthly": 7,
+          "ltv_12m_per_paying_user": 42,
+          "cpi_blended": 2.80,
+          "cpi_ios": 3.80,
+          "cpi_android": 1.60,
+          "sources": ["RevenueCat 2025 Education category (D14 RPI $0.40, D60 $0.45)", "AppTweak 2025"]
+        },
+        "bottom_quartile|tier_1": {
+          "install_to_trial": 2.5,
+          "trial_to_paid": 18.0,
+          "retention": {"M1": 35, "M3": 18, "M6": 9, "M12": 3},
+          "rpi_d14": 0.07,
+          "rpi_d60": 0.12,
+          "arpu_paid_monthly": 4,
+          "ltv_12m_per_paying_user": 14,
+          "cpi_blended": 1.50,
+          "sources": ["RevenueCat 2025 bottom-quartile Education"]
+        },
+        "median|tier_2": {
+          "install_to_trial": 6.5,
+          "trial_to_paid": 33.0,
+          "retention": {"M1": 58, "M3": 38, "M6": 26, "M12": 16},
+          "rpi_d14": 0.22,
+          "rpi_d60": 0.32,
+          "arpu_paid_monthly": 5.5,
+          "ltv_12m_per_paying_user": 32,
+          "cpi_blended": 1.40,
+          "sources": ["RevenueCat 2025 EU"]
+        },
+        "median|tier_3": {
+          "install_to_trial": 4.5,
+          "trial_to_paid": 25.0,
+          "retention": {"M1": 52, "M3": 32, "M6": 20, "M12": 11},
+          "rpi_d14": 0.10,
+          "rpi_d60": 0.15,
+          "arpu_paid_monthly": 3,
+          "ltv_12m_per_paying_user": 18,
+          "cpi_blended": 0.55,
+          "sources": ["RevenueCat 2025 (LATAM median 25%)"]
+        }
+      }
+    },
+    {
+      "id": "subs_dating",
+      "label": "Dating Apps",
+      "category": "Subscription Apps",
+      "metric_type": "subscription",
+      "data_quality": "robust",
+      "quality_warning": "Public 10-Q data (Match, Bumble) is gold standard — better than RevenueCat which buckets dating into Social & Lifestyle. Hybrid model: subscriptions + boosts/super-likes (consumables). Tinder churn structurally high — users leave when they find a match (success churn). CIS-built: Mamba, Badoo (Bumble Inc).",
+      "dominant_plan": "monthly",
+      "examples": ["Tinder", "Bumble", "Hinge", "Match.com", "Badoo", "Mamba", "Grindr"],
+      "variants": {
+        "top_quartile|tier_1": {
+          "install_to_trial": 6.0,
+          "trial_to_paid": 50.0,
+          "retention": {"M1": 70, "M3": 50, "M6": 35, "M12": 22},
+          "rpi_d14": 0.55,
+          "rpi_d60": 0.95,
+          "arpu_paid_monthly": 27,
+          "ltv_12m_per_paying_user": 130,
+          "cpi_blended": 5.50,
+          "cpi_ios": 7.50,
+          "cpi_android": 3.20,
+          "sources": ["Bumble Q1 2024 ARPPU $27.75/mo", "Tinder 9.6M subscribers / $1.94B revenue 2024 = ~$200/yr ARPU"]
+        },
+        "median|tier_1": {
+          "install_to_trial": 3.5,
+          "trial_to_paid": 30.0,
+          "retention": {"M1": 50, "M3": 28, "M6": 16, "M12": 8},
+          "rpi_d14": 0.18,
+          "rpi_d60": 0.28,
+          "arpu_paid_monthly": 16,
+          "ltv_12m_per_paying_user": 60,
+          "cpi_blended": 3.50,
+          "cpi_ios": 4.80,
+          "cpi_android": 1.90,
+          "sources": ["Match Group 2024 (Tinder ARPMUP $16.50/mo)", "RevenueCat 2025 Social & Lifestyle median", "Bumble Inc combined ARPPU $21.84"]
+        },
+        "bottom_quartile|tier_1": {
+          "install_to_trial": 1.0,
+          "trial_to_paid": 12.0,
+          "retention": {"M1": 25, "M3": 10, "M6": 4, "M12": 1},
+          "rpi_d14": 0.05,
+          "rpi_d60": 0.08,
+          "arpu_paid_monthly": 8,
+          "ltv_12m_per_paying_user": 16,
+          "cpi_blended": 2.20,
+          "sources": ["RevenueCat 2025 Social & Lifestyle bottom"]
+        },
+        "median|tier_2": {
+          "install_to_trial": 3.0,
+          "trial_to_paid": 27.0,
+          "retention": {"M1": 48, "M3": 26, "M6": 14, "M12": 7},
+          "rpi_d14": 0.14,
+          "rpi_d60": 0.22,
+          "arpu_paid_monthly": 12,
+          "ltv_12m_per_paying_user": 45,
+          "cpi_blended": 1.80,
+          "sources": ["Match Group EU/Asia revenue split", "Bumble international expansion"]
+        },
+        "median|tier_3": {
+          "install_to_trial": 1.8,
+          "trial_to_paid": 20.0,
+          "retention": {"M1": 42, "M3": 22, "M6": 11, "M12": 5},
+          "rpi_d14": 0.06,
+          "rpi_d60": 0.10,
+          "arpu_paid_monthly": 5,
+          "ltv_12m_per_paying_user": 18,
+          "cpi_blended": 0.65,
+          "sources": ["Tinder LATAM IAP revenue (Statista)", "Badoo emerging markets data"]
+        }
+      }
+    },
+    {
+      "id": "subs_ai_companions",
+      "label": "AI Companions / Chatbots",
+      "category": "Subscription Apps",
+      "metric_type": "subscription",
+      "data_quality": "moderate",
+      "quality_warning": "Fastest-growing category 2024-2025 (+64% YoY revenue, +88% downloads). Replika/Character.AI/Chai dominate top of market — top 10% capture 89% of revenue. Replika has unusually high free→paid conversion (25%, vs typical 2-5%). Numbers will likely shift quickly — refresh quarterly. CIS-built leader: Replika (Eugenia Kuyda / Luka).",
+      "dominant_plan": "monthly_with_some_weekly",
+      "examples": ["Replika", "Character.AI", "PolyBuzz", "Chai", "Anima", "Talkie", "Candy.ai", "Nomi AI"],
+      "variants": {
+        "top_quartile|tier_1": {
+          "install_to_trial": 12.0,
+          "trial_to_paid": 65.0,
+          "retention": {"M1": 75, "M3": 60, "M6": 50, "M12": 38},
+          "rpi_d14": 0.85,
+          "rpi_d60": 1.30,
+          "arpu_paid_monthly": 15,
+          "ltv_12m_per_paying_user": 95,
+          "cpi_blended": 4.50,
+          "cpi_ios": 6.20,
+          "cpi_android": 2.50,
+          "sources": ["Replika: 25% free→paid, 7+ months avg paying user (mktclarity 2025)", "Appfigures: revenue per download $1.18 in H1 2025 (up from $0.52 2024)"]
+        },
+        "median|tier_1": {
+          "install_to_trial": 6.0,
+          "trial_to_paid": 38.0,
+          "retention": {"M1": 55, "M3": 35, "M6": 22, "M12": 12},
+          "rpi_d14": 0.44,
+          "rpi_d60": 0.63,
+          "arpu_paid_monthly": 10,
+          "ltv_12m_per_paying_user": 45,
+          "cpi_blended": 3.20,
+          "cpi_ios": 4.50,
+          "cpi_android": 1.80,
+          "sources": ["RevenueCat 2025 AI category D60 RPI $0.63 (matches Health & Fitness — highest)", "Character.AI $32M revenue / 20M MAU in 2024"]
+        },
+        "bottom_quartile|tier_1": {
+          "install_to_trial": 1.5,
+          "trial_to_paid": 12.0,
+          "retention": {"M1": 25, "M3": 10, "M6": 4, "M12": 1},
+          "rpi_d14": 0.06,
+          "rpi_d60": 0.10,
+          "arpu_paid_monthly": 5,
+          "ltv_12m_per_paying_user": 12,
+          "cpi_blended": 2.00,
+          "sources": ["RevenueCat 2025 bottom-quartile AI", "Long-tail of 300+ struggling AI companion apps (Appfigures)"]
+        },
+        "median|tier_2": {
+          "install_to_trial": 5.0,
+          "trial_to_paid": 32.0,
+          "retention": {"M1": 52, "M3": 32, "M6": 20, "M12": 10},
+          "rpi_d14": 0.32,
+          "rpi_d60": 0.45,
+          "arpu_paid_monthly": 7,
+          "ltv_12m_per_paying_user": 32,
+          "cpi_blended": 1.60,
+          "sources": ["RevenueCat 2025 EU AI category"]
+        },
+        "median|tier_3": {
+          "install_to_trial": 3.5,
+          "trial_to_paid": 24.0,
+          "retention": {"M1": 48, "M3": 28, "M6": 16, "M12": 7},
+          "rpi_d14": 0.14,
+          "rpi_d60": 0.20,
+          "arpu_paid_monthly": 3.5,
+          "ltv_12m_per_paying_user": 18,
+          "cpi_blended": 0.55,
+          "sources": ["Appfigures geo data (Philippines 11%, Brazil 10%, Indonesia 8% of AI companion downloads)"]
+        }
+      }
+    }
+  ]
+}

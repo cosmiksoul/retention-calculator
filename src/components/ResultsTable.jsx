@@ -10,6 +10,11 @@ function fmtPct(v) {
   return `${(v * 100).toFixed(2)}%`
 }
 
+function fmtPctFromPercent(v) {
+  if (v == null || !Number.isFinite(v)) return '—'
+  return `${v.toFixed(2)}%`
+}
+
 /**
  * Picks rows to display: the user's input periods plus a few canonical
  * checkpoints that fall within the horizon, plus the horizon itself.
@@ -29,7 +34,7 @@ function pickRows(series, points, horizon) {
 /**
  * @param {{
  *   series: Array<{t:number, retention:number, revenue:number, cumLtv:number}>,
- *   points: Array<{t:number}>,
+ *   points: Array<{t:number, percent:number}>,
  *   horizon: number,
  *   cohortSize: number,
  *   cac: number|null,
@@ -38,18 +43,23 @@ function pickRows(series, points, horizon) {
 export default function ResultsTable({ series, points, horizon, cohortSize, cac }) {
   const rows = pickRows(series, points, horizon)
   const showLtvCac = cac != null && cac > 0
+  const userByT = new Map(points.map((p) => [p.t, p.percent]))
 
   return (
     <div className="overflow-hidden rounded-lg border border-slate-800 bg-bg-elev/40">
       <div className="border-b border-slate-800 px-4 py-2 text-sm font-medium text-slate-200">
         Per-period breakdown
+        <span className="ml-2 text-xs font-normal text-slate-500">
+          Input rows are highlighted; "Fit" is the power-law prediction (OLS, not interpolation — values can differ slightly from input).
+        </span>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-bg-subtle/40 text-xs uppercase tracking-wide text-slate-500">
             <tr>
               <th className="px-3 py-2 text-left font-medium">Period</th>
-              <th className="px-3 py-2 text-right font-medium">Retention</th>
+              <th className="px-3 py-2 text-right font-medium">Input</th>
+              <th className="px-3 py-2 text-right font-medium">Fit</th>
               <th className="px-3 py-2 text-right font-medium">Active users</th>
               <th className="px-3 py-2 text-right font-medium">Revenue / period</th>
               <th className="px-3 py-2 text-right font-medium">Cum LTV / user</th>
@@ -59,28 +69,54 @@ export default function ResultsTable({ series, points, horizon, cohortSize, cac 
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800/60">
-            {rows.map((row) => (
-              <tr key={row.t} className="tabular-nums">
-                <td className="px-3 py-1.5 text-slate-300">Day {row.t}</td>
-                <td className="px-3 py-1.5 text-right text-slate-200">
-                  {fmtPct(row.retention)}
-                </td>
-                <td className="px-3 py-1.5 text-right text-slate-200">
-                  {Math.round(row.retention * cohortSize)}
-                </td>
-                <td className="px-3 py-1.5 text-right text-slate-200">
-                  {fmtUsd(row.revenue * cohortSize)}
-                </td>
-                <td className="px-3 py-1.5 text-right text-slate-200">
-                  {fmtUsd(row.cumLtv)}
-                </td>
-                {showLtvCac && (
-                  <td className="px-3 py-1.5 text-right text-slate-200">
-                    {(row.cumLtv / cac).toFixed(2)}
+            {rows.map((row) => {
+              const userPct = userByT.get(row.t)
+              const isUserPoint = userPct != null
+              return (
+                <tr
+                  key={row.t}
+                  className={`tabular-nums ${
+                    isUserPoint ? 'bg-cyan-950/20' : ''
+                  }`}
+                >
+                  <td className="px-3 py-1.5 text-slate-300">
+                    Day {row.t}
+                    {isUserPoint && (
+                      <span
+                        className="ml-1.5 text-[10px] uppercase tracking-wide text-cyan-400"
+                        title="You entered a value at this period"
+                      >
+                        input
+                      </span>
+                    )}
                   </td>
-                )}
-              </tr>
-            ))}
+                  <td
+                    className={`px-3 py-1.5 text-right ${
+                      isUserPoint ? 'text-cyan-300' : 'text-slate-600'
+                    }`}
+                  >
+                    {fmtPctFromPercent(userPct)}
+                  </td>
+                  <td className="px-3 py-1.5 text-right text-slate-200">
+                    {fmtPct(row.retention)}
+                  </td>
+                  <td className="px-3 py-1.5 text-right text-slate-200">
+                    {Math.round(row.retention * cohortSize)}
+                  </td>
+                  <td className="px-3 py-1.5 text-right text-slate-200">
+                    {fmtUsd(row.revenue * cohortSize)}
+                  </td>
+                  <td className="px-3 py-1.5 text-right text-slate-200">
+                    {fmtUsd(row.cumLtv)}
+                  </td>
+                  {showLtvCac && (
+                    <td className="px-3 py-1.5 text-right text-slate-200">
+                      {(row.cumLtv / cac).toFixed(2)}
+                    </td>
+                  )}
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>
