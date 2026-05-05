@@ -209,7 +209,7 @@ export default function CohortPL({ series, cohortSize, cac, beDay, horizon }) {
               strokeDasharray="5 5"
               label={{
                 value: `Acquisition cost ${fmtUsd(acquisitionCost)}`,
-                position: 'right',
+                position: 'insideTopRight',
                 fill: '#ef4444',
                 fontSize: 11,
               }}

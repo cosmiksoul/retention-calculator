@@ -147,7 +147,7 @@ export default function LTVChart({
                 strokeDasharray="5 5"
                 label={{
                   value: `CAC ${fmtUsd(cac)}`,
-                  position: 'right',
+                  position: 'insideTopRight',
                   fill: '#ef4444',
                   fontSize: 11,
                 }}
@@ -161,7 +161,7 @@ export default function LTVChart({
                 strokeDasharray="2 4"
                 label={{
                   value: `last data → D${lastUserT}`,
-                  position: 'top',
+                  position: 'insideTop',
                   fill: '#64748b',
                   fontSize: 10,
                 }}

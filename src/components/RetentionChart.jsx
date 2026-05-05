@@ -188,7 +188,7 @@ export default function RetentionChart({
                 strokeDasharray="2 4"
                 label={{
                   value: `last data → D${lastUserT}`,
-                  position: 'top',
+                  position: 'insideTop',
                   fill: '#64748b',
                   fontSize: 10,
                 }}
