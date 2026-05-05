@@ -1,0 +1,100 @@
+let counter = 0
+export const newPointId = () => `rp-${Date.now()}-${++counter}`
+
+export const DEFAULT_POINTS = [
+  { id: newPointId(), t: 1, percent: 40 },
+  { id: newPointId(), t: 7, percent: 20 },
+  { id: newPointId(), t: 14, percent: 15 },
+  { id: newPointId(), t: 30, percent: 10 },
+]
+
+const MAX_POINTS = 10
+
+const inputCls =
+  'rounded border border-slate-700 bg-bg-subtle px-2 py-1 text-sm tabular-nums ' +
+  'text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40'
+
+export default function RetentionInput({ points, onChange, errors }) {
+  const update = (id, patch) =>
+    onChange(points.map((p) => (p.id === id ? { ...p, ...patch } : p)))
+  const remove = (id) => onChange(points.filter((p) => p.id !== id))
+  const add = () => {
+    if (points.length >= MAX_POINTS) return
+    const sorted = [...points].sort((a, b) => a.t - b.t)
+    const lastT = sorted.length ? sorted[sorted.length - 1].t : 0
+    const lastPct = sorted.length ? sorted[sorted.length - 1].percent : 100
+    onChange([
+      ...points,
+      { id: newPointId(), t: lastT + 1, percent: Math.max(0, lastPct - 1) },
+    ])
+  }
+
+  const sorted = [...points].sort((a, b) => a.t - b.t)
+
+  return (
+    <div>
+      <div className="mb-2 flex items-center justify-between">
+        <label className="text-sm font-medium text-slate-300">
+          Retention points
+        </label>
+        <button
+          type="button"
+          onClick={add}
+          disabled={points.length >= MAX_POINTS}
+          className="text-xs text-cyan-400 disabled:cursor-not-allowed disabled:opacity-40 hover:text-cyan-300"
+        >
+          + Add point
+        </button>
+      </div>
+      <div className="space-y-1.5">
+        {sorted.map((p) => {
+          const err = errors?.get(p.id)
+          return (
+            <div key={p.id}>
+              <div className="flex items-center gap-2">
+                <span className="w-4 text-xs text-slate-500">D</span>
+                <input
+                  type="number"
+                  min="1"
+                  step="1"
+                  value={p.t}
+                  onChange={(e) =>
+                    update(p.id, { t: Number(e.target.value) })
+                  }
+                  className={`${inputCls} w-20`}
+                  aria-label="Period (day)"
+                />
+                <span className="text-slate-500">→</span>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.1"
+                  value={p.percent}
+                  onChange={(e) =>
+                    update(p.id, { percent: Number(e.target.value) })
+                  }
+                  className={`${inputCls} w-24`}
+                  aria-label="Retention %"
+                />
+                <span className="text-xs text-slate-500">%</span>
+                <button
+                  type="button"
+                  onClick={() => remove(p.id)}
+                  disabled={points.length <= 1}
+                  className="ml-auto text-base leading-none text-slate-500 disabled:opacity-30 hover:text-red-400"
+                  aria-label="Remove point"
+                >
+                  ×
+                </button>
+              </div>
+              {err && (
+                <div className="ml-6 mt-0.5 text-xs text-red-400">{err}</div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
