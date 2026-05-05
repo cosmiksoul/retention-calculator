@@ -612,7 +612,7 @@ export default function Calculator() {
             <SubscriptionInput
               state={subInput}
               cadence={cadence}
-              errors={subValidation.errors}
+              validation={subValidation}
               onPatch={(partial) =>
                 setSubInput((prev) => ({ ...prev, ...partial }))
               }

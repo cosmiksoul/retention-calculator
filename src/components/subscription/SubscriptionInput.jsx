@@ -1,9 +1,9 @@
 // Subscription mode input form. Renders four sub-blocks:
 //
 //   1. Funnel — install→trial and trial→paid percentages
-//   2. Retention checkpoints — M1/M3/M6/M12 in monthly, W1/W2/W4/W8/W12/W26
-//      in weekly. Fixed checkpoints per cadence (not user-extensible like
-//      v1's Manual input)
+//   2. Retention paying — cadence-seeded points (M1/M3/M6/M12 monthly,
+//      W1/W2/W4/W8/W12/W26 weekly) via the shared RetentionInput. User
+//      can edit values, add/remove points just like in session mode.
 //   3. Pricing & cohort — ARPU paid per cycle, CAC per install, cohort size
 //   4. Horizon — slider with cadence-aware range and unit
 //
@@ -11,6 +11,7 @@
 // and dispatches updates via an opaque `onPatch(partial)` callback.
 
 import HoverHint from '../HoverHint.jsx'
+import RetentionInput from '../RetentionInput.jsx'
 import { HORIZON_RANGE } from '../../lib/subscriptionInputs.js'
 
 const inputCls =
@@ -48,30 +49,27 @@ function NumberField({ label, value, onChange, suffix, error, tooltip, tooltipAl
  *   state: {
  *     installToTrial: number,
  *     trialToPaid: number,
- *     retention: Array<{t:number, percent:number|null}>,
+ *     retention: Array<{id:string, t:number, percent:number}>,
  *     arpuPaid: number,
  *     cac: number,
  *     cohortSize: number,
  *     horizon: number,
  *   },
  *   cadence: 'weekly'|'monthly',
- *   errors: Record<string,string>,
+ *   validation: {
+ *     errors: Record<string,string>,
+ *     byId: Map<string,string>,
+ *     retentionFormError: string|null,
+ *   },
  *   onPatch: (partial: Object) => void,
  * }} props
  */
-export default function SubscriptionInput({ state, cadence, errors, onPatch }) {
+export default function SubscriptionInput({ state, cadence, validation, onPatch }) {
   const isWeekly = cadence === 'weekly'
   const cycleWord = isWeekly ? 'week' : 'month'
   const cycleAbbr = isWeekly ? 'wk' : 'mo'
   const range = HORIZON_RANGE[cadence]
-
-  const updateRetention = (t, percent) => {
-    onPatch({
-      retention: state.retention.map((p) =>
-        p.t === t ? { ...p, percent } : p,
-      ),
-    })
-  }
+  const errors = validation.errors
 
   return (
     <div className="space-y-5">
@@ -126,56 +124,38 @@ export default function SubscriptionInput({ state, cadence, errors, onPatch }) {
 
       {/* Retention */}
       <div>
-        <div className="mb-2 flex items-center text-sm font-medium text-fg-muted">
-          <span>Retention (% paying)</span>
-          <HoverHint align="left">
-            <p>
-              Доля платящих юзеров, активных в данном {cycleWord}. {' '}
-              Считается от paying@0 (после trial-to-paid конверсии), не от
-              installs.
-            </p>
-            <p className="mt-1.5">
-              {isWeekly
-                ? 'Weekly cohort показывает W1/W2/W4/W8/W12/W26 — главная точка W1 (первый billing cycle), там виден «trial trap» pattern для weekly-плана.'
-                : 'Monthly cohort показывает M1/M3/M6/M12. Главная точка — M12 (annual renewal cliff).'}
-            </p>
-            <p className="mt-1.5">
-              Минимум 2 точки. Кривая должна быть монотонно убывающей.
-            </p>
-          </HoverHint>
-        </div>
-        <div className="grid grid-cols-2 gap-2">
-          {state.retention.map((p) => (
-            <div key={p.t} className="flex items-center gap-2">
-              <span className="w-10 shrink-0 text-xs uppercase tracking-wide text-fg-faint">
-                {isWeekly ? 'W' : 'M'}{p.t}
-              </span>
-              <input
-                type="number"
-                step="0.1"
-                min={0}
-                max={100}
-                value={p.percent ?? ''}
-                onChange={(e) => {
-                  const v = e.target.value
-                  updateRetention(p.t, v === '' ? null : Number(v))
-                }}
-                className={`${inputCls} w-full`}
-              />
-              <span className="text-xs text-fg-faint">%</span>
-            </div>
-          ))}
-        </div>
-        {errors.retention && (
-          <p className="mt-1 text-xs text-red-400">{errors.retention}</p>
+        <RetentionInput
+          points={state.retention}
+          onChange={(retention) => onPatch({ retention })}
+          errors={validation.byId}
+          cadence={cadence}
+          header={`Retention (% paying)`}
+          tooltip={
+            <HoverHint align="left">
+              <p>
+                Доля платящих юзеров, активных в данном {cycleWord}. {' '}
+                Считается от paying@0 (после trial-to-paid конверсии), не от
+                installs.
+              </p>
+              <p className="mt-1.5">
+                {isWeekly
+                  ? 'Weekly cohort: типичные точки W1/W2/W4/W8/W12/W26 — главная точка W1 (первый billing cycle), там виден «trial trap» pattern для weekly-плана.'
+                  : 'Monthly cohort: типичные точки M1/M3/M6/M12. Главная точка — M12 (annual renewal cliff).'}
+              </p>
+              <p className="mt-1.5">
+                Минимум 2 точки. Кривая должна быть монотонно убывающей.
+                Можно добавлять и удалять точки — дефолты лишь стартовая
+                сетка.
+              </p>
+            </HoverHint>
+          }
+          minPoints={2}
+        />
+        {validation.retentionFormError && (
+          <p className="mt-1 text-xs text-red-400">
+            {validation.retentionFormError}
+          </p>
         )}
-        {Object.entries(errors)
-          .filter(([k]) => k.startsWith('retention_'))
-          .map(([k, msg]) => (
-            <p key={k} className="mt-1 text-xs text-red-400">
-              {k.replace('retention_', isWeekly ? 'W' : 'M')}: {msg}
-            </p>
-          ))}
       </div>
 
       {/* Pricing & cohort */}
@@ -232,7 +212,7 @@ export default function SubscriptionInput({ state, cadence, errors, onPatch }) {
               </p>
             }
           />
-          <div className="block">
+          <div className="flex flex-col">
             <span className="mb-1 flex items-center text-sm font-medium text-fg-muted">
               <span>Horizon</span>
               <HoverHint align="right">
@@ -243,7 +223,7 @@ export default function SubscriptionInput({ state, cadence, errors, onPatch }) {
                 </p>
               </HoverHint>
             </span>
-            <div className="flex items-center gap-2">
+            <div className="flex flex-1 items-center gap-2 pr-2">
               <input
                 type="range"
                 min={range.min}
@@ -251,10 +231,10 @@ export default function SubscriptionInput({ state, cadence, errors, onPatch }) {
                 step={1}
                 value={state.horizon}
                 onChange={(e) => onPatch({ horizon: Number(e.target.value) })}
-                className="flex-1 accent-accent"
+                className="min-w-0 flex-1 accent-accent"
               />
-              <span className="w-14 text-right text-sm tabular-nums text-fg-strong">
-                {state.horizon} {cycleWord}s
+              <span className="shrink-0 text-right text-sm tabular-nums text-fg-strong">
+                {isWeekly ? 'W' : 'M'}{state.horizon}
               </span>
             </div>
             {errors.horizon && (

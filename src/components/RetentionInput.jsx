@@ -1,5 +1,12 @@
-let counter = 0
-export const newPointId = () => `rp-${Date.now()}-${++counter}`
+// Generic retention-points input. Shared by session mode (cadence='daily',
+// label prefix 'D') and subscription mode (cadence='weekly'|'monthly',
+// prefix 'W'/'M'). The math is cadence-agnostic — only the prefix label
+// and (optionally) the header copy differ. Add/remove/edit is enabled in
+// every mode; cadence-specific defaults seed the initial set of points.
+
+import { newPointId } from '../lib/idGen.js'
+
+export { newPointId }
 
 export const DEFAULT_POINTS = [
   { id: newPointId(), t: 1, percent: 40 },
@@ -10,11 +17,38 @@ export const DEFAULT_POINTS = [
 
 const MAX_POINTS = 10
 
+const PREFIX_BY_CADENCE = {
+  daily: 'D',
+  weekly: 'W',
+  monthly: 'M',
+}
+
 const inputCls =
   'rounded border border-line-strong bg-bg-subtle px-2 py-1 text-sm tabular-nums ' +
   'text-fg-strong focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/40'
 
-export default function RetentionInput({ points, onChange, errors }) {
+/**
+ * @param {{
+ *   points: Array<{id:string, t:number, percent:number}>,
+ *   onChange: (next: Array<{id:string, t:number, percent:number}>) => void,
+ *   errors?: Map<string, string>,
+ *   cadence?: 'daily'|'weekly'|'monthly',
+ *   header?: string,
+ *   tooltip?: import('react').ReactNode,
+ *   minPoints?: number,
+ * }} props
+ */
+export default function RetentionInput({
+  points,
+  onChange,
+  errors,
+  cadence = 'daily',
+  header = 'Retention points',
+  tooltip = null,
+  minPoints = 1,
+}) {
+  const prefix = PREFIX_BY_CADENCE[cadence] ?? 'D'
+
   const update = (id, patch) =>
     onChange(points.map((p) => (p.id === id ? { ...p, ...patch } : p)))
   const remove = (id) => onChange(points.filter((p) => p.id !== id))
@@ -34,9 +68,10 @@ export default function RetentionInput({ points, onChange, errors }) {
   return (
     <div>
       <div className="mb-2 flex items-center justify-between">
-        <label className="text-sm font-medium text-fg-muted">
-          Retention points
-        </label>
+        <span className="flex items-center text-sm font-medium text-fg-muted">
+          <span>{header}</span>
+          {tooltip}
+        </span>
         <button
           type="button"
           onClick={add}
@@ -52,7 +87,9 @@ export default function RetentionInput({ points, onChange, errors }) {
           return (
             <div key={p.id}>
               <div className="flex items-center gap-2">
-                <span className="w-4 text-xs text-fg-faint">D</span>
+                <span className="w-5 shrink-0 text-xs uppercase tracking-wide text-fg-faint">
+                  {prefix}
+                </span>
                 <input
                   type="number"
                   min="1"
@@ -61,8 +98,8 @@ export default function RetentionInput({ points, onChange, errors }) {
                   onChange={(e) =>
                     update(p.id, { t: Number(e.target.value) })
                   }
-                  className={`${inputCls} w-20`}
-                  aria-label="Period (day)"
+                  className={`${inputCls} w-16`}
+                  aria-label="Period"
                 />
                 <span className="text-fg-faint">→</span>
                 <input
@@ -81,7 +118,7 @@ export default function RetentionInput({ points, onChange, errors }) {
                 <button
                   type="button"
                   onClick={() => remove(p.id)}
-                  disabled={points.length <= 1}
+                  disabled={points.length <= minPoints}
                   className="ml-auto text-base leading-none text-fg-faint disabled:opacity-30 hover:text-red-400"
                   aria-label="Remove point"
                 >
@@ -89,7 +126,7 @@ export default function RetentionInput({ points, onChange, errors }) {
                 </button>
               </div>
               {err && (
-                <div className="ml-6 mt-0.5 text-xs text-red-400">{err}</div>
+                <div className="ml-7 mt-0.5 text-xs text-red-400">{err}</div>
               )}
             </div>
           )

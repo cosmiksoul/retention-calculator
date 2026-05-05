@@ -9,17 +9,33 @@
 // the design principle in §3.4: "одно и то же приложение нельзя
 // одновременно иметь разные значения в Weekly и Monthly". Stage 8 will
 // override defaults from a selected preset when one is available.
+//
+// Retention points carry stable ids so the shared RetentionInput component
+// can identify rows across edits / adds / removes (same shape as v1).
+
+import { newPointId } from './idGen.js'
+
+const RETENTION_DEFAULT_TS = {
+  monthly: [
+    { t: 1, percent: 50 },
+    { t: 3, percent: 32 },
+    { t: 6, percent: 22 },
+    { t: 12, percent: 12 },
+  ],
+  weekly: [
+    { t: 1, percent: 75 },
+    { t: 2, percent: 65 },
+    { t: 4, percent: 50 },
+    { t: 8, percent: 38 },
+    { t: 12, percent: 30 },
+    { t: 26, percent: 18 },
+  ],
+}
 
 export const SUBSCRIPTION_DEFAULTS = {
   monthly: {
     installToTrial: 8.6,
     trialToPaid: 35.0,
-    retention: [
-      { t: 1, percent: 50 },
-      { t: 3, percent: 32 },
-      { t: 6, percent: 22 },
-      { t: 12, percent: 12 },
-    ],
     arpuPaid: 12,
     cac: 2.1,
     cohortSize: 1000,
@@ -28,14 +44,6 @@ export const SUBSCRIPTION_DEFAULTS = {
   weekly: {
     installToTrial: 8.6,
     trialToPaid: 35.0,
-    retention: [
-      { t: 1, percent: 75 },
-      { t: 2, percent: 65 },
-      { t: 4, percent: 50 },
-      { t: 8, percent: 38 },
-      { t: 12, percent: 30 },
-      { t: 26, percent: 18 },
-    ],
     arpuPaid: 7.99,
     cac: 2.1,
     cohortSize: 1000,
@@ -49,24 +57,34 @@ export const HORIZON_RANGE = {
 }
 
 /**
- * Returns a fresh defaults object — shallow copy so callers don't mutate
- * the shared constant.
+ * Returns a fresh defaults object — retention rows get freshly minted ids
+ * so React keys don't collide across cadence switches.
  */
 export function defaultsFor(cadence) {
-  const src = SUBSCRIPTION_DEFAULTS[cadence] ?? SUBSCRIPTION_DEFAULTS.monthly
+  const scalars = SUBSCRIPTION_DEFAULTS[cadence] ?? SUBSCRIPTION_DEFAULTS.monthly
+  const tpl = RETENTION_DEFAULT_TS[cadence] ?? RETENTION_DEFAULT_TS.monthly
   return {
-    ...src,
-    retention: src.retention.map((p) => ({ ...p })),
+    ...scalars,
+    retention: tpl.map((p) => ({ id: newPointId(), ...p })),
   }
 }
 
 /**
- * Validates a subscription input state and returns per-field errors plus
- * an overall `valid` flag. Errors are keyed by field name (or by
- * `retention_<t>` for individual retention points).
+ * Validates a subscription input state.
+ *
+ * Mirrors the session validator's contract:
+ *   { valid, errors, byId, retentionFormError }
+ * where `errors` covers scalar fields and `byId`/`retentionFormError`
+ * cover the retention rows (so the shared RetentionInput component can
+ * surface per-row messages directly).
  *
  * @param {Object} state
- * @returns {{valid:boolean, errors:Record<string,string>}}
+ * @returns {{
+ *   valid: boolean,
+ *   errors: Record<string, string>,
+ *   byId: Map<string, string>,
+ *   retentionFormError: string|null,
+ * }}
  */
 export function validateSubscriptionInputs(state) {
   const errors = {}
@@ -95,23 +113,48 @@ export function validateSubscriptionInputs(state) {
     errors.horizon = 'Horizon must be ≥ 1'
   }
 
+  const byId = new Map()
   const points = Array.isArray(state.retention) ? state.retention : []
-  const filled = points.filter(
-    (p) => Number.isFinite(p.percent) && p.percent >= 0 && p.percent <= 100,
-  )
-  if (filled.length < 2) {
-    errors.retention = 'Need at least 2 retention points'
-  }
 
-  // Monotonic non-increasing across consecutive *filled* checkpoints.
-  let prev = null
   for (const p of points) {
-    if (!Number.isFinite(p.percent)) continue
-    if (prev != null && p.percent > prev + 1e-9) {
-      errors[`retention_${p.t}`] = 'Must be ≤ previous'
+    if (!(p.t > 0) || !Number.isInteger(p.t)) {
+      byId.set(p.id, 'Period must be a positive integer')
+      continue
     }
-    prev = p.percent
+    if (
+      !Number.isFinite(p.percent) ||
+      p.percent < 0 ||
+      p.percent > 100
+    ) {
+      byId.set(p.id, 'Retention must be 0–100%')
+    }
   }
 
-  return { errors, valid: Object.keys(errors).length === 0 }
+  const sorted = [...points].sort((a, b) => a.t - b.t)
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i].t === sorted[i - 1].t && !byId.has(sorted[i].id)) {
+      byId.set(sorted[i].id, 'Duplicate period')
+    }
+  }
+
+  // Monotonic non-increasing — only flag once basic per-row errors clear.
+  if (byId.size === 0) {
+    for (let i = 1; i < sorted.length; i++) {
+      if (sorted[i].percent > sorted[i - 1].percent) {
+        byId.set(sorted[i].id, 'Retention cannot grow over time')
+      }
+    }
+  }
+
+  let retentionFormError = null
+  if (points.length < 2) {
+    retentionFormError = 'Need at least 2 retention points'
+  }
+
+  const valid =
+    Object.keys(errors).length === 0 &&
+    byId.size === 0 &&
+    !retentionFormError
+
+  return { valid, errors, byId, retentionFormError }
 }
