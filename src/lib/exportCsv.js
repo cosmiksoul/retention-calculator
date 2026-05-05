@@ -138,3 +138,124 @@ export function buildFilename({ timestamp, presetLabel }) {
     : 'manual'
   return `ltv-${tsSafe}-${slug}.csv`
 }
+
+/**
+ * Subscription-mode CSV. Same metadata header pattern as buildCsv, but the
+ * inputs are funnel-shaped (i2t / t2p / arpu_paid) and the series carries
+ * paying users + cumulative LTV per install instead of per-user metrics.
+ *
+ * @param {{
+ *   timestamp: string,
+ *   cadence: 'weekly'|'monthly',
+ *   presetLabel: string|null,
+ *   forecastMode: 'pure'|'adjusted',
+ *   bandSigma: number,
+ *   inputs: {
+ *     installToTrial:number, trialToPaid:number,
+ *     arpuPaid:number, cac:number, cohortSize:number, horizon:number,
+ *   },
+ *   fit: {a:number, b:number, se:number, rSquared:number, n:number},
+ *   kpi: {
+ *     ltvPerInstall:number, ltvPerPayingUser:number,
+ *     ltvCacRatio:number|null, payback:number|null,
+ *     longTermAnchor:number, longTermRetention:number,
+ *   },
+ *   userPoints: Array<{t:number, percent:number}>,
+ *   series: Array<{
+ *     t:number, retention:number, payingUsers:number,
+ *     revenue:number, cumRevenue:number,
+ *     cumLtvPerInstall:number, cumLtvPerPayingUser:number,
+ *   }>,
+ * }} snapshot
+ * @returns {string}
+ */
+export function buildSubscriptionCsv(snapshot) {
+  const {
+    timestamp,
+    cadence,
+    presetLabel,
+    forecastMode,
+    bandSigma,
+    inputs,
+    fit,
+    kpi,
+    userPoints,
+    series,
+  } = snapshot
+
+  const cycleAbbr = cadence === 'weekly' ? 'W' : 'M'
+  const cycleWord = cadence === 'weekly' ? 'week' : 'month'
+  const userByT = new Map(userPoints.map((p) => [p.t, p.percent]))
+  const showRatio = inputs.cac > 0
+
+  const lines = []
+  lines.push(row('Retention & LTV Calculator export — Subscription mode'))
+  lines.push(row('Generated', timestamp))
+  lines.push(row('Cadence', cadence))
+  lines.push(row('Forecast mode', forecastMode === 'adjusted' ? 'industry-adjusted' : 'pure fit'))
+  if (presetLabel) lines.push(row('Preset', presetLabel))
+  lines.push(row('Confidence band', `±${bandSigma}σ`))
+  lines.push('')
+
+  lines.push(row('Inputs'))
+  lines.push(row('Install → Trial', '%', fmtN(inputs.installToTrial, 2)))
+  lines.push(row('Trial → Paid', '%', fmtN(inputs.trialToPaid, 2)))
+  lines.push(row('ARPU paid', `$/${cycleWord}`, fmtN(inputs.arpuPaid, 2)))
+  lines.push(row('CAC', '$ per install', fmtN(inputs.cac, 2)))
+  lines.push(row('Cohort size', 'installs', String(inputs.cohortSize)))
+  lines.push(row('Horizon', `${cycleWord}s`, String(inputs.horizon)))
+  lines.push('')
+
+  lines.push(row('Power-law fit'))
+  lines.push(row('a (intercept)', '', fmtN(fit.a, 6)))
+  lines.push(row('b (decay)', '', fmtN(fit.b, 6)))
+  lines.push(row('SE(b)', '', fmtN(fit.se, 6)))
+  lines.push(row('R²', '', fmtN(fit.rSquared, 4)))
+  lines.push(row('User points used', '', String(fit.n)))
+  lines.push('')
+
+  lines.push(row('KPIs'))
+  lines.push(row(`LTV / install @ ${cycleAbbr}${inputs.horizon}`, '$', fmtN(kpi.ltvPerInstall, 4)))
+  lines.push(row(`LTV / paying user @ ${cycleAbbr}${inputs.horizon}`, '$', fmtN(kpi.ltvPerPayingUser, 4)))
+  if (kpi.ltvCacRatio != null) {
+    lines.push(row('LTV / CAC', '', fmtN(kpi.ltvCacRatio, 3)))
+  }
+  if (kpi.payback != null) {
+    lines.push(row('Payback', `${cycleWord}s`, String(kpi.payback)))
+  }
+  lines.push(row(
+    `Retention @ ${cycleAbbr}${kpi.longTermAnchor}`,
+    '%',
+    fmtN(kpi.longTermRetention * 100, 2),
+  ))
+  lines.push('')
+
+  const headers = [
+    `${cycleWord.charAt(0).toUpperCase()}${cycleWord.slice(1)}`,
+    'Input retention (%)',
+    'Fit retention (%)',
+    'Active paying',
+    `Revenue / ${cycleWord} ($)`,
+    'Cum revenue ($)',
+    'Cum LTV / install ($)',
+    'Cum LTV / paying user ($)',
+  ]
+  if (showRatio) headers.push('LTV / CAC')
+  lines.push(row(`Per-${cycleWord} breakdown`))
+  lines.push(row(...headers))
+  for (const p of series) {
+    const cells = [
+      String(p.t),
+      userByT.has(p.t) ? fmtN(userByT.get(p.t), 2) : '',
+      fmtPct(p.retention),
+      String(Math.round(p.payingUsers)),
+      fmtN(p.revenue, 2),
+      fmtN(p.cumRevenue, 2),
+      fmtN(p.cumLtvPerInstall, 4),
+      fmtN(p.cumLtvPerPayingUser, 4),
+    ]
+    if (showRatio) cells.push(fmtN(p.cumLtvPerInstall / inputs.cac, 3))
+    lines.push(row(...cells))
+  }
+  return lines.join('\n')
+}

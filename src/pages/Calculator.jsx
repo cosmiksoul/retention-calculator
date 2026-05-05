@@ -34,7 +34,7 @@ import {
   validateRetentionPoints,
   validateNumericInputs,
 } from '../lib/validate.js'
-import { buildCsv, buildFilename } from '../lib/exportCsv.js'
+import { buildCsv, buildSubscriptionCsv, buildFilename } from '../lib/exportCsv.js'
 import { encodeState, decodeState, buildShareUrl } from '../lib/share.js'
 import {
   readInitialMode,
@@ -842,6 +842,55 @@ export default function Calculator() {
                     }`}
                   >
                     {shareCopied ? 'Copied ✓' : 'Copy share link'}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const ts = new Date().toISOString()
+                      const lastSeries =
+                        subModel.series[subModel.series.length - 1]
+                      const csv = buildSubscriptionCsv({
+                        timestamp: ts,
+                        cadence,
+                        presetLabel,
+                        forecastMode: adjustMode,
+                        bandSigma,
+                        inputs: {
+                          installToTrial: subInput.installToTrial,
+                          trialToPaid: subInput.trialToPaid,
+                          arpuPaid: subInput.arpuPaid,
+                          cac: subInput.cac,
+                          cohortSize: subInput.cohortSize,
+                          horizon: subInput.horizon,
+                        },
+                        fit: subModel.fit,
+                        kpi: {
+                          ltvPerInstall: lastSeries.cumLtvPerInstall,
+                          ltvPerPayingUser: lastSeries.cumLtvPerPayingUser,
+                          ltvCacRatio:
+                            subInput.cac > 0
+                              ? lastSeries.cumLtvPerInstall / subInput.cac
+                              : null,
+                          payback: subModel.payback,
+                          longTermAnchor: subModel.longTermAnchor,
+                          longTermRetention: subModel.longTermRetention,
+                        },
+                        userPoints: subInput.retention,
+                        series: subModel.series,
+                      })
+                      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+                      const url = URL.createObjectURL(blob)
+                      const a = document.createElement('a')
+                      a.href = url
+                      a.download = buildFilename({ timestamp: ts, presetLabel })
+                      document.body.appendChild(a)
+                      a.click()
+                      a.remove()
+                      URL.revokeObjectURL(url)
+                    }}
+                    className="rounded border border-line-strong bg-bg-subtle px-3 py-1.5 text-xs text-fg-muted transition-colors hover:border-accent/50 hover:text-accent-fg"
+                  >
+                    Download CSV
                   </button>
                 </div>
                 <PlanBadge
