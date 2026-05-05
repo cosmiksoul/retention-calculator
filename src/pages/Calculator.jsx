@@ -45,6 +45,8 @@ import {
 } from '../lib/modeState.js'
 import ModeToggle from '../components/ModeToggle.jsx'
 import BandSigmaToggle from '../components/BandSigmaToggle.jsx'
+import ExtrapolationBanner from '../components/ExtrapolationBanner.jsx'
+import PlanBadge from '../components/subscription/PlanBadge.jsx'
 import CadenceToggle from '../components/subscription/CadenceToggle.jsx'
 import SubscriptionInput from '../components/subscription/SubscriptionInput.jsx'
 import SubscriptionKPI from '../components/subscription/SubscriptionKPI.jsx'
@@ -205,20 +207,6 @@ function ForecastModeToggle({ mode, onChange, avgRatio }) {
   )
 }
 
-function ExtrapolationBanner({ level, lastUserT, horizon }) {
-  const cls =
-    level === 'severe'
-      ? 'border-red-700/50 bg-red-950/30 text-red-200'
-      : 'border-amber-700/50 bg-amber-950/30 text-amber-200'
-  const text =
-    level === 'severe'
-      ? `Forecast horizon (D${horizon}) is more than 10× past your last input point (D${lastUserT}). Results are indicative — add intermediate retention points or shorten the horizon.`
-      : `Forecast horizon (D${horizon}) is more than 3× past your last input point (D${lastUserT}). Treat the extrapolation with caution.`
-  return (
-    <div className={`rounded-lg border p-3 text-xs ${cls}`}>{text}</div>
-  )
-}
-
 const QUALITY_LABEL = {
   top_quartile: 'top quartile',
   median: 'median',
@@ -288,14 +276,48 @@ export default function Calculator() {
   }, [mode, cadence])
 
   // Subscription input state. Initialised from cadence-specific defaults;
-  // cadence switch resets to fresh defaults of the new cadence (per
-  // spec-v2 §3.4 design principle). Stage 8 will override on preset select.
+  // cadence switch resets to defaults (or to the preset's variant for the
+  // new cadence, when a preset is selected). Per spec-v2 §3.4 the form
+  // intentionally cannot hold simultaneous values for both cadences.
   const [subInput, setSubInput] = useState(() => defaultsFor(readInitialCadence()))
+  const [cadenceToast, setCadenceToast] = useState(null)
   const handleCadenceChange = (next) => {
     if (next === cadence) return
     setCadence(next)
-    setSubInput(defaultsFor(next))
+    // Re-seed inputs. If a subscription preset is selected and has data
+    // for the new cadence, use that variant; otherwise fall back to fresh
+    // cadence defaults.
+    const subsBundle = bundle?.subscription
+    const preset = subsBundle?.presets.find((p) => p.id === presetState.presetId)
+    const variant = preset?.variants[`${presetState.quality}|${presetState.geo}`]
+    const cadenceData =
+      variant && next === 'weekly' ? variant.weekly : variant?.monthly
+    if (cadenceData) {
+      const seeded = defaultsFor(next)
+      setSubInput({
+        ...seeded,
+        installToTrial: variant.installToTrial ?? seeded.installToTrial,
+        trialToPaid: variant.trialToPaid ?? seeded.trialToPaid,
+        retention: cadenceData.retentionPoints.map((p) => ({
+          id: newPointId(),
+          t: p.t,
+          percent: Math.round(p.r * 1000) / 10,
+        })),
+        arpuPaid: cadenceData.arpuPaid ?? seeded.arpuPaid,
+        cac: variant.cac ?? seeded.cac,
+      })
+      setCadenceToast(`Switched to ${next} cadence — repopulated from "${preset.label}".`)
+    } else {
+      setSubInput(defaultsFor(next))
+      setCadenceToast(`Switched to ${next} cadence — inputs reset to defaults.`)
+    }
   }
+  // Auto-dismiss the toast after a few seconds.
+  useEffect(() => {
+    if (!cadenceToast) return
+    const t = setTimeout(() => setCadenceToast(null), 4000)
+    return () => clearTimeout(t)
+  }, [cadenceToast])
   const subValidation = useMemo(
     () => validateSubscriptionInputs(subInput),
     [subInput],
@@ -406,6 +428,9 @@ export default function Calculator() {
       Math.min(predict(longTermAnchor, fit), r1),
     )
 
+    const lastUserT = retentionFractions[retentionFractions.length - 1].t
+    const extrap = extrapolationLevel(lastUserT, subInput.horizon)
+
     return {
       funnel,
       fit,
@@ -415,6 +440,8 @@ export default function Calculator() {
       longTermRetention,
       retentionBand: subRetentionBand,
       ltvBand: subLtvBandSeries,
+      lastUserT,
+      extrap,
       trialsStarted: subInput.cohortSize * (subInput.installToTrial / 100),
       payingAtZero: funnel.payingAtZero,
     }
@@ -727,6 +754,11 @@ export default function Calculator() {
             />
           </aside>
           <div className="space-y-5">
+            {cadenceToast && (
+              <div className="rounded-lg border border-accent/40 bg-accent-surface/40 p-3 text-sm text-accent-fg">
+                {cadenceToast}
+              </div>
+            )}
             {!subValidation.valid && (
               <div className="rounded-lg border border-amber-700/40 bg-amber-950/20 p-4 text-sm text-amber-200">
                 Fix the input panel to see the model output.
@@ -734,6 +766,20 @@ export default function Calculator() {
             )}
             {subModel && (
               <>
+                <PlanBadge
+                  dominantPlan={
+                    selectedPreset?.dominantPlan ?? null
+                  }
+                  cadence={cadence}
+                />
+                {subModel.extrap !== 'none' && (
+                  <ExtrapolationBanner
+                    level={subModel.extrap}
+                    lastUserT={subModel.lastUserT}
+                    horizon={subInput.horizon}
+                    cadence={cadence}
+                  />
+                )}
                 <SubscriptionKPI
                   ltvPerInstall={
                     subModel.series[subModel.series.length - 1].cumLtvPerInstall
