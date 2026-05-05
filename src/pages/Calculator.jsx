@@ -262,12 +262,23 @@ function safeBenchmarkFit(variant) {
 }
 
 export default function Calculator() {
+  // Read once — share-link decoding seeds initial state for both modes.
+  // Priority: share blob > URL ?mode=/?cadence= > localStorage > defaults.
+  const [shareInitial] = useState(readInitialFromUrl)
+
   // Mode + cadence — top-level dispatch between v1 (session retention,
   // daily scale) and v2 (subscription, weekly/monthly cadence). Initial
-  // values come from URL > localStorage > defaults; both round-trip back
-  // to URL on every change so a refresh keeps you in the same view.
-  const [mode, setMode] = useState(readInitialMode) // 'session' | 'subscription'
-  const [cadence, setCadence] = useState(readInitialCadence) // 'monthly' | 'weekly'
+  // values come from share > URL > localStorage > defaults; mode/cadence
+  // both round-trip back to URL on every change so a refresh keeps you in
+  // the same view.
+  const [mode, setMode] = useState(() =>
+    shareInitial?.mode === 'subscription' ? 'subscription' : readInitialMode(),
+  )
+  const [cadence, setCadence] = useState(() =>
+    shareInitial?.subInput
+      ? shareInitial.cadence
+      : readInitialCadence(),
+  )
 
   useEffect(() => {
     persistMode(mode)
@@ -279,7 +290,20 @@ export default function Calculator() {
   // cadence switch resets to defaults (or to the preset's variant for the
   // new cadence, when a preset is selected). Per spec-v2 §3.4 the form
   // intentionally cannot hold simultaneous values for both cadences.
-  const [subInput, setSubInput] = useState(() => defaultsFor(readInitialCadence()))
+  const [subInput, setSubInput] = useState(() => {
+    if (shareInitial?.subInput) {
+      // Share payload doesn't carry React keys; mint fresh ids per row.
+      return {
+        ...shareInitial.subInput,
+        retention: shareInitial.subInput.retention.map((p) => ({
+          id: newPointId(),
+          t: p.t,
+          percent: p.percent,
+        })),
+      }
+    }
+    return defaultsFor(shareInitial?.cadence ?? readInitialCadence())
+  })
   const [cadenceToast, setCadenceToast] = useState(null)
   const handleCadenceChange = (next) => {
     if (next === cadence) return
@@ -322,9 +346,6 @@ export default function Calculator() {
     () => validateSubscriptionInputs(subInput),
     [subInput],
   )
-
-  // Read once — share-link decoding seeds the initial state below.
-  const [shareInitial] = useState(readInitialFromUrl)
 
   const [points, setPoints] = useState(() =>
     shareInitial?.points?.length
@@ -766,6 +787,44 @@ export default function Calculator() {
             )}
             {subModel && (
               <>
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      const encoded = encodeState({
+                        mode,
+                        cadence,
+                        points,
+                        cohortSize,
+                        arpu,
+                        cacInput,
+                        horizon,
+                        presetState,
+                        adjustMode,
+                        bandSigma,
+                        subInput,
+                      })
+                      const url = buildShareUrl(
+                        encoded,
+                        window.location.origin + window.location.pathname,
+                      )
+                      try {
+                        await navigator.clipboard.writeText(url)
+                        setShareCopied(true)
+                        setTimeout(() => setShareCopied(false), 2000)
+                      } catch {
+                        window.prompt('Copy share link:', url)
+                      }
+                    }}
+                    className={`rounded border px-3 py-1.5 text-xs transition-colors ${
+                      shareCopied
+                        ? 'border-emerald-700/60 bg-emerald-950/40 text-emerald-300'
+                        : 'border-line-strong bg-bg-subtle text-fg-muted hover:border-accent/50 hover:text-accent-fg'
+                    }`}
+                  >
+                    {shareCopied ? 'Copied ✓' : 'Copy share link'}
+                  </button>
+                </div>
                 <PlanBadge
                   dominantPlan={
                     selectedPreset?.dominantPlan ?? null
@@ -1057,6 +1116,8 @@ export default function Calculator() {
                   type="button"
                   onClick={async () => {
                     const encoded = encodeState({
+                      mode,
+                      cadence,
                       points,
                       cohortSize,
                       arpu,
@@ -1065,6 +1126,7 @@ export default function Calculator() {
                       presetState,
                       adjustMode,
                       bandSigma,
+                      subInput: mode === 'subscription' ? subInput : null,
                     })
                     const url = buildShareUrl(
                       encoded,

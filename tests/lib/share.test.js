@@ -17,9 +17,41 @@ const sample = () => ({
 })
 
 describe('share encode/decode', () => {
-  it('round-trips a full state', () => {
+  it('round-trips a full session state with v2 mode/cadence defaults', () => {
     const decoded = decodeState(encodeState(sample()))
-    expect(decoded).toEqual(sample())
+    // v2 decoder always includes mode/cadence/subInput; session payloads
+    // get mode='session' and the cadence default 'monthly'.
+    expect(decoded).toEqual({
+      ...sample(),
+      mode: 'session',
+      cadence: 'monthly',
+      subInput: null,
+    })
+  })
+
+  it('round-trips a subscription state with subInput', () => {
+    const subSample = {
+      ...sample(),
+      mode: 'subscription',
+      cadence: 'weekly',
+      subInput: {
+        installToTrial: 8.6,
+        trialToPaid: 35,
+        retention: [
+          { t: 1, percent: 75 },
+          { t: 4, percent: 50 },
+          { t: 26, percent: 18 },
+        ],
+        arpuPaid: 7.99,
+        cac: 2.1,
+        cohortSize: 1000,
+        horizon: 26,
+      },
+    }
+    const decoded = decodeState(encodeState(subSample))
+    expect(decoded.mode).toBe('subscription')
+    expect(decoded.cadence).toBe('weekly')
+    expect(decoded.subInput).toEqual(subSample.subInput)
   })
 
   it('encodes empty/missing CAC as empty string back', () => {
