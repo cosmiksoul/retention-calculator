@@ -34,6 +34,7 @@ import {
   validateNumericInputs,
 } from '../lib/validate.js'
 import { buildCsv, buildFilename } from '../lib/exportCsv.js'
+import { encodeState, decodeState, buildShareUrl } from '../lib/share.js'
 
 const inputCls =
   'rounded border border-slate-700 bg-bg-subtle px-2 py-1 text-sm tabular-nums ' +
@@ -201,6 +202,19 @@ function downloadFile(content, filename, mime) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
+// Reads `?s=<encoded>` from the hash route on mount. Returns null when
+// no share token is present. Failures (malformed token / wrong version)
+// also produce null — the calc just falls back to its default state.
+function readInitialFromUrl() {
+  if (typeof window === 'undefined') return null
+  const hash = window.location.hash
+  const q = hash.indexOf('?')
+  if (q < 0) return null
+  const params = new URLSearchParams(hash.slice(q + 1))
+  const s = params.get('s')
+  return s ? decodeState(s) : null
+}
+
 function safeFit(points) {
   try {
     return fitPowerLaw(points.map((p) => ({ t: p.t, r: p.percent / 100 })))
@@ -219,25 +233,48 @@ function safeBenchmarkFit(variant) {
 }
 
 export default function Calculator() {
-  const [points, setPoints] = useState(DEFAULT_POINTS)
-  const [cohortSize, setCohortSize] = useState(1000)
-  const [arpu, setArpu] = useState(2)
-  const [cacInput, setCacInput] = useState('10')
-  const [horizon, setHorizon] = useState(180)
+  // Read once — share-link decoding seeds the initial state below.
+  const [shareInitial] = useState(readInitialFromUrl)
+
+  const [points, setPoints] = useState(() =>
+    shareInitial?.points?.length
+      ? shareInitial.points.map((p) => ({
+          id: newPointId(),
+          t: p.t,
+          percent: p.percent,
+        }))
+      : DEFAULT_POINTS,
+  )
+  const [cohortSize, setCohortSize] = useState(
+    () => shareInitial?.cohortSize ?? 1000,
+  )
+  const [arpu, setArpu] = useState(() => shareInitial?.arpu ?? 2)
+  const [cacInput, setCacInput] = useState(() =>
+    shareInitial?.cacInput != null ? shareInitial.cacInput : '10',
+  )
+  const [horizon, setHorizon] = useState(() => shareInitial?.horizon ?? 180)
 
   const [bundle, setBundle] = useState(null)
   const [bundleError, setBundleError] = useState(null)
-  const [presetState, setPresetState] = useState({
-    presetId: null,
-    quality: 'median',
-    geo: 'tier_1',
-  })
-  const [adjustMode, setAdjustMode] = useState('pure') // 'pure' | 'adjusted'
+  const [presetState, setPresetState] = useState(
+    () =>
+      shareInitial?.presetState ?? {
+        presetId: null,
+        quality: 'median',
+        geo: 'tier_1',
+      },
+  )
+  const [adjustMode, setAdjustMode] = useState(
+    () => shareInitial?.adjustMode ?? 'pure',
+  ) // 'pure' | 'adjusted'
   const [inputMode, setInputMode] = useState('manual') // 'manual' | 'paste' | 'dau'
   const [pasteText, setPasteText] = useState('')
   const [dauText, setDauText] = useState('')
   const [dauSmoothWindow, setDauSmoothWindow] = useState(0)
-  const [bandSigma, setBandSigma] = useState(1) // 1 ≈ 68%, 2 ≈ 95%
+  const [bandSigma, setBandSigma] = useState(
+    () => shareInitial?.bandSigma ?? 1,
+  ) // 1 ≈ 68%, 2 ≈ 95%
+  const [shareCopied, setShareCopied] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -252,6 +289,21 @@ export default function Calculator() {
       cancelled = true
     }
   }, [])
+
+  // Strip ?s=... from the URL bar after we've consumed it. Keeps subsequent
+  // share links from carrying a stale snapshot.
+  useEffect(() => {
+    if (!shareInitial) return
+    const hash = window.location.hash
+    const q = hash.indexOf('?')
+    if (q < 0) return
+    const cleaned = hash.slice(0, q) || '#/'
+    window.history.replaceState(
+      null,
+      '',
+      `${window.location.pathname}${window.location.search}${cleaned}`,
+    )
+  }, [shareInitial])
 
   const handlePresetChange = (next, variant) => {
     setPresetState(next)
@@ -557,7 +609,40 @@ export default function Calculator() {
 
           {allValid && fit && ltv && fitSeries && (
             <>
-              <div className="flex items-center justify-end">
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const encoded = encodeState({
+                      points,
+                      cohortSize,
+                      arpu,
+                      cacInput,
+                      horizon,
+                      presetState,
+                      adjustMode,
+                      bandSigma,
+                    })
+                    const url = buildShareUrl(
+                      encoded,
+                      window.location.origin + window.location.pathname,
+                    )
+                    try {
+                      await navigator.clipboard.writeText(url)
+                      setShareCopied(true)
+                      setTimeout(() => setShareCopied(false), 2000)
+                    } catch {
+                      window.prompt('Copy share link:', url)
+                    }
+                  }}
+                  className={`rounded border px-3 py-1.5 text-xs transition-colors ${
+                    shareCopied
+                      ? 'border-emerald-700/60 bg-emerald-950/40 text-emerald-300'
+                      : 'border-slate-700 bg-bg-subtle text-slate-300 hover:border-cyan-500/50 hover:text-cyan-300'
+                  }`}
+                >
+                  {shareCopied ? 'Copied ✓' : 'Copy share link'}
+                </button>
                 <button
                   type="button"
                   onClick={() => {
