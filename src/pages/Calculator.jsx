@@ -10,6 +10,7 @@ import DAUChart from '../components/DAUChart.jsx'
 import KPICards from '../components/KPICards.jsx'
 import RetentionChart from '../components/RetentionChart.jsx'
 import LTVChart from '../components/LTVChart.jsx'
+import RevenueChart from '../components/RevenueChart.jsx'
 import ResultsTable from '../components/ResultsTable.jsx'
 import CohortPL from '../components/CohortPL.jsx'
 import { parseCohortTable } from '../lib/parseCohort.js'
@@ -560,6 +561,11 @@ export default function Calculator() {
                 beDay={beDay}
                 horizon={horizon}
                 lastUserT={lastUserT}
+              />
+              <RevenueChart
+                series={ltv}
+                cohortSize={cohortSize}
+                horizon={horizon}
               />
               <ResultsTable
                 series={ltv}
