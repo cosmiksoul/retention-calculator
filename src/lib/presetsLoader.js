@@ -21,6 +21,16 @@ const ID_TO_ANCHOR = {
   fintech: '7-fintech--banking-apps',
 }
 
+const SUBS_ID_TO_ANCHOR = {
+  subs_utilities: '1-utilities-vpn-cleaners-scanners',
+  subs_lifestyle_wellness: '2-lifestyle--wellness',
+  subs_health_fitness: '3-health--fitness',
+  subs_photo_video: '4-photo--video-editors',
+  subs_language_learning: '5-language-learning',
+  subs_dating: '6-dating-apps',
+  subs_ai_companions: '7-ai-companions--chatbots',
+}
+
 function normalizeVariant(raw) {
   const retentionPct = { ...(raw.retention || {}) }
   const retentionPoints = Object.entries(retentionPct)
@@ -85,7 +95,92 @@ export function normalizePresetsBundle(data) {
     schemaVersion: data.$schema_version,
     lastUpdated: data.$last_updated,
     tierLegend: data.$tier_legend,
+    mode: 'session',
     presets: (data.presets || []).map(normalizePreset),
+  }
+}
+
+// Subscription preset shape is fundamentally different from session: each
+// variant carries funnel rates (install_to_trial, trial_to_paid), monthly
+// retention checkpoints (M1/M3/M6/M12), and OPTIONALLY weekly checkpoints
+// (W1/W2/W4/W8/W12/W26). Keep both retention sets so the calculator can
+// switch cadence without re-fetching, and surface display-only fields
+// (rpi_d14, examples) for the preset card.
+function normalizeSubscriptionVariant(raw) {
+  const monthlyRetention = { ...(raw.retention || {}) }
+  const monthlyPoints = Object.entries(monthlyRetention)
+    .map(([k, v]) => ({ t: parseInt(String(k).slice(1), 10), r: v / 100 }))
+    .filter((p) => Number.isFinite(p.t) && p.t > 0)
+    .sort((a, b) => a.t - b.t)
+
+  const weeklyRetention = raw.retention_weekly
+    ? { ...raw.retention_weekly }
+    : null
+  const weeklyPoints = weeklyRetention
+    ? Object.entries(weeklyRetention)
+        .map(([k, v]) => ({ t: parseInt(String(k).slice(1), 10), r: v / 100 }))
+        .filter((p) => Number.isFinite(p.t) && p.t > 0)
+        .sort((a, b) => a.t - b.t)
+    : null
+
+  return {
+    installToTrial: raw.install_to_trial ?? null,
+    trialToPaid: raw.trial_to_paid ?? null,
+    monthly: {
+      retention: monthlyRetention,
+      retentionPoints: monthlyPoints,
+      arpuPaid: raw.arpu_paid_monthly ?? null,
+    },
+    weekly: weeklyPoints
+      ? {
+          retention: weeklyRetention,
+          retentionPoints: weeklyPoints,
+          arpuPaid: raw.arpu_paid_weekly ?? null,
+        }
+      : null,
+    cac: raw.cpi_blended ?? raw.cpi_ios ?? raw.cpi_android ?? null,
+    display: {
+      rpi_d14: raw.rpi_d14,
+      rpi_d60: raw.rpi_d60,
+      arpu_paid_monthly: raw.arpu_paid_monthly,
+      arpu_paid_weekly: raw.arpu_paid_weekly,
+      cpi_ios: raw.cpi_ios,
+      cpi_android: raw.cpi_android,
+      cpi_blended: raw.cpi_blended,
+    },
+  }
+}
+
+function normalizeSubscriptionPreset(raw) {
+  const variants = {}
+  for (const [key, v] of Object.entries(raw.variants || {})) {
+    variants[key] = normalizeSubscriptionVariant(v)
+  }
+  return {
+    id: raw.id,
+    label: raw.label,
+    category: raw.category,
+    metricType: raw.metric_type,
+    dataQuality: raw.data_quality,
+    qualityWarning: raw.quality_warning,
+    dominantPlan: raw.dominant_plan,
+    weeklyDataStatus: raw.weekly_data_status ?? 'not_applicable',
+    examples: raw.examples ?? [],
+    methodologyAnchor: SUBS_ID_TO_ANCHOR[raw.id] ?? null,
+    variants,
+  }
+}
+
+/**
+ * Pure normalization step for subscription preset bundles.
+ * @param {object} data  parsed presets-subscription.json
+ */
+export function normalizeSubscriptionBundle(data) {
+  return {
+    schemaVersion: data.$schema_version,
+    lastUpdated: data.$last_updated,
+    mode: 'subscription',
+    presets: (data.presets || []).map(normalizeSubscriptionPreset),
   }
 }
 
@@ -101,4 +196,30 @@ export async function loadPresets(url = 'presets.json') {
   }
   const data = await resp.json()
   return normalizePresetsBundle(data)
+}
+
+/**
+ * Fetch presets-subscription.json and normalize. Mirrors loadPresets.
+ */
+export async function loadSubscriptionPresets(
+  url = 'presets-subscription.json',
+) {
+  const resp = await fetch(url)
+  if (!resp.ok) {
+    throw new Error(`loadSubscriptionPresets: HTTP ${resp.status}`)
+  }
+  const data = await resp.json()
+  return normalizeSubscriptionBundle(data)
+}
+
+/**
+ * Fetch both bundles in parallel. Returns `{session, subscription}` so the
+ * calculator has everything for the preset selector in one shot.
+ */
+export async function loadAllPresets(baseUrl = '') {
+  const [session, subscription] = await Promise.all([
+    loadPresets(`${baseUrl}presets.json`),
+    loadSubscriptionPresets(`${baseUrl}presets-subscription.json`),
+  ])
+  return { session, subscription }
 }

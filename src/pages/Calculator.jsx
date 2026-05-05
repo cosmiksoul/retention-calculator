@@ -21,7 +21,7 @@ import {
   reconstructDAU,
   validateDAUInput,
 } from '../lib/deconvolution.js'
-import { loadPresets } from '../lib/presetsLoader.js'
+import { loadAllPresets } from '../lib/presetsLoader.js'
 import {
   fitPowerLaw,
   retentionCurve,
@@ -429,7 +429,7 @@ export default function Calculator() {
 
   useEffect(() => {
     let cancelled = false
-    loadPresets(`${import.meta.env.BASE_URL}presets.json`)
+    loadAllPresets(import.meta.env.BASE_URL)
       .then((b) => {
         if (!cancelled) setBundle(b)
       })
@@ -456,9 +456,45 @@ export default function Calculator() {
     )
   }, [shareInitial])
 
-  const handlePresetChange = (next, variant) => {
+  const handlePresetChange = (next, variant, meta = {}) => {
     setPresetState(next)
     if (!variant) return
+
+    const presetMode = meta.mode
+    if (presetMode === 'subscription') {
+      // Auto-switch to Subscription mode and pick the cadence the preset
+      // actually has data for. weekly is preferred when both exist AND
+      // dominant_plan is weekly; otherwise stick with monthly.
+      setMode('subscription')
+      const hasWeekly = !!variant.weekly
+      const dominantWeekly =
+        meta.preset?.dominantPlan === 'weekly' ||
+        meta.preset?.dominantPlan === 'monthly_with_some_weekly'
+      const targetCadence = hasWeekly && dominantWeekly ? 'weekly' : 'monthly'
+      setCadence(targetCadence)
+
+      const cadenceVariant =
+        targetCadence === 'weekly' && variant.weekly
+          ? variant.weekly
+          : variant.monthly
+      const seeded = defaultsFor(targetCadence)
+      setSubInput({
+        ...seeded,
+        installToTrial: variant.installToTrial ?? seeded.installToTrial,
+        trialToPaid: variant.trialToPaid ?? seeded.trialToPaid,
+        retention: cadenceVariant.retentionPoints.map((p) => ({
+          id: newPointId(),
+          t: p.t,
+          percent: Math.round(p.r * 1000) / 10,
+        })),
+        arpuPaid: cadenceVariant.arpuPaid ?? seeded.arpuPaid,
+        cac: variant.cac ?? seeded.cac,
+      })
+      return
+    }
+
+    // Session preset: existing behavior.
+    setMode('session')
     setPoints(
       variant.retentionPoints.map((p) => ({
         id: newPointId(),
@@ -552,13 +588,14 @@ export default function Calculator() {
   )
   const allValid = pointErrors.valid && numericErrors.valid
 
-  const selectedPreset = useMemo(
-    () =>
-      bundle && presetState.presetId
-        ? bundle.presets.find((p) => p.id === presetState.presetId)
-        : null,
-    [bundle, presetState.presetId],
-  )
+  const selectedPreset = useMemo(() => {
+    if (!bundle || !presetState.presetId) return null
+    return (
+      bundle.session?.presets.find((p) => p.id === presetState.presetId) ??
+      bundle.subscription?.presets.find((p) => p.id === presetState.presetId) ??
+      null
+    )
+  }, [bundle, presetState.presetId])
   const presetLabel = selectedPreset
     ? presetLabelFor(selectedPreset, presetState)
     : null
@@ -650,7 +687,29 @@ export default function Calculator() {
       {mode === 'subscription' && (
         <div className="grid gap-8 lg:grid-cols-[360px,minmax(0,1fr)]">
           <aside className="space-y-5 rounded-lg border border-line bg-bg-elev/40 p-4">
-            <CadenceToggle value={cadence} onChange={handleCadenceChange} />
+            {bundleError && (
+              <div className="rounded border border-red-900/50 bg-red-950/40 p-2 text-xs text-red-300">
+                Failed to load presets: {bundleError}
+              </div>
+            )}
+            <PresetSelector
+              bundles={bundle}
+              value={presetState}
+              onChange={handlePresetChange}
+            />
+            <CadenceToggle
+              value={cadence}
+              onChange={handleCadenceChange}
+              disabled={
+                selectedPreset?.weeklyDataStatus != null &&
+                selectedPreset.weeklyDataStatus === 'not_applicable'
+              }
+              disabledReason={
+                selectedPreset?.weeklyDataStatus === 'not_applicable'
+                  ? 'No weekly cohort data for this preset; switch to Custom to use Weekly cadence manually.'
+                  : null
+              }
+            />
             <SubscriptionInput
               state={subInput}
               cadence={cadence}
@@ -745,7 +804,7 @@ export default function Calculator() {
           )}
 
           <PresetSelector
-            bundle={bundle}
+            bundles={bundle}
             value={presetState}
             onChange={handlePresetChange}
           />
