@@ -41,6 +41,13 @@ const inputCls =
   'rounded border border-line-strong bg-bg-subtle px-2 py-1 text-sm tabular-nums ' +
   'text-fg-strong focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/40'
 
+function fmtMoney(v) {
+  if (!Number.isFinite(v)) return '—'
+  if (Math.abs(v) >= 1000) return `$${v.toFixed(0)}`
+  if (Math.abs(v) >= 10) return `$${v.toFixed(1)}`
+  return `$${v.toFixed(2)}`
+}
+
 function NumberField({ label, value, onChange, hint, error, min, step, suffix, ru, tooltip, tooltipAlign = 'left' }) {
   return (
     <label className="block">
@@ -334,6 +341,11 @@ export default function Calculator() {
     () => shareInitial?.bandSigma ?? 1,
   ) // 1 ≈ 68%, 2 ≈ 95%
   const [shareCopied, setShareCopied] = useState(false)
+  // Frozen snapshot of the current outputs — pinned via the "Pin as baseline"
+  // button. The live calculator becomes the comparison; charts overlay the
+  // baseline as a faded dashed line and KPI cards show Δ from baseline.
+  // Shape: { summary, fitSeries, ltv, ltvAtHorizon, beDay, ratio, horizon }
+  const [baseline, setBaseline] = useState(null)
 
   useEffect(() => {
     let cancelled = false
@@ -728,6 +740,40 @@ export default function Calculator() {
               <div className="flex items-center justify-end gap-2">
                 <button
                   type="button"
+                  onClick={() => {
+                    if (baseline) {
+                      setBaseline(null)
+                      return
+                    }
+                    const presetLabel = presetLabelFor(selectedPreset, presetState)
+                    setBaseline({
+                      fitSeries: fitSeries.map((p) => ({ t: p.t, r: p.r })),
+                      ltv: ltv.map((p) => ({
+                        t: p.t,
+                        cumLtv: p.cumLtv,
+                        revenue: p.revenue,
+                      })),
+                      ltvAtHorizon,
+                      beDay,
+                      ratio: cac != null && cac > 0 ? ltvAtHorizon / cac : null,
+                      rSquared: fit.rSquared,
+                      horizon,
+                      cohortSize,
+                      cac,
+                      arpu,
+                      presetLabel: presetLabel ?? 'Custom',
+                    })
+                  }}
+                  className={`rounded border px-3 py-1.5 text-xs transition-colors ${
+                    baseline
+                      ? 'border-accent/60 bg-accent-surface/30 text-accent-fg hover:border-accent'
+                      : 'border-line-strong bg-bg-subtle text-fg-muted hover:border-accent/50 hover:text-accent-fg'
+                  }`}
+                >
+                  {baseline ? '× Clear baseline' : '📌 Pin as baseline'}
+                </button>
+                <button
+                  type="button"
                   onClick={async () => {
                     const encoded = encodeState({
                       points,
@@ -803,12 +849,49 @@ export default function Calculator() {
                   Download CSV
                 </button>
               </div>
+              {baseline && (
+                <div className="relative rounded border border-accent/40 bg-accent-surface/20 py-2 pl-3 pr-8 text-xs">
+                  <div className="flex items-baseline gap-x-2 overflow-x-auto whitespace-nowrap tabular-nums">
+                    <span className="text-fg-faint">📌 Baseline</span>
+                    {[
+                      ['ARPU', `$${baseline.arpu}`],
+                      ['CAC', baseline.cac != null ? `$${baseline.cac}` : '—'],
+                      ['Preset', baseline.presetLabel],
+                      ['Horizon', `D${baseline.horizon}`],
+                      ['LTV', fmtMoney(baseline.ltvAtHorizon)],
+                      ['R²', Number.isFinite(baseline.rSquared) ? baseline.rSquared.toFixed(3) : '—'],
+                      ['BE', baseline.beDay != null ? `D${baseline.beDay}` : 'not reached'],
+                      ...(baseline.ratio != null
+                        ? [['LTV/CAC', baseline.ratio.toFixed(2)]]
+                        : []),
+                      ...(baseline.cac != null && baseline.cac > 0
+                        ? [['Payback', baseline.beDay != null ? `${baseline.beDay}d` : '—']]
+                        : []),
+                    ].map(([label, value]) => (
+                      <span key={label} className="flex items-baseline gap-1">
+                        <span className="text-fg-faint">·</span>
+                        <span className="text-fg-faint">{label}</span>
+                        <span className="text-fg">{value}</span>
+                      </span>
+                    ))}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setBaseline(null)}
+                    aria-label="Clear baseline"
+                    className="absolute right-2 top-1.5 text-fg-faint transition-colors hover:text-fg"
+                  >
+                    ×
+                  </button>
+                </div>
+              )}
               <KPICards
                 ltvAtHorizon={ltvAtHorizon}
                 horizon={horizon}
                 rSquared={fit.rSquared}
                 beDay={beDay}
                 cac={cac}
+                baseline={baseline}
               />
               {extrap !== 'none' && (
                 <ExtrapolationBanner level={extrap} lastUserT={lastUserT} horizon={horizon} />
@@ -821,6 +904,7 @@ export default function Calculator() {
                 bandSeries={retBand}
                 bandSigma={bandSigma}
                 benchmarkSeries={benchmarkSeries}
+                baselineSeries={baseline?.fitSeries}
                 horizon={horizon}
                 lastUserT={lastUserT}
               />
@@ -832,11 +916,14 @@ export default function Calculator() {
                 beDay={beDay}
                 horizon={horizon}
                 lastUserT={lastUserT}
+                baselineSeries={baseline?.ltv}
               />
               <RevenueChart
                 series={ltv}
                 cohortSize={cohortSize}
                 horizon={horizon}
+                baselineSeries={baseline?.ltv}
+                baselineCohortSize={baseline?.cohortSize}
               />
               <ResultsTable
                 series={ltv}
@@ -852,6 +939,8 @@ export default function Calculator() {
                   cac={cac}
                   beDay={beDay}
                   horizon={horizon}
+                  baselineSeries={baseline?.ltv}
+                  baselineCohortSize={baseline?.cohortSize}
                 />
               ) : (
                 <div className="rounded-lg border border-dashed border-line p-4 text-xs text-fg-faint">

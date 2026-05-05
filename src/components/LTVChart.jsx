@@ -24,6 +24,7 @@ function CustomTooltip({ active, payload, label, cac, bandSigma }) {
   if (!active || !payload || !payload.length) return null
   const ltvP = payload.find((p) => p.dataKey === 'cumLtv')
   const bandP = payload.find((p) => p.dataKey === 'band')
+  const baselineP = payload.find((p) => p.dataKey === 'baseline')
   const ltv = ltvP?.value
   return (
     <div className="rounded border border-line-strong bg-bg-elev/95 px-3 py-2 text-xs">
@@ -32,6 +33,14 @@ function CustomTooltip({ active, payload, label, cac, bandSigma }) {
         <span className="text-fg-dim">Cum LTV</span>
         <span className="ml-auto tabular-nums text-fg">{fmtUsd(ltv)}</span>
       </div>
+      {baselineP && baselineP.value != null && (
+        <div className="flex items-center gap-2">
+          <span className="text-fg-dim">Baseline</span>
+          <span className="ml-auto tabular-nums" style={{ color: 'rgb(234 179 8)' }}>
+            {fmtUsd(baselineP.value)}
+          </span>
+        </div>
+      )}
       {bandP && Array.isArray(bandP.value) && (
         <div className="flex items-center gap-2">
           <span className="text-fg-dim">±{bandSigma}σ</span>
@@ -75,16 +84,24 @@ export default function LTVChart({
   beDay,
   horizon,
   lastUserT,
+  baselineSeries,
 }) {
   const colors = useThemeColors()
+  const baselineByT = baselineSeries
+    ? new Map(baselineSeries.map((p) => [p.t, p.cumLtv]))
+    : null
   const data = series.map((p, i) => ({
     t: p.t,
     cumLtv: p.cumLtv,
     band: bandSeries ? [bandSeries[i].lower, bandSeries[i].upper] : null,
+    baseline: baselineByT?.get(p.t) ?? null,
   }))
   const maxLtv = data.length ? data[data.length - 1].cumLtv : 0
   const maxBandUpper = bandSeries ? bandSeries[bandSeries.length - 1].upper : maxLtv
-  const yTop = Math.max(maxLtv, maxBandUpper, cac ?? 0)
+  const maxBaseline = baselineSeries
+    ? Math.max(...baselineSeries.map((p) => p.cumLtv))
+    : 0
+  const yTop = Math.max(maxLtv, maxBandUpper, maxBaseline, cac ?? 0)
   const yMax = yTop * 1.1
 
   return (
@@ -192,6 +209,18 @@ export default function LTVChart({
               dot={false}
               isAnimationActive={false}
             />
+            {baselineSeries && (
+              <Line
+                type="monotone"
+                dataKey="baseline"
+                name="Baseline"
+                stroke={colors.baseline}
+                strokeWidth={2}
+                strokeDasharray="6 4"
+                dot={false}
+                isAnimationActive={false}
+              />
+            )}
           </ComposedChart>
         </ResponsiveContainer>
       </div>

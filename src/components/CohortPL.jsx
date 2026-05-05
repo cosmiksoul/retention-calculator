@@ -1,7 +1,8 @@
 import {
   ResponsiveContainer,
-  AreaChart,
+  ComposedChart,
   Area,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -28,7 +29,9 @@ function fmtPct(v) {
 
 function CustomTooltip({ active, payload, label, acquisitionCost }) {
   if (!active || !payload || !payload.length) return null
-  const cum = payload[0]?.value ?? 0
+  const cumP = payload.find((p) => p.dataKey === 'cumRevenue')
+  const baselineP = payload.find((p) => p.dataKey === 'baseline')
+  const cum = cumP?.value ?? 0
   const profit = cum - acquisitionCost
   return (
     <div className="rounded border border-line-strong bg-bg-elev/95 px-3 py-2 text-xs">
@@ -39,6 +42,14 @@ function CustomTooltip({ active, payload, label, acquisitionCost }) {
           {fmtUsd(cum)}
         </span>
       </div>
+      {baselineP && baselineP.value != null && (
+        <div className="flex items-center gap-3">
+          <span className="text-fg-dim">Baseline</span>
+          <span className="ml-auto tabular-nums" style={{ color: 'rgb(234 179 8)' }}>
+            {fmtUsd(baselineP.value)}
+          </span>
+        </div>
+      )}
       <div className="flex items-center gap-3">
         <span className="text-fg-dim">vs acquisition cost</span>
         <span
@@ -63,7 +74,15 @@ function CustomTooltip({ active, payload, label, acquisitionCost }) {
  *   horizon: number,
  * }} props
  */
-export default function CohortPL({ series, cohortSize, cac, beDay, horizon }) {
+export default function CohortPL({
+  series,
+  cohortSize,
+  cac,
+  beDay,
+  horizon,
+  baselineSeries,
+  baselineCohortSize,
+}) {
   const colors = useThemeColors()
   const acquisitionCost = cohortSize * cac
   const revenueAtHorizon = series[series.length - 1].cumLtv * cohortSize
@@ -72,12 +91,20 @@ export default function CohortPL({ series, cohortSize, cac, beDay, horizon }) {
   const profit = revenueAtHorizon - acquisitionCost
   const roi = acquisitionCost > 0 ? profit / acquisitionCost : null
 
+  const baselineByT =
+    baselineSeries && baselineCohortSize != null
+      ? new Map(baselineSeries.map((p) => [p.t, p.cumLtv * baselineCohortSize]))
+      : null
   const chartData = series.map((p) => ({
     t: p.t,
     cumRevenue: p.cumLtv * cohortSize,
+    baseline: baselineByT?.get(p.t) ?? null,
   }))
 
-  const yMax = Math.max(revenueAtHorizon, acquisitionCost) * 1.1
+  const baselineMax = baselineByT
+    ? Math.max(...baselineByT.values())
+    : 0
+  const yMax = Math.max(revenueAtHorizon, acquisitionCost, baselineMax) * 1.1
 
   const rows = [
     {
@@ -173,7 +200,7 @@ export default function CohortPL({ series, cohortSize, cac, beDay, horizon }) {
 
       <div className="h-56 w-full">
         <ResponsiveContainer>
-          <AreaChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+          <ComposedChart data={chartData} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
             <defs>
               <linearGradient id="revFill" x1="0" y1="0" x2="0" y2="1">
                 <stop offset="0%" stopColor={colors.line} stopOpacity={0.4} />
@@ -242,7 +269,19 @@ export default function CohortPL({ series, cohortSize, cac, beDay, horizon }) {
               fill="url(#revFill)"
               isAnimationActive={false}
             />
-          </AreaChart>
+            {baselineByT && (
+              <Line
+                type="monotone"
+                dataKey="baseline"
+                name="Baseline"
+                stroke={colors.baseline}
+                strokeWidth={2}
+                strokeDasharray="6 4"
+                dot={false}
+                isAnimationActive={false}
+              />
+            )}
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>

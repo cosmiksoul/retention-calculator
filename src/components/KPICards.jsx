@@ -20,7 +20,7 @@ function ltvCacTone(ratio) {
   return 'text-red-400'
 }
 
-function Card({ label, value, hint, tooltip, tooltipAlign = 'left', tone = 'text-fg-strong' }) {
+function Card({ label, value, hint, tooltip, tooltipAlign = 'left', tone = 'text-fg-strong', delta }) {
   return (
     <div className="rounded-lg border border-line bg-bg-elev/50 px-4 py-3">
       <div className="flex items-center whitespace-nowrap text-xs uppercase tracking-wide text-fg-faint">
@@ -30,9 +30,50 @@ function Card({ label, value, hint, tooltip, tooltipAlign = 'left', tone = 'text
       <div className={`mt-1 text-2xl font-semibold tabular-nums ${tone}`}>
         {value}
       </div>
-      {hint && <div className="mt-0.5 text-xs text-fg-faint">{hint}</div>}
+      {delta && (
+        <div className={`mt-0.5 text-xs tabular-nums ${delta.tone}`}>
+          {delta.text}
+        </div>
+      )}
+      {hint && !delta && <div className="mt-0.5 text-xs text-fg-faint">{hint}</div>}
     </div>
   )
+}
+
+function pctDelta(current, base, { higherIsBetter }) {
+  if (
+    !Number.isFinite(current) ||
+    !Number.isFinite(base) ||
+    base === 0
+  ) {
+    return null
+  }
+  const pct = ((current - base) / base) * 100
+  if (Math.abs(pct) < 0.05) {
+    return { text: '= baseline', tone: 'text-fg-faint' }
+  }
+  const sign = pct > 0 ? '+' : ''
+  const better = higherIsBetter ? pct > 0 : pct < 0
+  const tone = better ? 'text-emerald-300' : 'text-red-400'
+  return { text: `${sign}${pct.toFixed(1)}% vs baseline`, tone }
+}
+
+function dayDelta(current, base, { lowerIsBetter }) {
+  if (current == null && base == null) return null
+  if (current == null && base != null) {
+    return { text: 'Not reached vs baseline', tone: 'text-red-400' }
+  }
+  if (current != null && base == null) {
+    return { text: 'reached vs N/A', tone: 'text-emerald-300' }
+  }
+  const diff = current - base
+  if (diff === 0) {
+    return { text: '= baseline', tone: 'text-fg-faint' }
+  }
+  const sign = diff > 0 ? '+' : ''
+  const better = lowerIsBetter ? diff < 0 : diff > 0
+  const tone = better ? 'text-emerald-300' : 'text-red-400'
+  return { text: `${sign}${diff}d vs baseline`, tone }
 }
 
 /**
@@ -50,10 +91,19 @@ export default function KPICards({
   rSquared,
   beDay,
   cac,
+  baseline,
 }) {
   const r2 = rsqTone(rSquared)
   const showCacCards = cac != null && cac > 0
   const ratio = showCacCards ? ltvAtHorizon / cac : null
+  const ltvDelta = baseline
+    ? pctDelta(ltvAtHorizon, baseline.ltvAtHorizon, { higherIsBetter: true })
+    : null
+  const ratioDelta =
+    baseline && ratio != null && baseline.ratio != null
+      ? pctDelta(ratio, baseline.ratio, { higherIsBetter: true })
+      : null
+  const beDelta = baseline ? dayDelta(beDay, baseline.beDay, { lowerIsBetter: true }) : null
 
   return (
     <div
@@ -67,6 +117,7 @@ export default function KPICards({
         label="Predicted LTV"
         value={fmtUsd(ltvAtHorizon)}
         hint="per acquired user"
+        delta={ltvDelta}
         tooltip={
           <>
             <p>
@@ -109,6 +160,7 @@ export default function KPICards({
             value={beDay != null ? `Day ${beDay}` : 'Not reached'}
             hint={beDay != null ? `at horizon D${horizon}` : `LTV < CAC at D${horizon}`}
             tone={beDay != null ? 'text-fg-strong' : 'text-amber-300'}
+            delta={beDelta}
             tooltip={
               <>
                 <p>
@@ -136,6 +188,7 @@ export default function KPICards({
                 : 'unprofitable'
             }
             tone={ltvCacTone(ratio)}
+            delta={ratioDelta}
             tooltip={
               <>
                 <p>
@@ -156,6 +209,7 @@ export default function KPICards({
             label="Payback"
             value={beDay != null ? `${beDay}d` : '—'}
             tooltipAlign="right"
+            delta={beDelta}
             tooltip={
               <>
                 <p>

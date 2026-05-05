@@ -17,6 +17,7 @@ const CHART_TOKENS = [
   'user',
   'cac',
   'recon',
+  'baseline',
 ]
 
 function readColors() {
@@ -30,6 +31,7 @@ function readColors() {
       user: '#22d3ee',
       cac: '#ef4444',
       recon: '#22c55e',
+      baseline: '#eab308',
       fgFaint: 'rgb(100 116 139)',
       fgDisabled: 'rgb(71 85 105)',
     }
@@ -57,6 +59,7 @@ function readColors() {
  *   user: string,
  *   cac: string,
  *   recon: string,
+ *   baseline: string,
  *   fgFaint: string,
  *   fgDisabled: string,
  * }}
@@ -65,6 +68,11 @@ export function useThemeColors() {
   const [colors, setColors] = useState(readColors)
 
   useEffect(() => {
+    // Re-read once after mount — `useState(readColors)` runs during render,
+    // and on the very first paint `getComputedStyle` can return empty strings
+    // for custom properties before the stylesheet is attached. Calling it
+    // again here guarantees we always have hex/rgb values for Recharts.
+    setColors(readColors())
     const root = document.documentElement
     const observer = new MutationObserver(() => setColors(readColors()))
     observer.observe(root, {

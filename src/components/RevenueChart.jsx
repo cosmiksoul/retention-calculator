@@ -9,8 +9,9 @@
 
 import {
   ResponsiveContainer,
-  BarChart,
+  ComposedChart,
   Bar,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -39,6 +40,14 @@ function CustomTooltip({ active, payload }) {
           {fmtUsd(p.revenue)}
         </span>
       </div>
+      {p.baseline != null && (
+        <div className="flex items-center gap-3">
+          <span className="text-fg-dim">Baseline</span>
+          <span className="ml-auto tabular-nums" style={{ color: 'rgb(234 179 8)' }}>
+            {fmtUsd(p.baseline)}
+          </span>
+        </div>
+      )}
       <div className="flex items-center gap-3">
         <span className="text-fg-dim">Share</span>
         <span className="ml-auto tabular-nums text-fg-muted">
@@ -56,15 +65,29 @@ function CustomTooltip({ active, payload }) {
  *   horizon: number,
  * }} props
  */
-export default function RevenueChart({ series, cohortSize, horizon }) {
+export default function RevenueChart({
+  series,
+  cohortSize,
+  horizon,
+  baselineSeries,
+  baselineCohortSize,
+}) {
   const colors = useThemeColors()
   const buckets = bucketRevenue(series, horizon)
   const totalPerUser = buckets.reduce((s, b) => s + b.revenue, 0)
   const totalCohort = totalPerUser * cohortSize
-  const data = buckets.map((b) => ({
+  const baselineBuckets =
+    baselineSeries && baselineCohortSize != null
+      ? bucketRevenue(baselineSeries, horizon)
+      : null
+  const data = buckets.map((b, i) => ({
     label: b.label,
     revenue: b.revenue * cohortSize,
     pct: totalPerUser > 0 ? (b.revenue / totalPerUser) * 100 : 0,
+    baseline:
+      baselineBuckets && baselineBuckets[i]
+        ? baselineBuckets[i].revenue * baselineCohortSize
+        : null,
   }))
 
   return (
@@ -95,7 +118,7 @@ export default function RevenueChart({ series, cohortSize, horizon }) {
       </div>
       <div className="h-56 w-full">
         <ResponsiveContainer>
-          <BarChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+          <ComposedChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
             <CartesianGrid stroke={colors.grid} strokeDasharray="3 3" vertical={false} />
             <XAxis
               dataKey="label"
@@ -115,7 +138,19 @@ export default function RevenueChart({ series, cohortSize, horizon }) {
               isAnimationActive={false}
               radius={[2, 2, 0, 0]}
             />
-          </BarChart>
+            {baselineBuckets && (
+              <Line
+                type="monotone"
+                dataKey="baseline"
+                name="Baseline"
+                stroke={colors.baseline}
+                strokeWidth={2}
+                strokeDasharray="6 4"
+                dot={{ r: 3, fill: colors.baseline, stroke: colors.baseline }}
+                isAnimationActive={false}
+              />
+            )}
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>

@@ -41,6 +41,7 @@
   --c-chart-user: #22d3ee;
   --c-chart-cac: #ef4444;
   --c-chart-recon: #22c55e;
+  --c-chart-baseline: #eab308;  /* amber-500 — neutral yellow for pinned baseline */
 }
 
 [data-theme='light'] {
@@ -71,6 +72,7 @@
   --c-chart-user: #0891b2;      /* cyan-600 */
   --c-chart-cac: #dc2626;       /* red-600 */
   --c-chart-recon: #16a34a;
+  --c-chart-baseline: #a16207;  /* amber-700 — readable on light bg */
 }
 
 html,

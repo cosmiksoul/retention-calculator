@@ -19,6 +19,7 @@ function CustomTooltip({ active, payload, label, bandSigma, colors }) {
   const fitP = payload.find((p) => p.dataKey === 'fit')
   const benchP = payload.find((p) => p.dataKey === 'bench')
   const bandP = payload.find((p) => p.dataKey === 'band')
+  const baselineP = payload.find((p) => p.dataKey === 'baseline')
   return (
     <div className="rounded border border-line-strong bg-bg-elev/95 px-3 py-2 text-xs">
       <div className="font-medium text-fg">Day {label}</div>
@@ -27,6 +28,9 @@ function CustomTooltip({ active, payload, label, bandSigma, colors }) {
       )}
       {fitP && fitP.value != null && (
         <Row color={colors.user} label="Power-law fit" value={`${fitP.value.toFixed(2)}%`} />
+      )}
+      {baselineP && baselineP.value != null && (
+        <Row color={colors.baseline} label="Baseline" value={`${baselineP.value.toFixed(2)}%`} />
       )}
       {bandP && Array.isArray(bandP.value) && (
         <Row
@@ -58,9 +62,9 @@ function Row({ color, label, value }) {
 /**
  * @param {{
  *   userPoints: Array<{t:number, percent:number}>,
- *   fitSeries: Array<{t:number, retention:number}>,
+ *   fitSeries: Array<{t:number, r:number}>,
  *   bandSeries: Array<{t:number, lower:number, upper:number}> | null,
- *   benchmarkSeries: Array<{t:number, retention:number}> | null,
+ *   benchmarkSeries: Array<{t:number, r:number}> | null,
  *   horizon: number,
  *   lastUserT: number,
  * }} props
@@ -73,22 +77,27 @@ export default function RetentionChart({
   bandSeries,
   bandSigma = 1,
   benchmarkSeries,
+  baselineSeries,
   horizon,
   lastUserT,
 }) {
   const colors = useThemeColors()
   const userByT = new Map(userPoints.map((p) => [p.t, p.percent]))
   const benchByT = benchmarkSeries
-    ? new Map(benchmarkSeries.map((p) => [p.t, p.retention * 100]))
+    ? new Map(benchmarkSeries.map((p) => [p.t, p.r * 100]))
+    : null
+  const baselineByT = baselineSeries
+    ? new Map(baselineSeries.map((p) => [p.t, p.r * 100]))
     : null
 
   const data = fitSeries.map((p, i) => ({
     t: p.t,
-    fit: p.retention * 100,
+    fit: p.r * 100,
     user: userByT.get(p.t) ?? null,
     bench: benchByT?.get(p.t) ?? null,
+    baseline: baselineByT?.get(p.t) ?? null,
     band: bandSeries ? [bandSeries[i].lower * 100, bandSeries[i].upper * 100] : null,
-    alt: alternateFitSeries ? alternateFitSeries[i].retention * 100 : null,
+    alt: alternateFitSeries ? alternateFitSeries[i].r * 100 : null,
   }))
 
   const showBand = !!bandSeries
@@ -179,10 +188,24 @@ export default function RetentionChart({
               dataKey="fit"
               name="Power-law fit"
               stroke={colors.user}
-              strokeWidth={2}
+              strokeWidth={2.5}
               dot={false}
+              connectNulls
               isAnimationActive={false}
             />
+            {baselineSeries && (
+              <Line
+                type="monotone"
+                dataKey="baseline"
+                name="Baseline"
+                stroke={colors.baseline}
+                strokeWidth={2.5}
+                strokeDasharray="6 4"
+                dot={false}
+                connectNulls
+                isAnimationActive={false}
+              />
+            )}
             <Line
               type="monotone"
               dataKey="user"
