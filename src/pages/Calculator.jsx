@@ -8,6 +8,7 @@ import KPICards from '../components/KPICards.jsx'
 import RetentionChart from '../components/RetentionChart.jsx'
 import LTVChart from '../components/LTVChart.jsx'
 import ResultsTable from '../components/ResultsTable.jsx'
+import CohortPL from '../components/CohortPL.jsx'
 import { loadPresets } from '../lib/presetsLoader.js'
 import { fitPowerLaw, retentionCurve } from '../lib/powerLaw.js'
 import { ltvSeries, breakevenDay } from '../lib/ltv.js'
@@ -268,6 +269,19 @@ export default function Calculator() {
                 cohortSize={cohortSize}
                 cac={cac}
               />
+              {cac != null && cac > 0 ? (
+                <CohortPL
+                  series={ltv}
+                  cohortSize={cohortSize}
+                  cac={cac}
+                  beDay={beDay}
+                  horizon={horizon}
+                />
+              ) : (
+                <div className="rounded-lg border border-dashed border-slate-800 p-4 text-xs text-slate-500">
+                  Enter a CAC to see the per-cohort P&amp;L block.
+                </div>
+              )}
             </>
           )}
         </section>
