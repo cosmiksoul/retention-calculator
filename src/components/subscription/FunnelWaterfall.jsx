@@ -1,0 +1,79 @@
+// Vertical funnel cascade (spec-v2 §5.2): Installs → Trials → Paying@0 →
+// Active@retention checkpoints. Each step shows absolute count and the
+// drop-off vs the previous step. Bar widths are proportional to count.
+//
+// Implementation: pure CSS — flexbox + percentage-width inner bars. No
+// chart library, per spec note "не нужно тяжёлое".
+
+import HoverHint from '../HoverHint.jsx'
+
+function fmtCount(x) {
+  if (!Number.isFinite(x)) return '—'
+  if (x >= 1000) return Math.round(x).toLocaleString()
+  if (x >= 100) return x.toFixed(0)
+  if (x >= 10) return x.toFixed(1)
+  return x.toFixed(2)
+}
+
+function fmtPct(x) {
+  if (!Number.isFinite(x)) return '—'
+  return `${(x * 100).toFixed(1)}%`
+}
+
+/**
+ * @param {{
+ *   steps: Array<{label:string, count:number, dropoffPct:number|null}>,
+ * }} props
+ */
+export default function FunnelWaterfall({ steps }) {
+  if (!steps || steps.length === 0) return null
+  const maxCount = steps[0].count || 1
+
+  return (
+    <div className="rounded-lg border border-line bg-bg-elev/40 p-4">
+      <div className="mb-3 flex items-center text-sm font-medium text-fg">
+        <span>Funnel cascade</span>
+        <HoverHint align="left">
+          <p>
+            Воронка от installs к платящим юзерам, активным на каждой
+            точке retention. Drop-off на каждом шаге считается от
+            предыдущего, не от installs.
+          </p>
+          <p className="mt-1.5">
+            Самые жирные drop-off обычно на install→trial (paywall+онбординг)
+            и trial→paid (ценность продукта). Retention drop-off становится
+            менее агрессивным с течением времени — это нормально.
+          </p>
+        </HoverHint>
+      </div>
+      <div className="space-y-1.5">
+        {steps.map((step, i) => {
+          const widthPct = maxCount > 0 ? (step.count / maxCount) * 100 : 0
+          return (
+            <div key={`${step.label}-${i}`} className="text-sm">
+              <div className="flex items-baseline justify-between text-xs text-fg-dim">
+                <span className="text-fg">{step.label}</span>
+                <span className="tabular-nums text-fg-faint">
+                  {step.dropoffPct != null && step.dropoffPct > 0 && (
+                    <span className="mr-2 text-red-300">
+                      −{fmtPct(step.dropoffPct)}
+                    </span>
+                  )}
+                  <span className="tabular-nums text-fg-strong">
+                    {fmtCount(step.count)}
+                  </span>
+                </span>
+              </div>
+              <div className="mt-0.5 h-2 overflow-hidden rounded bg-bg-subtle">
+                <div
+                  className="h-full bg-accent/70"
+                  style={{ width: `${Math.max(widthPct, 0.5)}%` }}
+                />
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}

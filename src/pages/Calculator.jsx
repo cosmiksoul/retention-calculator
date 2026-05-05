@@ -46,7 +46,16 @@ import {
 import ModeToggle from '../components/ModeToggle.jsx'
 import CadenceToggle from '../components/subscription/CadenceToggle.jsx'
 import SubscriptionInput from '../components/subscription/SubscriptionInput.jsx'
+import SubscriptionKPI from '../components/subscription/SubscriptionKPI.jsx'
+import FunnelWaterfall from '../components/subscription/FunnelWaterfall.jsx'
+import SubscriptionCohortPL from '../components/subscription/SubscriptionCohortPL.jsx'
 import { defaultsFor, validateSubscriptionInputs } from '../lib/subscriptionInputs.js'
+import {
+  funnelCascade,
+  subscriptionLtv,
+  subscriptionPayback,
+} from '../lib/subscriptionMath.js'
+import { predict } from '../lib/powerLaw.js'
 
 const inputCls =
   'rounded border border-line-strong bg-bg-subtle px-2 py-1 text-sm tabular-nums ' +
@@ -337,6 +346,62 @@ export default function Calculator() {
     [subInput],
   )
 
+  // Subscription model: funnel cascade + power-law fit on retention paying
+  // users + per-cycle revenue/LTV series + payback. Built once per input
+  // change. `null` when inputs are invalid (UI hides outputs in that case).
+  const subModel = useMemo(() => {
+    if (!subValidation.valid) return null
+    const retentionFractions = subInput.retention
+      .filter((p) => Number.isFinite(p.percent) && p.percent > 0)
+      .map((p) => ({ t: p.t, r: p.percent / 100 }))
+    if (retentionFractions.length < 2) return null
+
+    const funnel = funnelCascade({
+      cohortSize: subInput.cohortSize,
+      installToTrial: subInput.installToTrial / 100,
+      trialToPaid: subInput.trialToPaid / 100,
+      retention: retentionFractions,
+      cadence,
+    })
+
+    let fit
+    try {
+      fit = fitPowerLaw(retentionFractions)
+    } catch {
+      return null
+    }
+
+    const series = subscriptionLtv({
+      fit,
+      payingAtZero: funnel.payingAtZero,
+      arpuPaid: subInput.arpuPaid,
+      cohortSize: subInput.cohortSize,
+      horizon: subInput.horizon,
+    })
+    const payback = subscriptionPayback(series, subInput.cohortSize, subInput.cac)
+
+    // Long-term retention anchor: M12 for monthly, W26 for weekly. Computed
+    // from the fit (not a raw input lookup) so it works regardless of which
+    // checkpoints the user keeps in the form.
+    const longTermAnchor = cadence === 'weekly' ? 26 : 12
+    const r1 = predict(1, fit)
+    const longTermRetention = Math.max(
+      0,
+      Math.min(predict(longTermAnchor, fit), r1),
+    )
+
+    return {
+      funnel,
+      fit,
+      series,
+      payback,
+      longTermAnchor,
+      longTermRetention,
+      trialsStarted: subInput.cohortSize * (subInput.installToTrial / 100),
+      payingAtZero: funnel.payingAtZero,
+    }
+  }, [subInput, cadence, subValidation.valid])
+
   // Read once — share-link decoding seeds the initial state below.
   const [shareInitial] = useState(readInitialFromUrl)
 
@@ -624,24 +689,36 @@ export default function Calculator() {
                 Fix the input panel to see the model output.
               </div>
             )}
-            <div className="rounded-lg border border-dashed border-line bg-bg-elev/30 p-6 text-sm text-fg-faint">
-              Subscription outputs (KPIs, funnel waterfall, retention curve,
-              cumulative LTV per install, cohort P&amp;L) рендерятся в Stage 5–6.
-              <div className="mt-2 text-xs">
-                Active cadence: <span className="text-fg">{cadence}</span> ·
-                paying@0 ≈ {' '}
-                <span className="tabular-nums text-fg">
-                  {subValidation.valid
-                    ? Math.round(
-                        subInput.cohortSize *
-                          (subInput.installToTrial / 100) *
-                          (subInput.trialToPaid / 100) *
-                          10,
-                      ) / 10
-                    : '—'}
-                </span>
-              </div>
-            </div>
+            {subModel && (
+              <>
+                <SubscriptionKPI
+                  ltvPerInstall={
+                    subModel.series[subModel.series.length - 1].cumLtvPerInstall
+                  }
+                  cac={subInput.cac}
+                  payback={subModel.payback}
+                  trialToPaid={subInput.trialToPaid}
+                  longTermRetention={subModel.longTermRetention}
+                  longTermAnchor={subModel.longTermAnchor}
+                  horizon={subInput.horizon}
+                  cadence={cadence}
+                />
+                <FunnelWaterfall steps={subModel.funnel.steps} />
+                <SubscriptionCohortPL
+                  cohortSize={subInput.cohortSize}
+                  cac={subInput.cac}
+                  trialsStarted={subModel.trialsStarted}
+                  payingAtZero={subModel.payingAtZero}
+                  ltvSeries={subModel.series}
+                  horizon={subInput.horizon}
+                  payback={subModel.payback}
+                  cadence={cadence}
+                />
+                <div className="rounded-lg border border-dashed border-line bg-bg-elev/30 p-4 text-xs text-fg-faint">
+                  Retention curve и Cumulative LTV chart — Stage 6.
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
