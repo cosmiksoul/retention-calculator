@@ -9,9 +9,10 @@ dist/
 *.log
 npm-debug.log*
 
-# Editor / OS
+# Editor / OS / Claude Code local config
 .vscode/
 .idea/
+.claude/
 .DS_Store
 Thumbs.db
 
@@ -22,3 +23,7 @@ Thumbs.db
 
 # Test artifacts
 coverage/
+
+# Generated runtime copies (source of truth lives in docs/)
+public/presets.json
+public/methodology.md
