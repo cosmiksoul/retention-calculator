@@ -47,11 +47,16 @@ export default function ResultsTable({ series, points, horizon, cohortSize, cac 
 
   return (
     <div className="overflow-hidden rounded-lg border border-slate-800 bg-bg-elev/40">
-      <div className="border-b border-slate-800 px-4 py-2 text-sm font-medium text-slate-200">
-        Per-period breakdown
-        <span className="ml-2 text-xs font-normal text-slate-500">
-          Input rows are highlighted; "Fit" is the power-law prediction (OLS, not interpolation — values can differ slightly from input).
-        </span>
+      <div className="border-b border-slate-800 px-4 py-2">
+        <div className="text-sm font-medium text-slate-200">
+          Per-period breakdown
+          <span className="ml-2 text-xs font-normal text-slate-500">
+            Input rows are highlighted; "Fit" is the power-law prediction (OLS, not interpolation — values can differ slightly from input).
+          </span>
+        </div>
+        <div className="mt-0.5 text-[11px] italic leading-snug text-slate-500">
+          Подробная таблица: ретеншен и доход по дням.
+        </div>
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-sm">

@@ -40,7 +40,7 @@ const inputCls =
   'rounded border border-slate-700 bg-bg-subtle px-2 py-1 text-sm tabular-nums ' +
   'text-slate-100 focus:border-cyan-500 focus:outline-none focus:ring-1 focus:ring-cyan-500/40'
 
-function NumberField({ label, value, onChange, hint, error, min, step, suffix }) {
+function NumberField({ label, value, onChange, hint, error, min, step, suffix, ru }) {
   return (
     <label className="block">
       <span className="mb-1 block text-sm font-medium text-slate-300">
@@ -61,6 +61,11 @@ function NumberField({ label, value, onChange, hint, error, min, step, suffix })
         <span className="mt-1 block text-xs text-slate-500">{hint}</span>
       )}
       {error && <span className="mt-1 block text-xs text-red-400">{error}</span>}
+      {ru && (
+        <span className="mt-1 block text-[11px] italic leading-snug text-slate-500">
+          {ru}
+        </span>
+      )}
     </label>
   )
 }
@@ -86,8 +91,11 @@ function BandSigmaToggle({ sigma, onChange, disabled }) {
   )
   return (
     <div className="rounded border border-slate-800 bg-bg-elev/30 p-2">
-      <div className="mb-1.5 text-xs font-medium text-slate-300">
+      <div className="mb-0.5 text-xs font-medium text-slate-300">
         Confidence band
+      </div>
+      <div className="mb-1.5 text-[11px] italic leading-snug text-slate-500">
+        Полоса неопределённости прогноза. ±1σ ≈ 68%, ±2σ ≈ 95% вероятности.
       </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         {radio(1, '±1σ ≈ 68%')}
@@ -118,10 +126,15 @@ function InputModeToggle({ mode, onChange }) {
     </label>
   )
   return (
-    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
-      {radio('manual', 'Manual input')}
-      {radio('paste', 'Paste cohort table')}
-      {radio('dau', 'Paste DAU + new users')}
+    <div>
+      <div className="mb-1 text-[11px] italic leading-snug text-slate-500">
+        Способ ввода данных по ретеншену.
+      </div>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+        {radio('manual', 'Manual input')}
+        {radio('paste', 'Paste cohort table')}
+        {radio('dau', 'Paste DAU + new users')}
+      </div>
     </div>
   )
 }
@@ -142,7 +155,12 @@ function ModeToggle({ mode, onChange, avgRatio }) {
   )
   return (
     <div className="rounded border border-slate-800 bg-bg-elev/30 p-2">
-      <div className="mb-1.5 text-xs font-medium text-slate-300">Forecast mode</div>
+      <div className="mb-0.5 text-xs font-medium text-slate-300">Forecast mode</div>
+      <div className="mb-1.5 text-[11px] italic leading-snug text-slate-500">
+        {mode === 'adjusted'
+          ? 'Берёт форму индустриального бенчмарка и масштабирует под ваш уровень.'
+          : 'Подгоняет степенную модель только по вашим точкам.'}
+      </div>
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
         {radio('pure', 'Pure fit')}
         {radio('adjusted', 'Industry-adjusted')}
@@ -554,6 +572,7 @@ export default function Calculator() {
           <div className="grid grid-cols-2 gap-4 border-t border-slate-800 pt-4">
             <NumberField
               label="Cohort size"
+              ru="Сколько новых пользователей в когорте."
               value={cohortSize}
               min={1}
               step={1}
@@ -563,6 +582,7 @@ export default function Calculator() {
             />
             <NumberField
               label="ARPU"
+              ru="Средний доход с одного активного юзера в день."
               value={arpu}
               min={0}
               step={0.01}
@@ -572,6 +592,7 @@ export default function Calculator() {
             />
             <NumberField
               label="CAC"
+              ru="Стоимость привлечения одного юзера. Пусто — не считается breakeven."
               value={cacInput}
               min={0}
               step={0.01}
@@ -582,6 +603,7 @@ export default function Calculator() {
             />
             <NumberField
               label="Horizon"
+              ru="Горизонт прогноза LTV в днях."
               value={horizon}
               min={30}
               step={1}

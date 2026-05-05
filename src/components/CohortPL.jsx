@@ -127,6 +127,9 @@ export default function CohortPL({ series, cohortSize, cac, beDay, horizon }) {
     <div className="space-y-4 rounded-lg border border-slate-800 bg-bg-elev/40 p-4">
       <div>
         <div className="text-sm font-medium text-slate-200">Cohort P&amp;L</div>
+        <p className="mt-0.5 text-[11px] italic leading-snug text-slate-500">
+          Абсолютная экономика когорты в долларах.
+        </p>
         <p className="mt-0.5 text-xs text-slate-500">
           Absolute economics for a cohort of {cohortSize.toLocaleString()} users
           at CAC {fmtUsd(cac)}.

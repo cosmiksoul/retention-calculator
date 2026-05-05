@@ -86,9 +86,12 @@ export default function PresetSelector({ bundle, value, onChange }) {
   return (
     <div className="space-y-3">
       <div>
-        <label className="mb-1 block text-sm font-medium text-slate-300">
+        <label className="mb-0.5 block text-sm font-medium text-slate-300">
           Industry preset
         </label>
+        <p className="mb-1 text-[11px] italic leading-snug text-slate-500">
+          Загружает дефолтную кривую ретеншена и ARPU/CAC по выбранной индустрии.
+        </p>
         <select
           value={presetId ?? ''}
           onChange={(e) => handleIndustryChange(e.target.value || null)}
@@ -107,7 +110,10 @@ export default function PresetSelector({ bundle, value, onChange }) {
         <>
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="mb-1 block text-xs text-slate-400">Quality</label>
+              <label className="mb-0.5 block text-xs text-slate-400">Quality</label>
+              <p className="mb-1 text-[11px] italic leading-snug text-slate-500">
+                Уровень среди игроков отрасли: top quartile = лучшие 25%.
+              </p>
               <select
                 value={quality}
                 onChange={(e) => handleQualityChange(e.target.value)}

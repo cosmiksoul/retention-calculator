@@ -18,7 +18,7 @@ function ltvCacTone(ratio) {
   return 'text-red-400'
 }
 
-function Card({ label, value, hint, tone = 'text-slate-100' }) {
+function Card({ label, value, hint, ru, tone = 'text-slate-100' }) {
   return (
     <div className="rounded-lg border border-slate-800 bg-bg-elev/50 px-4 py-3">
       <div className="text-xs uppercase tracking-wide text-slate-500">
@@ -28,6 +28,11 @@ function Card({ label, value, hint, tone = 'text-slate-100' }) {
         {value}
       </div>
       {hint && <div className="mt-0.5 text-xs text-slate-500">{hint}</div>}
+      {ru && (
+        <div className="mt-1 border-t border-slate-800/60 pt-1 text-[11px] italic leading-snug text-slate-500">
+          {ru}
+        </div>
+      )}
     </div>
   )
 }
@@ -61,12 +66,14 @@ export default function KPICards({
       }`}
     >
       <Card
-        label={`Predicted LTV (D${horizon})`}
+        label="Predicted LTV"
+        ru={`Прогнозируемый доход с одного юзера за ${horizon} дней.`}
         value={fmtUsd(ltvAtHorizon)}
         hint="per acquired user"
       />
       <Card
         label="Model fit (R²)"
+        ru="Качество подгонки степенной модели (1.0 = идеально, <0.85 — слабо)."
         value={Number.isFinite(rSquared) ? rSquared.toFixed(3) : '—'}
         hint={r2.label}
         tone={r2.tone}
@@ -75,12 +82,14 @@ export default function KPICards({
         <>
           <Card
             label="Breakeven"
+            ru="День, когда накопленный LTV покрывает CAC."
             value={beDay != null ? `Day ${beDay}` : 'Not reached'}
             hint={beDay != null ? `at horizon D${horizon}` : `LTV < CAC at D${horizon}`}
             tone={beDay != null ? 'text-slate-100' : 'text-amber-300'}
           />
           <Card
             label="LTV / CAC"
+            ru="Во сколько раз доход покрывает стоимость привлечения. ≥3 — здоровая юнит-экономика."
             value={ratio != null && Number.isFinite(ratio) ? ratio.toFixed(2) : '—'}
             hint={
               ratio == null
@@ -95,6 +104,7 @@ export default function KPICards({
           />
           <Card
             label="Payback"
+            ru="За сколько дней окупается привлечение."
             value={beDay != null ? `${beDay}d` : '—'}
           />
         </>

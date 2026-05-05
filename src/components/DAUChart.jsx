@@ -70,8 +70,13 @@ export default function DAUChart({ observed, reconstructed, rmsePct }) {
   return (
     <div className="rounded-lg border border-slate-800 bg-bg-elev/40 p-4">
       <div className="mb-2 flex items-baseline justify-between">
-        <div className="text-sm font-medium text-slate-200">
-          Observed vs reconstructed DAU
+        <div>
+          <div className="text-sm font-medium text-slate-200">
+            Observed vs reconstructed DAU
+          </div>
+          <div className="text-[11px] italic leading-snug text-slate-500">
+            Диагностика: реконструированный DAU должен совпадать с наблюдаемым.
+          </div>
         </div>
         {rmsePct != null && (
           <div className="text-xs">

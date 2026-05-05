@@ -97,7 +97,12 @@ export default function RetentionChart({
   return (
     <div className="rounded-lg border border-slate-800 bg-bg-elev/40 p-4">
       <div className="mb-2 flex items-baseline justify-between">
-        <div className="text-sm font-medium text-slate-200">Retention curve</div>
+        <div>
+          <div className="text-sm font-medium text-slate-200">Retention curve</div>
+          <div className="text-[11px] italic leading-snug text-slate-500">
+            Кривая удержания: % пользователей, остающихся активными через N дней.
+          </div>
+        </div>
         {showBand && (
           <div className="text-xs text-slate-500">
             shaded = ±{bandSigma}σ confidence band (≈{bandSigma === 1 ? '68%' : '95%'})

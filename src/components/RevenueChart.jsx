@@ -67,8 +67,13 @@ export default function RevenueChart({ series, cohortSize, horizon }) {
   return (
     <div className="rounded-lg border border-slate-800 bg-bg-elev/40 p-4">
       <div className="mb-2 flex items-baseline justify-between">
-        <div className="text-sm font-medium text-slate-200">
-          Revenue per period
+        <div>
+          <div className="text-sm font-medium text-slate-200">
+            Revenue per period
+          </div>
+          <div className="text-[11px] italic leading-snug text-slate-500">
+            Где именно во времени сосредоточен доход когорты.
+          </div>
         </div>
         <div className="text-xs text-slate-500">
           Cohort total over D1–D{horizon}:{' '}
