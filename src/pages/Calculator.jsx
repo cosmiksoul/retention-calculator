@@ -713,7 +713,29 @@ export default function Calculator() {
       <header className="mb-6">
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
           <h1 className="text-3xl font-semibold tracking-tight">Calculator</h1>
-          <ModeToggle value={mode} onChange={setMode} />
+          <ModeToggle
+            value={mode}
+            onChange={(next) => {
+              setMode(next)
+              // Drop stale presetState if it belongs to the other mode —
+              // otherwise the new mode would surface a phantom preset card
+              // (e.g. a Subscription preset still active after switching
+              // to DAU). Compare presence in the bundle's two halves.
+              const id = presetState.presetId
+              if (!id || !bundle) return
+              const inSession = bundle.session?.presets.some((p) => p.id === id)
+              const inSubs = bundle.subscription?.presets.some((p) => p.id === id)
+              const fitsNext =
+                next === 'session' ? inSession : inSubs
+              if (!fitsNext) {
+                setPresetState({
+                  presetId: null,
+                  quality: 'median',
+                  geo: 'tier_1',
+                })
+              }
+            }}
+          />
         </div>
         <p className="mt-1 text-sm text-fg-dim">
           {mode === 'session'

@@ -122,6 +122,11 @@ export default function SubscriptionRetentionChart({
       <div className="mb-2 flex items-baseline justify-between">
         <div className="flex items-center text-sm font-medium text-fg">
           <span>Retention curve (paying users)</span>
+          {Number.isFinite(rSquared) && rSquared < 0.85 && (
+            <span className="ml-2 rounded border border-amber-700/50 bg-amber-950/30 px-1.5 py-0.5 text-[10px] uppercase tracking-wide text-amber-300">
+              Weak fit (R² {rSquared.toFixed(2)})
+            </span>
+          )}
           <HoverHint align="left">
             <p>
               Доля платящих юзеров, активных через t {cadence === 'weekly' ? 'недель' : 'месяцев'}
@@ -151,6 +156,13 @@ export default function SubscriptionRetentionChart({
           />
         </div>
       </div>
+      {Number.isFinite(rSquared) && rSquared < 0.85 && (
+        <div className="mb-2 rounded border border-amber-700/40 bg-amber-950/20 p-2 text-xs leading-snug text-amber-200">
+          {cadence === 'weekly'
+            ? 'Weekly retention часто имеет резкий W1 cliff. Power law может занижать спад в первой неделе — используй фит как ориентир, добавь раннюю точку (W2/W3) если есть данные.'
+            : 'Subscription retention часто имеет S-shape с annual renewal cliff (M12). Power law не моделирует cliff — используй фит как ориентир, не как точный прогноз.'}
+        </div>
+      )}
       <div className="h-72 w-full">
         <ResponsiveContainer>
           <ComposedChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
