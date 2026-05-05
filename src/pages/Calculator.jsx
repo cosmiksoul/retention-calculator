@@ -4,7 +4,13 @@ import RetentionInput, {
   newPointId,
 } from '../components/RetentionInput.jsx'
 import PresetSelector from '../components/PresetSelector.jsx'
+import KPICards from '../components/KPICards.jsx'
+import RetentionChart from '../components/RetentionChart.jsx'
+import LTVChart from '../components/LTVChart.jsx'
+import ResultsTable from '../components/ResultsTable.jsx'
 import { loadPresets } from '../lib/presetsLoader.js'
+import { fitPowerLaw, retentionCurve } from '../lib/powerLaw.js'
+import { ltvSeries, breakevenDay } from '../lib/ltv.js'
 import {
   validateRetentionPoints,
   validateNumericInputs,
@@ -37,6 +43,23 @@ function NumberField({ label, value, onChange, hint, error, min, step, suffix })
       {error && <span className="mt-1 block text-xs text-red-400">{error}</span>}
     </label>
   )
+}
+
+function safeFit(points) {
+  try {
+    return fitPowerLaw(points.map((p) => ({ t: p.t, r: p.percent / 100 })))
+  } catch {
+    return null
+  }
+}
+
+function safeBenchmarkFit(variant) {
+  if (!variant) return null
+  try {
+    return fitPowerLaw(variant.retentionPoints)
+  } catch {
+    return null
+  }
 }
 
 export default function Calculator() {
@@ -75,7 +98,7 @@ export default function Calculator() {
       variant.retentionPoints.map((p) => ({
         id: newPointId(),
         t: p.t,
-        percent: Math.round(p.r * 1000) / 10, // back to % with 1 decimal
+        percent: Math.round(p.r * 1000) / 10,
       })),
     )
     if (variant.arpuPerDay != null) setArpu(variant.arpuPerDay)
@@ -83,7 +106,6 @@ export default function Calculator() {
   }
 
   const cac = cacInput === '' || cacInput == null ? null : Number(cacInput)
-
   const pointErrors = useMemo(() => validateRetentionPoints(points), [points])
   const numericErrors = useMemo(
     () => validateNumericInputs({ cohortSize, arpu, cac, horizon }),
@@ -107,6 +129,33 @@ export default function Calculator() {
         : null,
     [selectedPreset, presetState.quality, presetState.geo],
   )
+
+  const fit = useMemo(
+    () => (allValid ? safeFit(points) : null),
+    [allValid, points],
+  )
+  const fitSeries = useMemo(
+    () => (fit ? retentionCurve(fit, horizon) : null),
+    [fit, horizon],
+  )
+  const ltv = useMemo(
+    () => (fit ? ltvSeries(fit, arpu, horizon) : null),
+    [fit, arpu, horizon],
+  )
+  const beDay = useMemo(
+    () => (ltv ? breakevenDay(ltv, cac) : null),
+    [ltv, cac],
+  )
+  const benchmarkFit = useMemo(
+    () => safeBenchmarkFit(selectedVariant),
+    [selectedVariant],
+  )
+  const benchmarkSeries = useMemo(
+    () => (benchmarkFit ? retentionCurve(benchmarkFit, horizon) : null),
+    [benchmarkFit, horizon],
+  )
+
+  const ltvAtHorizon = ltv ? ltv[ltv.length - 1].cumLtv : null
 
   return (
     <section>
@@ -184,36 +233,43 @@ export default function Calculator() {
           </div>
         </aside>
 
-        <section
-          aria-label="Outputs"
-          className="rounded-lg border border-dashed border-slate-800 p-6 text-sm text-slate-500"
-        >
-          <p className="font-medium text-slate-400">Outputs</p>
-          <p className="mt-2">
-            KPI cards, retention curve, LTV chart, results table and Cohort
-            P&amp;L land in Stages 5–6.
-          </p>
-          <pre className="mt-4 overflow-auto rounded bg-bg-subtle/60 p-3 text-xs leading-relaxed text-slate-400">
-{JSON.stringify(
-  {
-    valid: allValid,
-    presetId: presetState.presetId,
-    selectedSlice: selectedPreset
-      ? `${presetState.quality}|${presetState.geo}`
-      : null,
-    benchmarkPoints: selectedVariant
-      ? selectedVariant.retentionPoints.map((p) => [p.t, p.r])
-      : null,
-    pointsCount: points.length,
-    cohortSize,
-    arpu,
-    cac,
-    horizon,
-  },
-  null,
-  2,
-)}
-          </pre>
+        <section aria-label="Outputs" className="space-y-5">
+          {!allValid && (
+            <div className="rounded-lg border border-amber-700/40 bg-amber-950/20 p-4 text-sm text-amber-200">
+              Fix the input panel to see the model output.
+            </div>
+          )}
+
+          {allValid && fit && ltv && fitSeries && (
+            <>
+              <KPICards
+                ltvAtHorizon={ltvAtHorizon}
+                horizon={horizon}
+                rSquared={fit.rSquared}
+                beDay={beDay}
+                cac={cac}
+              />
+              <RetentionChart
+                userPoints={points}
+                fitSeries={fitSeries}
+                benchmarkSeries={benchmarkSeries}
+                horizon={horizon}
+              />
+              <LTVChart
+                series={ltv}
+                cac={cac}
+                beDay={beDay}
+                horizon={horizon}
+              />
+              <ResultsTable
+                series={ltv}
+                points={points}
+                horizon={horizon}
+                cohortSize={cohortSize}
+                cac={cac}
+              />
+            </>
+          )}
         </section>
       </div>
     </section>
