@@ -5,12 +5,20 @@ import RetentionInput, {
 } from '../components/RetentionInput.jsx'
 import PresetSelector from '../components/PresetSelector.jsx'
 import CohortPaste from '../components/CohortPaste.jsx'
+import DAUInput from '../components/DAUInput.jsx'
+import DAUChart from '../components/DAUChart.jsx'
 import KPICards from '../components/KPICards.jsx'
 import RetentionChart from '../components/RetentionChart.jsx'
 import LTVChart from '../components/LTVChart.jsx'
 import ResultsTable from '../components/ResultsTable.jsx'
 import CohortPL from '../components/CohortPL.jsx'
 import { parseCohortTable } from '../lib/parseCohort.js'
+import { parseDAUTable } from '../lib/parseDAU.js'
+import {
+  deconvolveDAU,
+  reconstructDAU,
+  validateDAUInput,
+} from '../lib/deconvolution.js'
 import { loadPresets } from '../lib/presetsLoader.js'
 import {
   fitPowerLaw,
@@ -110,6 +118,7 @@ function InputModeToggle({ mode, onChange }) {
     <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
       {radio('manual', 'Manual input')}
       {radio('paste', 'Paste cohort table')}
+      {radio('dau', 'Paste DAU + new users')}
     </div>
   )
 }
@@ -198,8 +207,10 @@ export default function Calculator() {
     geo: 'tier_1',
   })
   const [adjustMode, setAdjustMode] = useState('pure') // 'pure' | 'adjusted'
-  const [inputMode, setInputMode] = useState('manual') // 'manual' | 'paste'
+  const [inputMode, setInputMode] = useState('manual') // 'manual' | 'paste' | 'dau'
   const [pasteText, setPasteText] = useState('')
+  const [dauText, setDauText] = useState('')
+  const [dauSmoothWindow, setDauSmoothWindow] = useState(0)
   const [bandSigma, setBandSigma] = useState(1) // 1 ≈ 68%, 2 ≈ 95%
 
   useEffect(() => {
@@ -248,6 +259,62 @@ export default function Calculator() {
       })),
     )
   }, [inputMode, pasteParsed])
+
+  // DAU mode: parse → validate → deconvolve → resample to canonical periods.
+  const dauParsed = useMemo(
+    () => (inputMode === 'dau' && dauText ? parseDAUTable(dauText) : null),
+    [inputMode, dauText],
+  )
+  const dauValidation = useMemo(
+    () =>
+      dauParsed && dauParsed.rows.length > 0
+        ? validateDAUInput({ newUsers: dauParsed.newUsers, dau: dauParsed.dau })
+        : null,
+    [dauParsed],
+  )
+  const dauR = useMemo(() => {
+    if (!dauParsed || !dauValidation?.valid) return null
+    try {
+      return deconvolveDAU(dauParsed.newUsers, dauParsed.dau, {
+        smoothWindow: dauSmoothWindow,
+      })
+    } catch {
+      return null
+    }
+  }, [dauParsed, dauValidation, dauSmoothWindow])
+  const dauReconstructed = useMemo(
+    () => (dauR ? reconstructDAU(dauParsed.newUsers, dauR) : null),
+    [dauR, dauParsed],
+  )
+  const dauRmsePct = useMemo(() => {
+    if (!dauReconstructed || !dauParsed) return null
+    let sumSq = 0
+    let count = 0
+    for (let i = 0; i < dauReconstructed.length; i++) {
+      const obs = dauParsed.dau[i]
+      if (obs > 0) {
+        const rel = (dauReconstructed[i] - obs) / obs
+        sumSq += rel * rel
+        count++
+      }
+    }
+    return count > 0 ? Math.sqrt(sumSq / count) * 100 : null
+  }, [dauReconstructed, dauParsed])
+
+  useEffect(() => {
+    if (inputMode !== 'dau' || !dauR) return
+    // Resample the dense N-day curve to canonical periods so RetentionInput
+    // (max 10 points) and the model fit work cleanly.
+    const candidates = [1, 3, 7, 14, 21, 30, 45, 60, 90, 120, 180]
+    const sampled = candidates
+      .filter((t) => t < dauR.length && dauR[t] > 0)
+      .map((t) => ({
+        id: newPointId(),
+        t,
+        percent: Math.round(dauR[t] * 1000) / 10,
+      }))
+    if (sampled.length >= 3) setPoints(sampled)
+  }, [inputMode, dauR])
 
   const pointErrors = useMemo(() => validateRetentionPoints(points), [points])
   const numericErrors = useMemo(
@@ -373,7 +440,7 @@ export default function Calculator() {
 
           <div className="space-y-3 border-t border-slate-800 pt-4">
             <InputModeToggle mode={inputMode} onChange={setInputMode} />
-            {inputMode === 'manual' ? (
+            {inputMode === 'manual' && (
               <>
                 <RetentionInput
                   points={points}
@@ -386,11 +453,22 @@ export default function Calculator() {
                   </div>
                 )}
               </>
-            ) : (
+            )}
+            {inputMode === 'paste' && (
               <CohortPaste
                 text={pasteText}
                 onTextChange={setPasteText}
                 parsed={pasteParsed}
+              />
+            )}
+            {inputMode === 'dau' && (
+              <DAUInput
+                text={dauText}
+                onTextChange={setDauText}
+                parsed={dauParsed}
+                validation={dauValidation}
+                smoothWindow={dauSmoothWindow}
+                onSmoothChange={setDauSmoothWindow}
               />
             )}
           </div>
@@ -437,6 +515,14 @@ export default function Calculator() {
         </aside>
 
         <section aria-label="Outputs" className="space-y-5">
+          {inputMode === 'dau' && dauReconstructed && dauParsed && (
+            <DAUChart
+              observed={dauParsed.dau}
+              reconstructed={dauReconstructed}
+              rmsePct={dauRmsePct}
+            />
+          )}
+
           {!allValid && (
             <div className="rounded-lg border border-amber-700/40 bg-amber-950/20 p-4 text-sm text-amber-200">
               Fix the input panel to see the model output.
