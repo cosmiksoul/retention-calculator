@@ -36,6 +36,15 @@ import {
 } from '../lib/validate.js'
 import { buildCsv, buildFilename } from '../lib/exportCsv.js'
 import { encodeState, decodeState, buildShareUrl } from '../lib/share.js'
+import {
+  readInitialMode,
+  readInitialCadence,
+  persistMode,
+  persistCadence,
+  syncUrlState,
+} from '../lib/modeState.js'
+import ModeToggle from '../components/ModeToggle.jsx'
+import CadenceToggle from '../components/subscription/CadenceToggle.jsx'
 
 const inputCls =
   'rounded border border-line-strong bg-bg-subtle px-2 py-1 text-sm tabular-nums ' +
@@ -175,7 +184,7 @@ function InputModeToggle({ mode, onChange }) {
   )
 }
 
-function ModeToggle({ mode, onChange, avgRatio }) {
+function ForecastModeToggle({ mode, onChange, avgRatio }) {
   const radio = (key, label) => (
     <label className="flex items-center gap-1.5 text-xs text-fg-muted">
       <input
@@ -299,6 +308,19 @@ function safeBenchmarkFit(variant) {
 }
 
 export default function Calculator() {
+  // Mode + cadence — top-level dispatch between v1 (session retention,
+  // daily scale) and v2 (subscription, weekly/monthly cadence). Initial
+  // values come from URL > localStorage > defaults; both round-trip back
+  // to URL on every change so a refresh keeps you in the same view.
+  const [mode, setMode] = useState(readInitialMode) // 'session' | 'subscription'
+  const [cadence, setCadence] = useState(readInitialCadence) // 'monthly' | 'weekly'
+
+  useEffect(() => {
+    persistMode(mode)
+    persistCadence(cadence)
+    syncUrlState({ mode, cadence })
+  }, [mode, cadence])
+
   // Read once — share-link decoding seeds the initial state below.
   const [shareInitial] = useState(readInitialFromUrl)
 
@@ -556,12 +578,25 @@ export default function Calculator() {
   return (
     <section>
       <header className="mb-6">
-        <h1 className="text-3xl font-semibold tracking-tight">Calculator</h1>
+        <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+          <h1 className="text-3xl font-semibold tracking-tight">Calculator</h1>
+          <ModeToggle value={mode} onChange={setMode} />
+        </div>
         <p className="mt-1 text-sm text-fg-dim">
-          Power law fit of retention curve, then ARPU × Σ R(t) for LTV.
+          {mode === 'session'
+            ? 'Power law fit of retention curve, then ARPU × Σ R(t) for LTV.'
+            : 'Funnel cascade + retention paying users + LTV per install — for consumer subscription apps.'}
         </p>
       </header>
 
+      {mode === 'subscription' && (
+        <SubscriptionStub
+          cadence={cadence}
+          onCadenceChange={setCadence}
+        />
+      )}
+
+      {mode === 'session' && (
       <div className="grid gap-8 lg:grid-cols-[360px,minmax(0,1fr)]">
         <aside className="space-y-5 rounded-lg border border-line bg-bg-elev/40 p-4">
           {bundleError && (
@@ -577,7 +612,7 @@ export default function Calculator() {
           />
 
           {selectedPreset && (
-            <ModeToggle
+            <ForecastModeToggle
               mode={adjustMode}
               onChange={setAdjustMode}
               avgRatio={adjustedFit?.avgRatio}
@@ -955,6 +990,32 @@ export default function Calculator() {
           )}
         </section>
       </div>
+      )}
     </section>
+  )
+}
+
+function SubscriptionStub({ cadence, onCadenceChange }) {
+  return (
+    <div className="grid gap-8 lg:grid-cols-[360px,minmax(0,1fr)]">
+      <aside className="space-y-5 rounded-lg border border-line bg-bg-elev/40 p-4">
+        <CadenceToggle value={cadence} onChange={onCadenceChange} />
+        <div className="rounded border border-dashed border-line p-3 text-xs text-fg-faint">
+          Subscription input form coming in stage 4. Toggle above and at the
+          page header are wired — try refreshing or sharing the URL, the mode
+          and cadence persist.
+        </div>
+      </aside>
+      <div className="space-y-5">
+        <div className="rounded-lg border border-dashed border-line bg-bg-elev/30 p-6 text-sm text-fg-faint">
+          Subscription mode placeholder.
+          <div className="mt-1 text-xs">
+            Active cadence: <span className="text-fg">{cadence}</span>. KPIs,
+            funnel waterfall, retention curve, cumulative LTV per install,
+            cohort P&amp;L — все рендерятся в Stage 5–6.
+          </div>
+        </div>
+      </div>
+    </div>
   )
 }
