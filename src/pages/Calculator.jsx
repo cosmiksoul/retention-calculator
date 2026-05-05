@@ -4,11 +4,13 @@ import RetentionInput, {
   newPointId,
 } from '../components/RetentionInput.jsx'
 import PresetSelector from '../components/PresetSelector.jsx'
+import CohortPaste from '../components/CohortPaste.jsx'
 import KPICards from '../components/KPICards.jsx'
 import RetentionChart from '../components/RetentionChart.jsx'
 import LTVChart from '../components/LTVChart.jsx'
 import ResultsTable from '../components/ResultsTable.jsx'
 import CohortPL from '../components/CohortPL.jsx'
+import { parseCohortTable } from '../lib/parseCohort.js'
 import { loadPresets } from '../lib/presetsLoader.js'
 import {
   fitPowerLaw,
@@ -49,6 +51,28 @@ function NumberField({ label, value, onChange, hint, error, min, step, suffix })
       )}
       {error && <span className="mt-1 block text-xs text-red-400">{error}</span>}
     </label>
+  )
+}
+
+function InputModeToggle({ mode, onChange }) {
+  const radio = (key, label) => (
+    <label className="flex items-center gap-1.5 text-xs text-slate-300">
+      <input
+        type="radio"
+        name="input-mode"
+        value={key}
+        checked={mode === key}
+        onChange={() => onChange(key)}
+        className="accent-cyan-500"
+      />
+      {label}
+    </label>
+  )
+  return (
+    <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      {radio('manual', 'Manual input')}
+      {radio('paste', 'Paste cohort table')}
+    </div>
   )
 }
 
@@ -136,6 +160,8 @@ export default function Calculator() {
     geo: 'tier_1',
   })
   const [adjustMode, setAdjustMode] = useState('pure') // 'pure' | 'adjusted'
+  const [inputMode, setInputMode] = useState('manual') // 'manual' | 'paste'
+  const [pasteText, setPasteText] = useState('')
 
   useEffect(() => {
     let cancelled = false
@@ -166,6 +192,24 @@ export default function Calculator() {
   }
 
   const cac = cacInput === '' || cacInput == null ? null : Number(cacInput)
+
+  // Parse the paste-mode input on every keystroke; the result feeds points
+  // automatically via the effect below.
+  const pasteParsed = useMemo(
+    () => (inputMode === 'paste' && pasteText ? parseCohortTable(pasteText) : null),
+    [inputMode, pasteText],
+  )
+  useEffect(() => {
+    if (inputMode !== 'paste' || !pasteParsed?.avgPoints) return
+    setPoints(
+      pasteParsed.avgPoints.map((p) => ({
+        id: newPointId(),
+        t: p.t,
+        percent: Math.round(p.percent * 10) / 10,
+      })),
+    )
+  }, [inputMode, pasteParsed])
+
   const pointErrors = useMemo(() => validateRetentionPoints(points), [points])
   const numericErrors = useMemo(
     () => validateNumericInputs({ cohortSize, arpu, cac, horizon }),
@@ -282,16 +326,27 @@ export default function Calculator() {
             />
           )}
 
-          <div className="border-t border-slate-800 pt-4">
-            <RetentionInput
-              points={points}
-              onChange={setPoints}
-              errors={pointErrors.byId}
-            />
-            {pointErrors.formError && (
-              <div className="mt-2 text-xs text-red-400">
-                {pointErrors.formError}
-              </div>
+          <div className="space-y-3 border-t border-slate-800 pt-4">
+            <InputModeToggle mode={inputMode} onChange={setInputMode} />
+            {inputMode === 'manual' ? (
+              <>
+                <RetentionInput
+                  points={points}
+                  onChange={setPoints}
+                  errors={pointErrors.byId}
+                />
+                {pointErrors.formError && (
+                  <div className="text-xs text-red-400">
+                    {pointErrors.formError}
+                  </div>
+                )}
+              </>
+            ) : (
+              <CohortPaste
+                text={pasteText}
+                onTextChange={setPasteText}
+                parsed={pasteParsed}
+              />
             )}
           </div>
 
