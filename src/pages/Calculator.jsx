@@ -1,5 +1,10 @@
-import { useMemo, useState } from 'react'
-import RetentionInput, { DEFAULT_POINTS } from '../components/RetentionInput.jsx'
+import { useEffect, useMemo, useState } from 'react'
+import RetentionInput, {
+  DEFAULT_POINTS,
+  newPointId,
+} from '../components/RetentionInput.jsx'
+import PresetSelector from '../components/PresetSelector.jsx'
+import { loadPresets } from '../lib/presetsLoader.js'
 import {
   validateRetentionPoints,
   validateNumericInputs,
@@ -38,9 +43,44 @@ export default function Calculator() {
   const [points, setPoints] = useState(DEFAULT_POINTS)
   const [cohortSize, setCohortSize] = useState(1000)
   const [arpu, setArpu] = useState(2)
-  // CAC is optional: empty string means "not provided".
   const [cacInput, setCacInput] = useState('10')
   const [horizon, setHorizon] = useState(180)
+
+  const [bundle, setBundle] = useState(null)
+  const [bundleError, setBundleError] = useState(null)
+  const [presetState, setPresetState] = useState({
+    presetId: null,
+    quality: 'median',
+    geo: 'tier_1',
+  })
+
+  useEffect(() => {
+    let cancelled = false
+    loadPresets(`${import.meta.env.BASE_URL}presets.json`)
+      .then((b) => {
+        if (!cancelled) setBundle(b)
+      })
+      .catch((e) => {
+        if (!cancelled) setBundleError(e.message)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const handlePresetChange = (next, variant) => {
+    setPresetState(next)
+    if (!variant) return
+    setPoints(
+      variant.retentionPoints.map((p) => ({
+        id: newPointId(),
+        t: p.t,
+        percent: Math.round(p.r * 1000) / 10, // back to % with 1 decimal
+      })),
+    )
+    if (variant.arpuPerDay != null) setArpu(variant.arpuPerDay)
+    if (variant.cac != null) setCacInput(String(variant.cac))
+  }
 
   const cac = cacInput === '' || cacInput == null ? null : Number(cacInput)
 
@@ -50,6 +90,23 @@ export default function Calculator() {
     [cohortSize, arpu, cac, horizon],
   )
   const allValid = pointErrors.valid && numericErrors.valid
+
+  const selectedPreset = useMemo(
+    () =>
+      bundle && presetState.presetId
+        ? bundle.presets.find((p) => p.id === presetState.presetId)
+        : null,
+    [bundle, presetState.presetId],
+  )
+  const selectedVariant = useMemo(
+    () =>
+      selectedPreset
+        ? selectedPreset.variants[
+            `${presetState.quality}|${presetState.geo}`
+          ] ?? null
+        : null,
+    [selectedPreset, presetState.quality, presetState.geo],
+  )
 
   return (
     <section>
@@ -62,16 +119,32 @@ export default function Calculator() {
 
       <div className="grid gap-8 lg:grid-cols-[360px,1fr]">
         <aside className="space-y-5 rounded-lg border border-slate-800 bg-bg-elev/40 p-4">
-          <RetentionInput
-            points={points}
-            onChange={setPoints}
-            errors={pointErrors.byId}
-          />
-          {pointErrors.formError && (
-            <div className="text-xs text-red-400">{pointErrors.formError}</div>
+          {bundleError && (
+            <div className="rounded border border-red-900/50 bg-red-950/40 p-2 text-xs text-red-300">
+              Failed to load presets: {bundleError}
+            </div>
           )}
 
-          <div className="grid grid-cols-2 gap-4">
+          <PresetSelector
+            bundle={bundle}
+            value={presetState}
+            onChange={handlePresetChange}
+          />
+
+          <div className="border-t border-slate-800 pt-4">
+            <RetentionInput
+              points={points}
+              onChange={setPoints}
+              errors={pointErrors.byId}
+            />
+            {pointErrors.formError && (
+              <div className="mt-2 text-xs text-red-400">
+                {pointErrors.formError}
+              </div>
+            )}
+          </div>
+
+          <div className="grid grid-cols-2 gap-4 border-t border-slate-800 pt-4">
             <NumberField
               label="Cohort size"
               value={cohortSize}
@@ -97,7 +170,7 @@ export default function Calculator() {
               suffix="$ (optional)"
               onChange={setCacInput}
               error={numericErrors.errors.cac}
-              hint="Leave empty to skip breakeven"
+              hint="Empty hides breakeven"
             />
             <NumberField
               label="Horizon"
@@ -118,12 +191,19 @@ export default function Calculator() {
           <p className="font-medium text-slate-400">Outputs</p>
           <p className="mt-2">
             KPI cards, retention curve, LTV chart, results table and Cohort
-            P&amp;L land in Stages 4–6.
+            P&amp;L land in Stages 5–6.
           </p>
           <pre className="mt-4 overflow-auto rounded bg-bg-subtle/60 p-3 text-xs leading-relaxed text-slate-400">
 {JSON.stringify(
   {
     valid: allValid,
+    presetId: presetState.presetId,
+    selectedSlice: selectedPreset
+      ? `${presetState.quality}|${presetState.geo}`
+      : null,
+    benchmarkPoints: selectedVariant
+      ? selectedVariant.retentionPoints.map((p) => [p.t, p.r])
+      : null,
     pointsCount: points.length,
     cohortSize,
     arpu,
