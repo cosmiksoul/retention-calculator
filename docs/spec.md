@@ -4,9 +4,12 @@
 
 | Файл | Роль |
 |---|---|
-| `docs/spec.md` (этот файл) | Спецификация продукта — что строим, как ведёт себя UI, какие фичи в каком приоритете |
-| `docs/methodology.md` | Методология: формула power law, ограничения модели, **полный список источников каждого пресета**. Этот же файл рендерится в приложении на странице `/methodology` |
-| `docs/presets.json` | Канонические данные индустриальных пресетов (7 вертикалей × до 5 quality/geo комбинаций = 35 пресетов). Загружается приложением в runtime |
+| `docs/spec.md` (этот файл) | Спецификация v1 (Session retention mode) — что строим, как ведёт себя UI, какие фичи в каком приоритете |
+| `docs/spec-v2-subscription.md` | Спецификация v2 (Subscription mode) — additive расширение для consumer subscription apps (weekly + monthly cadence) |
+| `docs/methodology.md` | Методология v1: формула power law, ограничения модели, **полный список источников session-пресетов**. Рендерится в приложении на странице `/methodology` (как первый раздел) |
+| `docs/methodology-subscription.md` | Методология v2: источники subscription-пресетов по 7 вертикалям + Weekly retention sourcing. Рендерится в `/methodology` (как второй раздел) |
+| `docs/presets.json` | Канонические данные session-пресетов (7 вертикалей × до 5 quality/geo = 35 пресетов). Загружается в runtime |
+| `docs/presets-subscription.json` | Канонические данные subscription-пресетов (7 вертикалей × до 5 quality/geo = 35 пресетов). Загружается в runtime параллельно с `presets.json` |
 | `README.md` | Витрина проекта на GitHub: о чём, ссылка на demo, методологию, стек |
 | `CLAUDE.md` | Контекст проекта для Claude Code (где что лежит, ключевые ограничения) |
 
@@ -632,7 +635,8 @@ LTV_calculation/
 
 Чтобы калькулятор был «простенький и не black box» — следующие вещи НЕ делаем в первой версии:
 
-- **Месячная шкала** для SaaS B2B / Subscription Apps (требует другой математики — NRR/GRR/cohort logo retention)
+- ~~**Месячная шкала** для Subscription Apps~~ — реализовано в v2 (см. `docs/spec-v2-subscription.md`)
+- **SaaS B2B** (NRR/GRR/cohort logo retention) — кандидат на v3
 - **Реактивация** (resurrected users) — power law их не моделирует
 - **Сезонность** — для iGaming/Sportsbook серьёзный фактор, но усложнит UX
 - **Multi-product LTV** (cross-sell) — за пределами unit-economics одного продукта

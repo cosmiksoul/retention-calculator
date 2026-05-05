@@ -26,7 +26,9 @@ coverage/
 
 # Generated runtime copies (source of truth lives in docs/)
 public/presets.json
+public/presets-subscription.json
 public/methodology.md
+public/methodology-subscription.md
 
 # Local working notes / draft data not yet ready for the canonical docs/
 temp/
