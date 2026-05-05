@@ -1,12 +1,14 @@
 import {
   ResponsiveContainer,
-  LineChart,
+  ComposedChart,
   Line,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
   Legend,
+  ReferenceLine,
 } from 'recharts'
 
 const USER_COLOR = '#22d3ee'
@@ -15,21 +17,42 @@ const BENCH_COLOR = '#94a3b8'
 
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload || !payload.length) return null
+  const userP = payload.find((p) => p.dataKey === 'user')
+  const fitP = payload.find((p) => p.dataKey === 'fit')
+  const benchP = payload.find((p) => p.dataKey === 'bench')
+  const bandP = payload.find((p) => p.dataKey === 'band')
   return (
     <div className="rounded border border-slate-700 bg-bg-elev/95 px-3 py-2 text-xs">
       <div className="font-medium text-slate-200">Day {label}</div>
-      {payload.map((p) => (
-        <div key={p.dataKey} className="flex items-center gap-2">
-          <span
-            className="inline-block h-2 w-2 rounded-full"
-            style={{ backgroundColor: p.color }}
-          />
-          <span className="text-slate-400">{p.name}</span>
-          <span className="ml-auto tabular-nums text-slate-200">
-            {p.value != null ? `${p.value.toFixed(2)}%` : '—'}
-          </span>
-        </div>
-      ))}
+      {userP && userP.value != null && (
+        <Row color={USER_COLOR} label="Your data" value={`${userP.value.toFixed(2)}%`} />
+      )}
+      {fitP && fitP.value != null && (
+        <Row color={FIT_COLOR} label="Power-law fit" value={`${fitP.value.toFixed(2)}%`} />
+      )}
+      {bandP && Array.isArray(bandP.value) && (
+        <Row
+          color="transparent"
+          label="±1σ band"
+          value={`${bandP.value[0].toFixed(1)}–${bandP.value[1].toFixed(1)}%`}
+        />
+      )}
+      {benchP && benchP.value != null && (
+        <Row color={BENCH_COLOR} label="Industry" value={`${benchP.value.toFixed(2)}%`} />
+      )}
+    </div>
+  )
+}
+
+function Row({ color, label, value }) {
+  return (
+    <div className="flex items-center gap-2">
+      <span
+        className="inline-block h-2 w-2 rounded-full"
+        style={{ backgroundColor: color }}
+      />
+      <span className="text-slate-400">{label}</span>
+      <span className="ml-auto tabular-nums text-slate-200">{value}</span>
     </div>
   )
 }
@@ -38,34 +61,48 @@ function CustomTooltip({ active, payload, label }) {
  * @param {{
  *   userPoints: Array<{t:number, percent:number}>,
  *   fitSeries: Array<{t:number, retention:number}>,
+ *   bandSeries: Array<{t:number, lower:number, upper:number}> | null,
  *   benchmarkSeries: Array<{t:number, retention:number}> | null,
  *   horizon: number,
+ *   lastUserT: number,
  * }} props
  */
 export default function RetentionChart({
   userPoints,
   fitSeries,
+  bandSeries,
   benchmarkSeries,
   horizon,
+  lastUserT,
 }) {
   const userByT = new Map(userPoints.map((p) => [p.t, p.percent]))
   const benchByT = benchmarkSeries
     ? new Map(benchmarkSeries.map((p) => [p.t, p.retention * 100]))
     : null
 
-  const data = fitSeries.map((p) => ({
+  const data = fitSeries.map((p, i) => ({
     t: p.t,
     fit: p.retention * 100,
     user: userByT.get(p.t) ?? null,
     bench: benchByT?.get(p.t) ?? null,
+    band: bandSeries ? [bandSeries[i].lower * 100, bandSeries[i].upper * 100] : null,
   }))
+
+  const showBand = !!bandSeries
 
   return (
     <div className="rounded-lg border border-slate-800 bg-bg-elev/40 p-4">
-      <div className="mb-2 text-sm font-medium text-slate-200">Retention curve</div>
+      <div className="mb-2 flex items-baseline justify-between">
+        <div className="text-sm font-medium text-slate-200">Retention curve</div>
+        {showBand && (
+          <div className="text-xs text-slate-500">
+            shaded = ±1σ confidence band (≈68%)
+          </div>
+        )}
+      </div>
       <div className="h-72 w-full">
         <ResponsiveContainer>
-          <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+          <ComposedChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
             <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" />
             <XAxis
               dataKey="t"
@@ -84,6 +121,18 @@ export default function RetentionChart({
             />
             <Tooltip content={<CustomTooltip />} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
+            {showBand && (
+              <Area
+                dataKey="band"
+                name="±1σ"
+                stroke="none"
+                fill={FIT_COLOR}
+                fillOpacity={0.13}
+                isAnimationActive={false}
+                legendType="none"
+                connectNulls
+              />
+            )}
             {benchmarkSeries && (
               <Line
                 type="monotone"
@@ -115,7 +164,20 @@ export default function RetentionChart({
               connectNulls={false}
               isAnimationActive={false}
             />
-          </LineChart>
+            {lastUserT > 0 && lastUserT < horizon && (
+              <ReferenceLine
+                x={lastUserT}
+                stroke="#475569"
+                strokeDasharray="2 4"
+                label={{
+                  value: `last data → D${lastUserT}`,
+                  position: 'top',
+                  fill: '#64748b',
+                  fontSize: 10,
+                }}
+              />
+            )}
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>

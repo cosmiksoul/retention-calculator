@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { ltvSeries, breakevenDay } from '../../src/lib/ltv.js'
+import { ltvSeries, ltvBand, breakevenDay } from '../../src/lib/ltv.js'
+import { fitPowerLaw } from '../../src/lib/powerLaw.js'
 
 describe('ltvSeries', () => {
   it('with R(t)=1 (a=1, b=0) cumLtv = arpu * t', () => {
@@ -59,5 +60,32 @@ describe('breakevenDay', () => {
     expect(be).not.toBeNull()
     expect(series[be - 1].cumLtv).toBeGreaterThanOrEqual(10)
     if (be > 1) expect(series[be - 2].cumLtv).toBeLessThan(10)
+  })
+})
+
+describe('ltvBand', () => {
+  const fit = fitPowerLaw([
+    { t: 1, r: 0.42 },
+    { t: 7, r: 0.18 },
+    { t: 14, r: 0.13 },
+    { t: 30, r: 0.06 },
+    { t: 60, r: 0.04 },
+  ])
+
+  it('upper >= mid LTV >= lower at every t', () => {
+    const mid = ltvSeries(fit, 2, 90)
+    const band = ltvBand(fit, 2, 90)
+    for (let i = 0; i < band.length; i++) {
+      expect(band[i].upper).toBeGreaterThanOrEqual(mid[i].cumLtv - 1e-9)
+      expect(band[i].lower).toBeLessThanOrEqual(mid[i].cumLtv + 1e-9)
+    }
+  })
+
+  it('both edges are monotonically non-decreasing', () => {
+    const band = ltvBand(fit, 2, 180)
+    for (let i = 1; i < band.length; i++) {
+      expect(band[i].upper).toBeGreaterThanOrEqual(band[i - 1].upper - 1e-12)
+      expect(band[i].lower).toBeGreaterThanOrEqual(band[i - 1].lower - 1e-12)
+    }
   })
 })

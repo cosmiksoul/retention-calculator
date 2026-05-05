@@ -94,3 +94,45 @@ export function retentionCurve(fit, horizon) {
   }
   return out
 }
+
+/**
+ * ±1σ confidence band around the power-law prediction.
+ *
+ * In log-space the regression line has standard error `se` on the slope, so the
+ * 1-sigma envelope at period t is `a · t^(-(b ∓ se))`. Capped to [0, 1] because
+ * retention is a fraction. Width grows monotonically with t, by construction.
+ *
+ * Note: this is a slope-only ±1σ band (≈68%). It does NOT account for the
+ * intercept's standard error; for the calculator's audience the slope error
+ * dominates the visible width and a wider, asymmetric envelope would be more
+ * confusing than informative.
+ *
+ * @param {{a:number, b:number, se:number}} fit
+ * @param {number} horizon
+ * @returns {Array<{t:number, lower:number, upper:number}>}
+ */
+export function retentionBand(fit, horizon) {
+  if (!(horizon >= 1)) throw new Error('retentionBand: horizon must be >= 1')
+  const out = []
+  for (let t = 1; t <= horizon; t++) {
+    const upper = Math.min(1, fit.a * Math.pow(t, -(fit.b - fit.se)))
+    const lower = Math.max(0, fit.a * Math.pow(t, -(fit.b + fit.se)))
+    out.push({ t, lower, upper })
+  }
+  return out
+}
+
+/**
+ * Caution level for forecasting horizon `horizon` past the last real input
+ * point at `lastT`. Mirrors §3.2 of the spec:
+ *   ratio > 10 ⇒ 'severe' (red)
+ *   ratio >  3 ⇒ 'caution' (amber)
+ *   otherwise ⇒ 'none'
+ */
+export function extrapolationLevel(lastT, horizon) {
+  if (!(lastT > 0) || !(horizon > 0)) return 'none'
+  const ratio = horizon / lastT
+  if (ratio > 10) return 'severe'
+  if (ratio > 3) return 'caution'
+  return 'none'
+}

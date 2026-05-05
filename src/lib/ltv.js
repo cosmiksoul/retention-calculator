@@ -32,6 +32,34 @@ export function ltvSeries(fit, arpu, horizon) {
 }
 
 /**
+ * LTV envelope from the ±1σ retention band. We integrate the band-edge curves
+ * directly (capping retention to [0,1] each step) so the upper LTV is the
+ * cumulative ARPU × upper-retention, and likewise for lower. This is the
+ * cumulative analogue of `retentionBand`.
+ *
+ * @param {{a:number, b:number, se:number}} fit
+ * @param {number} arpu
+ * @param {number} horizon
+ * @returns {Array<{t:number, lower:number, upper:number}>}
+ */
+export function ltvBand(fit, arpu, horizon) {
+  if (!(horizon >= 1)) throw new Error('ltvBand: horizon must be >= 1')
+  if (!Number.isFinite(arpu)) throw new Error('ltvBand: arpu must be finite')
+
+  let cumLow = 0
+  let cumUp = 0
+  const out = []
+  for (let t = 1; t <= horizon; t++) {
+    const upR = Math.min(1, fit.a * Math.pow(t, -(fit.b - fit.se)))
+    const loR = Math.max(0, fit.a * Math.pow(t, -(fit.b + fit.se)))
+    cumUp += arpu * upR
+    cumLow += arpu * loR
+    out.push({ t, lower: cumLow, upper: cumUp })
+  }
+  return out
+}
+
+/**
  * First t where cumLtv >= cac. Conventions:
  *   cac null/undefined/NaN → null  (caller decides what to render)
  *   cac <= 0               → 1     (any revenue covers zero cost)

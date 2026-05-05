@@ -10,8 +10,13 @@ import LTVChart from '../components/LTVChart.jsx'
 import ResultsTable from '../components/ResultsTable.jsx'
 import CohortPL from '../components/CohortPL.jsx'
 import { loadPresets } from '../lib/presetsLoader.js'
-import { fitPowerLaw, retentionCurve } from '../lib/powerLaw.js'
-import { ltvSeries, breakevenDay } from '../lib/ltv.js'
+import {
+  fitPowerLaw,
+  retentionCurve,
+  retentionBand,
+  extrapolationLevel,
+} from '../lib/powerLaw.js'
+import { ltvSeries, ltvBand, breakevenDay } from '../lib/ltv.js'
 import {
   validateRetentionPoints,
   validateNumericInputs,
@@ -43,6 +48,20 @@ function NumberField({ label, value, onChange, hint, error, min, step, suffix })
       )}
       {error && <span className="mt-1 block text-xs text-red-400">{error}</span>}
     </label>
+  )
+}
+
+function ExtrapolationBanner({ level, lastUserT, horizon }) {
+  const cls =
+    level === 'severe'
+      ? 'border-red-700/50 bg-red-950/30 text-red-200'
+      : 'border-amber-700/50 bg-amber-950/30 text-amber-200'
+  const text =
+    level === 'severe'
+      ? `Forecast horizon (D${horizon}) is more than 10× past your last input point (D${lastUserT}). Results are indicative — add intermediate retention points or shorten the horizon.`
+      : `Forecast horizon (D${horizon}) is more than 3× past your last input point (D${lastUserT}). Treat the extrapolation with caution.`
+  return (
+    <div className={`rounded-lg border p-3 text-xs ${cls}`}>{text}</div>
   )
 }
 
@@ -139,13 +158,32 @@ export default function Calculator() {
     () => (fit ? retentionCurve(fit, horizon) : null),
     [fit, horizon],
   )
+  // ±1σ band only meaningful when we have residual degrees of freedom (n > 2),
+  // i.e. fit.se > 0. With exactly 2 points the line passes perfectly through
+  // them and the band collapses — no point shading.
+  const retBand = useMemo(
+    () => (fit && fit.se > 0 ? retentionBand(fit, horizon) : null),
+    [fit, horizon],
+  )
   const ltv = useMemo(
     () => (fit ? ltvSeries(fit, arpu, horizon) : null),
+    [fit, arpu, horizon],
+  )
+  const ltvBandSeries = useMemo(
+    () => (fit && fit.se > 0 ? ltvBand(fit, arpu, horizon) : null),
     [fit, arpu, horizon],
   )
   const beDay = useMemo(
     () => (ltv ? breakevenDay(ltv, cac) : null),
     [ltv, cac],
+  )
+  const lastUserT = useMemo(
+    () => (points.length ? Math.max(...points.map((p) => p.t)) : 0),
+    [points],
+  )
+  const extrap = useMemo(
+    () => extrapolationLevel(lastUserT, horizon),
+    [lastUserT, horizon],
   )
   const benchmarkFit = useMemo(
     () => safeBenchmarkFit(selectedVariant),
@@ -250,17 +288,24 @@ export default function Calculator() {
                 beDay={beDay}
                 cac={cac}
               />
+              {extrap !== 'none' && (
+                <ExtrapolationBanner level={extrap} lastUserT={lastUserT} horizon={horizon} />
+              )}
               <RetentionChart
                 userPoints={points}
                 fitSeries={fitSeries}
+                bandSeries={retBand}
                 benchmarkSeries={benchmarkSeries}
                 horizon={horizon}
+                lastUserT={lastUserT}
               />
               <LTVChart
                 series={ltv}
+                bandSeries={ltvBandSeries}
                 cac={cac}
                 beDay={beDay}
                 horizon={horizon}
+                lastUserT={lastUserT}
               />
               <ResultsTable
                 series={ltv}

@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { fitPowerLaw, predict, retentionCurve } from '../../src/lib/powerLaw.js'
+import {
+  fitPowerLaw,
+  predict,
+  retentionCurve,
+  retentionBand,
+  extrapolationLevel,
+} from '../../src/lib/powerLaw.js'
 
 describe('fitPowerLaw', () => {
   it('recovers known a, b on noise-free synthetic data', () => {
@@ -92,5 +98,85 @@ describe('retentionCurve', () => {
 
   it('throws on horizon < 1', () => {
     expect(() => retentionCurve({ a: 1, b: 0.5 }, 0)).toThrow()
+  })
+})
+
+describe('retentionBand', () => {
+  // Take a noisy fit so SE > 0
+  const noisyPoints = [
+    { t: 1, r: 0.42 },
+    { t: 7, r: 0.18 },
+    { t: 14, r: 0.13 },
+    { t: 30, r: 0.06 },
+    { t: 60, r: 0.04 },
+  ]
+  const fit = fitPowerLaw(noisyPoints)
+
+  it('upper >= predict >= lower at every t', () => {
+    const band = retentionBand(fit, 90)
+    for (const { t, lower, upper } of band) {
+      const p = predict(t, fit)
+      expect(upper).toBeGreaterThanOrEqual(p - 1e-12)
+      expect(lower).toBeLessThanOrEqual(p + 1e-12)
+    }
+  })
+
+  it('log-width grows monotonically with t (uncertainty compounds in log space)', () => {
+    // Linear width can narrow at large t because both edges decay to 0;
+    // the meaningful "uncertainty" grows in log space, since
+    //   log(upper/lower) = 2 · se · log(t).
+    const band = retentionBand(fit, 365)
+    let prevLog = 0
+    for (const { upper, lower } of band) {
+      if (upper <= 0 || lower <= 0) continue
+      const w = Math.log(upper) - Math.log(lower)
+      expect(w).toBeGreaterThanOrEqual(prevLog - 1e-12)
+      prevLog = w
+    }
+  })
+
+  it('caps lower at 0 and upper at 1', () => {
+    const band = retentionBand(fit, 365)
+    for (const { lower, upper } of band) {
+      expect(lower).toBeGreaterThanOrEqual(0)
+      expect(upper).toBeLessThanOrEqual(1 + 1e-12)
+    }
+  })
+
+  it('collapses to predict when SE=0 (only 2 points)', () => {
+    const exactFit = fitPowerLaw([
+      { t: 1, r: 0.4 },
+      { t: 7, r: 0.2 },
+    ])
+    expect(exactFit.se).toBe(0)
+    const band = retentionBand(exactFit, 30)
+    for (const { t, lower, upper } of band) {
+      const p = predict(t, exactFit)
+      expect(upper).toBeCloseTo(Math.min(1, p), 12)
+      expect(lower).toBeCloseTo(p, 12)
+    }
+  })
+})
+
+describe('extrapolationLevel', () => {
+  it('flags severe extrapolation past 10× last point', () => {
+    expect(extrapolationLevel(30, 365)).toBe('severe')   // 12.2×
+    expect(extrapolationLevel(7, 90)).toBe('severe')     // 12.8×
+  })
+
+  it('flags caution between 3× and 10×', () => {
+    expect(extrapolationLevel(30, 120)).toBe('caution')  // 4×
+    expect(extrapolationLevel(30, 300)).toBe('caution')  // 10×
+  })
+
+  it('returns none within 3×', () => {
+    expect(extrapolationLevel(30, 90)).toBe('none')      // 3×
+    expect(extrapolationLevel(30, 60)).toBe('none')
+  })
+
+  it('handles invalid inputs without crashing', () => {
+    expect(extrapolationLevel(0, 30)).toBe('none')
+    expect(extrapolationLevel(-1, 30)).toBe('none')
+    expect(extrapolationLevel(30, 0)).toBe('none')
   })
 })

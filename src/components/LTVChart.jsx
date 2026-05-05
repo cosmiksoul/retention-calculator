@@ -1,7 +1,8 @@
 import {
   ResponsiveContainer,
-  LineChart,
+  ComposedChart,
   Line,
+  Area,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -19,7 +20,9 @@ function fmtUsd(v) {
 
 function CustomTooltip({ active, payload, label, cac }) {
   if (!active || !payload || !payload.length) return null
-  const ltv = payload[0]?.value
+  const ltvP = payload.find((p) => p.dataKey === 'cumLtv')
+  const bandP = payload.find((p) => p.dataKey === 'band')
+  const ltv = ltvP?.value
   return (
     <div className="rounded border border-slate-700 bg-bg-elev/95 px-3 py-2 text-xs">
       <div className="font-medium text-slate-200">Day {label}</div>
@@ -27,6 +30,14 @@ function CustomTooltip({ active, payload, label, cac }) {
         <span className="text-slate-400">Cum LTV</span>
         <span className="ml-auto tabular-nums text-slate-200">{fmtUsd(ltv)}</span>
       </div>
+      {bandP && Array.isArray(bandP.value) && (
+        <div className="flex items-center gap-2">
+          <span className="text-slate-400">±1σ</span>
+          <span className="ml-auto tabular-nums text-slate-400">
+            {fmtUsd(bandP.value[0])} – {fmtUsd(bandP.value[1])}
+          </span>
+        </div>
+      )}
       {cac != null && (
         <div className="mt-0.5 flex items-center gap-2">
           <span className="text-slate-400">vs CAC</span>
@@ -47,32 +58,50 @@ function CustomTooltip({ active, payload, label, cac }) {
 /**
  * @param {{
  *   series: Array<{t:number, cumLtv:number}>,
+ *   bandSeries: Array<{t:number, lower:number, upper:number}> | null,
  *   cac: number|null,
  *   beDay: number|null,
  *   horizon: number,
+ *   lastUserT: number,
  * }} props
  */
-export default function LTVChart({ series, cac, beDay, horizon }) {
-  const data = series.map((p) => ({ t: p.t, cumLtv: p.cumLtv }))
+export default function LTVChart({
+  series,
+  bandSeries,
+  cac,
+  beDay,
+  horizon,
+  lastUserT,
+}) {
+  const data = series.map((p, i) => ({
+    t: p.t,
+    cumLtv: p.cumLtv,
+    band: bandSeries ? [bandSeries[i].lower, bandSeries[i].upper] : null,
+  }))
   const maxLtv = data.length ? data[data.length - 1].cumLtv : 0
-  const yMax = cac != null ? Math.max(maxLtv, cac) * 1.1 : maxLtv * 1.05
+  const maxBandUpper = bandSeries ? bandSeries[bandSeries.length - 1].upper : maxLtv
+  const yTop = Math.max(maxLtv, maxBandUpper, cac ?? 0)
+  const yMax = yTop * 1.1
 
   return (
     <div className="rounded-lg border border-slate-800 bg-bg-elev/40 p-4">
       <div className="mb-2 flex items-baseline justify-between">
         <div className="text-sm font-medium text-slate-200">Cumulative LTV</div>
-        {cac != null && beDay != null && (
-          <div className="text-xs text-slate-500">
-            Breakeven at <span className="text-slate-300">Day {beDay}</span>
-          </div>
-        )}
-        {cac != null && beDay == null && (
-          <div className="text-xs text-amber-400">CAC not reached at horizon</div>
-        )}
+        <div className="text-xs text-slate-500">
+          {cac != null && beDay != null && (
+            <>
+              Breakeven at <span className="text-slate-300">Day {beDay}</span>
+            </>
+          )}
+          {cac != null && beDay == null && (
+            <span className="text-amber-400">CAC not reached at horizon</span>
+          )}
+          {bandSeries && cac == null && <span>shaded = ±1σ</span>}
+        </div>
       </div>
       <div className="h-72 w-full">
         <ResponsiveContainer>
-          <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
+          <ComposedChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 4 }}>
             <CartesianGrid stroke="#1f2937" strokeDasharray="3 3" />
             <XAxis
               dataKey="t"
@@ -91,25 +120,21 @@ export default function LTVChart({ series, cac, beDay, horizon }) {
             />
             <Tooltip content={<CustomTooltip cac={cac} />} />
             {cac != null && beDay != null && (
-              <ReferenceArea
-                x1={1}
-                x2={beDay}
-                y1={0}
-                y2={yMax}
-                fill="#ef4444"
-                fillOpacity={0.06}
-                stroke="none"
-              />
+              <ReferenceArea x1={1} x2={beDay} y1={0} y2={yMax} fill="#ef4444" fillOpacity={0.06} stroke="none" />
             )}
             {cac != null && beDay != null && (
-              <ReferenceArea
-                x1={beDay}
-                x2={horizon}
-                y1={0}
-                y2={yMax}
-                fill="#22c55e"
-                fillOpacity={0.06}
+              <ReferenceArea x1={beDay} x2={horizon} y1={0} y2={yMax} fill="#22c55e" fillOpacity={0.06} stroke="none" />
+            )}
+            {bandSeries && (
+              <Area
+                dataKey="band"
+                name="±1σ"
                 stroke="none"
+                fill="#22c55e"
+                fillOpacity={0.13}
+                isAnimationActive={false}
+                legendType="none"
+                connectNulls
               />
             )}
             {cac != null && (
@@ -125,11 +150,18 @@ export default function LTVChart({ series, cac, beDay, horizon }) {
                 }}
               />
             )}
-            {beDay != null && (
+            {beDay != null && <ReferenceLine x={beDay} stroke="#94a3b8" strokeDasharray="3 3" />}
+            {lastUserT > 0 && lastUserT < horizon && (
               <ReferenceLine
-                x={beDay}
-                stroke="#94a3b8"
-                strokeDasharray="3 3"
+                x={lastUserT}
+                stroke="#475569"
+                strokeDasharray="2 4"
+                label={{
+                  value: `last data → D${lastUserT}`,
+                  position: 'top',
+                  fill: '#64748b',
+                  fontSize: 10,
+                }}
               />
             )}
             <Line
@@ -141,7 +173,7 @@ export default function LTVChart({ series, cac, beDay, horizon }) {
               dot={false}
               isAnimationActive={false}
             />
-          </LineChart>
+          </ComposedChart>
         </ResponsiveContainer>
       </div>
     </div>
