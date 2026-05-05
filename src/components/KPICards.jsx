@@ -226,13 +226,13 @@ export default function KPICards({
         </>
       )}
       <Card
-        label="Long-term retention"
+        label={`D${horizon} retention`}
         value={
           Number.isFinite(horizonRetention)
             ? `${(horizonRetention * 100).toFixed(2)}%`
             : '—'
         }
-        hint={`at D${horizon}`}
+        hint="long-term, end of horizon"
         tooltipAlign="right"
         delta={retDelta}
         tooltip={
@@ -242,9 +242,9 @@ export default function KPICards({
               значение фита R(t) = a·t<sup>−b</sup> на конце окна.
             </p>
             <p className="mt-1.5">
-              Это grade проверки правдоподобности модели: если число выглядит
-              нереалистично высоким или низким — фит, скорее всего, плохо
-              экстраполируется и стоит добавить точек или сменить пресет.
+              Sanity-check для модели: если число выглядит нереалистично
+              высоким или низким — фит плохо экстраполируется и стоит добавить
+              точек или сменить пресет.
             </p>
           </>
         }

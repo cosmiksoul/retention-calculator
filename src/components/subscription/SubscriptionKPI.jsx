@@ -187,21 +187,21 @@ export default function SubscriptionKPI({
         }
       />
       <Card
-        label="Long-term retention"
+        label={`${cycleAbbr}${horizon} retention`}
         value={
           Number.isFinite(horizonRetention)
             ? `${(horizonRetention * 100).toFixed(2)}%`
             : '—'
         }
-        hint={`at ${cycleAbbr}${horizon}`}
+        hint="long-term, end of horizon"
         tooltipAlign="right"
         delta={retDeltaInfo}
         tooltip={
           <>
             <p>
-              Прогноз ретеншена платящих юзеров на самой дальней точке горизонта
-              ({cycleAbbr}{horizon}) — значение фита R(t) = a·t<sup>−b</sup> на
-              конце окна.
+              Прогноз ретеншена платящих пользователей в самой дальней точке
+              горизонта ({cycleAbbr}{horizon}) — значение фита R(t) = a·t<sup>−b</sup>
+              на конце окна.
             </p>
             <p className="mt-1.5">
               Sanity-check для модели: если число выглядит нереалистично высоким
