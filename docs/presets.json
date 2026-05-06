@@ -1,8 +1,7 @@
 {
-  "$schema_version": "1.0",
-  "$last_updated": "2026-05-05",
-  "$notes": "Retention: classic cohort, daily/sessions-based unless noted. ARPU/ARPDAU in USD. Empty cells = no defensible public data. Tiers: T1=US/UK/CA/AU/DACH/Nordics, T2=W/S Europe + JP/KR, T3=LATAM/SEA/India/EE.",
-  "$sources_note": "Sources for all numbers are documented in docs/methodology.md (see \"Откуда взяты цифры\" sections per vertical).",
+  "$schema_version": "2.0",
+  "$last_updated": "2026-05-06",
+  "$notes": "Unified preset bundle. Each preset declares cadence_default + cadence_supported; each variant carries period-keyed retention and arpu_per_period maps plus an optional funnel array. Numeric values are unchanged from v1 (docs/presets.json) and v2 (docs/presets-subscription.json) — only field shape was migrated.",
   "$tier_legend": {
     "quality": [
       "top_quartile",
@@ -15,70 +14,118 @@
       "tier_3"
     ]
   },
+  "$period_legend": {
+    "day": "Daily session retention (DAU-style)",
+    "week": "Weekly subscription cadence",
+    "month": "Monthly subscription cadence"
+  },
   "presets": [
     {
       "id": "igaming_casino",
       "label": "iGaming — Online Casino",
       "category": "iGaming",
-      "period_unit": "days",
       "metric_type": "depositor_retention",
       "data_quality": "estimated",
       "quality_warning": "Public iGaming benchmarks are scarce. Numbers triangulated from operator earnings (DraftKings, Flutter), Eilers & Krejcik tracker citations, and affiliate-network disclosures. Acquisition channel (SEO-affiliate vs. paid social vs. paid TV) drives 30-50% variance.",
+      "cadence_default": "day",
+      "cadence_supported": [
+        "day"
+      ],
       "variants": {
         "top_quartile|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 60,
-            "D7": 45,
-            "D30": 35,
-            "D90": 22
+            "day": {
+              "D1": 60,
+              "D7": 45,
+              "D30": 35,
+              "D90": 22
+            }
           },
-          "arpu_monthly": 300,
-          "arpu_per_day": 10.0,
-          "cac_per_ftd": 115
+          "arpu_per_period": {
+            "day": 10
+          },
+          "cac_per_acquired": 115,
+          "display": {
+            "arpu_monthly": 300,
+            "cac_per_ftd": 115
+          }
         },
         "median|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 45,
-            "D7": 30,
-            "D30": 20,
-            "D90": 10
+            "day": {
+              "D1": 45,
+              "D7": 30,
+              "D30": 20,
+              "D90": 10
+            }
           },
-          "arpu_monthly": 150,
-          "arpu_per_day": 5.0,
-          "cac_per_ftd": 400
+          "arpu_per_period": {
+            "day": 5
+          },
+          "cac_per_acquired": 400,
+          "display": {
+            "arpu_monthly": 150,
+            "cac_per_ftd": 400
+          }
         },
         "bottom_quartile|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 35,
-            "D7": 17,
-            "D30": 10,
-            "D90": 4
+            "day": {
+              "D1": 35,
+              "D7": 17,
+              "D30": 10,
+              "D90": 4
+            }
           },
-          "arpu_monthly": 80,
-          "arpu_per_day": 2.7,
-          "cac_per_ftd": 650
+          "arpu_per_period": {
+            "day": 2.7
+          },
+          "cac_per_acquired": 650,
+          "display": {
+            "arpu_monthly": 80,
+            "cac_per_ftd": 650
+          }
         },
         "median|tier_2": {
+          "funnel": [],
           "retention": {
-            "D1": 42,
-            "D7": 28,
-            "D30": 18,
-            "D90": 9
+            "day": {
+              "D1": 42,
+              "D7": 28,
+              "D30": 18,
+              "D90": 9
+            }
           },
-          "arpu_monthly": 90,
-          "arpu_per_day": 3.0,
-          "cac_per_ftd": 200
+          "arpu_per_period": {
+            "day": 3
+          },
+          "cac_per_acquired": 200,
+          "display": {
+            "arpu_monthly": 90,
+            "cac_per_ftd": 200
+          }
         },
         "median|tier_3": {
+          "funnel": [],
           "retention": {
-            "D1": 35,
-            "D7": 22,
-            "D30": 14,
-            "D90": 6
+            "day": {
+              "D1": 35,
+              "D7": 22,
+              "D30": 14,
+              "D90": 6
+            }
           },
-          "arpu_monthly": 35,
-          "arpu_per_day": 1.2,
-          "cac_per_ftd": 50
+          "arpu_per_period": {
+            "day": 1.2
+          },
+          "cac_per_acquired": 50,
+          "display": {
+            "arpu_monthly": 35,
+            "cac_per_ftd": 50
+          }
         }
       }
     },
@@ -86,70 +133,113 @@
       "id": "igaming_sportsbook",
       "label": "iGaming — Sportsbook",
       "category": "iGaming",
-      "period_unit": "days",
       "metric_type": "depositor_retention",
       "data_quality": "estimated",
       "quality_warning": "Sportsbook is seasonal (NFL/Premier League). US CAC was inflated 2020-2023 during state-launch land grab; normalizing in 2024+. DFS cross-sell channel delivers 30-50% better retention than paid social.",
+      "cadence_default": "day",
+      "cadence_supported": [
+        "day"
+      ],
       "variants": {
         "top_quartile|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 65,
-            "D7": 55,
-            "D30": 50,
-            "D60": 40,
-            "D90": 30
+            "day": {
+              "D1": 65,
+              "D7": 55,
+              "D30": 50,
+              "D60": 40,
+              "D90": 30
+            }
           },
-          "arpu_monthly": 115,
-          "arpu_per_day": 3.8,
-          "cac_per_ftd": 100
+          "arpu_per_period": {
+            "day": 3.8
+          },
+          "cac_per_acquired": 100,
+          "display": {
+            "arpu_monthly": 115,
+            "cac_per_ftd": 100
+          }
         },
         "median|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 52,
-            "D7": 40,
-            "D30": 35,
-            "D60": 26,
-            "D90": 18
+            "day": {
+              "D1": 52,
+              "D7": 40,
+              "D30": 35,
+              "D60": 26,
+              "D90": 18
+            }
           },
-          "arpu_monthly": 60,
-          "arpu_per_day": 2.0,
-          "cac_per_ftd": 300
+          "arpu_per_period": {
+            "day": 2
+          },
+          "cac_per_acquired": 300,
+          "display": {
+            "arpu_monthly": 60,
+            "cac_per_ftd": 300
+          }
         },
         "bottom_quartile|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 40,
-            "D7": 25,
-            "D30": 20,
-            "D60": 12,
-            "D90": 7
+            "day": {
+              "D1": 40,
+              "D7": 25,
+              "D30": 20,
+              "D60": 12,
+              "D90": 7
+            }
           },
-          "arpu_monthly": 30,
-          "arpu_per_day": 1.0,
-          "cac_per_ftd": 600
+          "arpu_per_period": {
+            "day": 1
+          },
+          "cac_per_acquired": 600,
+          "display": {
+            "arpu_monthly": 30,
+            "cac_per_ftd": 600
+          }
         },
         "median|tier_2": {
+          "funnel": [],
           "retention": {
-            "D1": 50,
-            "D7": 38,
-            "D30": 30,
-            "D60": 22,
-            "D90": 15
+            "day": {
+              "D1": 50,
+              "D7": 38,
+              "D30": 30,
+              "D60": 22,
+              "D90": 15
+            }
           },
-          "arpu_monthly": 40,
-          "arpu_per_day": 1.3,
-          "cac_per_ftd": 150
+          "arpu_per_period": {
+            "day": 1.3
+          },
+          "cac_per_acquired": 150,
+          "display": {
+            "arpu_monthly": 40,
+            "cac_per_ftd": 150
+          }
         },
         "median|tier_3": {
+          "funnel": [],
           "retention": {
-            "D1": 42,
-            "D7": 28,
-            "D30": 18,
-            "D60": 12,
-            "D90": 7
+            "day": {
+              "D1": 42,
+              "D7": 28,
+              "D30": 18,
+              "D60": 12,
+              "D90": 7
+            }
           },
-          "arpu_monthly": 18,
-          "arpu_per_day": 0.6,
-          "cac_per_ftd": 35
+          "arpu_per_period": {
+            "day": 0.6
+          },
+          "cac_per_acquired": 35,
+          "display": {
+            "arpu_monthly": 18,
+            "cac_per_ftd": 35
+          }
         }
       }
     },
@@ -157,64 +247,112 @@
       "id": "mobile_hyper_casual",
       "label": "Mobile Games — Hyper-casual",
       "category": "Mobile Games",
-      "period_unit": "days",
       "metric_type": "session_retention",
       "data_quality": "robust",
       "quality_warning": "Pure hyper-casual is in secular decline (-4% installs YoY, AppsFlyer 2024); converging with hybrid-casual. iOS CPI is 3-5x Android.",
+      "cadence_default": "day",
+      "cadence_supported": [
+        "day"
+      ],
       "variants": {
         "top_quartile|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 33,
-            "D7": 8,
-            "D14": 3,
-            "D30": 2.5
+            "day": {
+              "D1": 33,
+              "D7": 8,
+              "D14": 3,
+              "D30": 2.5
+            }
           },
-          "arpdau": 0.15,
-          "cpi_blended": 1.5,
-          "cpi_ios": 2.0,
-          "cpi_android": 0.6
+          "arpu_per_period": {
+            "day": 0.15
+          },
+          "cac_per_acquired": 1.5,
+          "display": {
+            "arpdau": 0.15,
+            "cpi_ios": 2,
+            "cpi_android": 0.6,
+            "cpi_blended": 1.5
+          }
         },
         "median|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 25,
-            "D7": 4,
-            "D14": 1.5,
-            "D30": 0.8
+            "day": {
+              "D1": 25,
+              "D7": 4,
+              "D14": 1.5,
+              "D30": 0.8
+            }
           },
-          "arpdau": 0.04,
-          "cpi_blended": 0.55,
-          "cpi_ios": 1.41,
-          "cpi_android": 0.4
+          "arpu_per_period": {
+            "day": 0.04
+          },
+          "cac_per_acquired": 0.55,
+          "display": {
+            "arpdau": 0.04,
+            "cpi_ios": 1.41,
+            "cpi_android": 0.4,
+            "cpi_blended": 0.55
+          }
         },
         "bottom_quartile|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 13,
-            "D7": 1.5,
-            "D14": 0.5,
-            "D30": 0.3
+            "day": {
+              "D1": 13,
+              "D7": 1.5,
+              "D14": 0.5,
+              "D30": 0.3
+            }
           },
-          "arpdau": 0.015,
-          "cpi_blended": 0.3
+          "arpu_per_period": {
+            "day": 0.015
+          },
+          "cac_per_acquired": 0.3,
+          "display": {
+            "arpdau": 0.015,
+            "cpi_blended": 0.3
+          }
         },
         "median|tier_2": {
+          "funnel": [],
           "retention": {
-            "D1": 22,
-            "D7": 3,
-            "D14": 1.2,
-            "D30": 0.6
+            "day": {
+              "D1": 22,
+              "D7": 3,
+              "D14": 1.2,
+              "D30": 0.6
+            }
           },
-          "arpdau": 0.025,
-          "cpi_blended": 0.4
+          "arpu_per_period": {
+            "day": 0.025
+          },
+          "cac_per_acquired": 0.4,
+          "display": {
+            "arpdau": 0.025,
+            "cpi_blended": 0.4
+          }
         },
         "median|tier_3": {
+          "funnel": [],
           "retention": {
-            "D1": 20,
-            "D7": 2.5,
-            "D14": 1,
-            "D30": 0.4
+            "day": {
+              "D1": 20,
+              "D7": 2.5,
+              "D14": 1,
+              "D30": 0.4
+            }
           },
-          "arpdau": 0.012,
-          "cpi_blended": 0.18
+          "arpu_per_period": {
+            "day": 0.012
+          },
+          "cac_per_acquired": 0.18,
+          "display": {
+            "arpdau": 0.012,
+            "cpi_blended": 0.18
+          }
         }
       }
     },
@@ -222,64 +360,112 @@
       "id": "mobile_casual",
       "label": "Mobile Games — Casual (Match-3, Puzzle, Lifestyle)",
       "category": "Mobile Games",
-      "period_unit": "days",
       "metric_type": "session_retention",
       "data_quality": "robust",
       "quality_warning": "Top-quartile vs. median diverge by 5-10x on ARPDAU (largest spread of any vertical). Match-3 has steepest CAC and longest payback (12-18mo iOS NAMER).",
+      "cadence_default": "day",
+      "cadence_supported": [
+        "day"
+      ],
       "variants": {
         "top_quartile|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 44,
-            "D7": 21,
-            "D14": 14,
-            "D30": 10
+            "day": {
+              "D1": 44,
+              "D7": 21,
+              "D14": 14,
+              "D30": 10
+            }
           },
-          "arpdau": 0.5,
-          "cpi_blended": 4.2,
-          "cpi_ios": 6.78,
-          "cpi_android": 1.5
+          "arpu_per_period": {
+            "day": 0.5
+          },
+          "cac_per_acquired": 4.2,
+          "display": {
+            "arpdau": 0.5,
+            "cpi_ios": 6.78,
+            "cpi_android": 1.5,
+            "cpi_blended": 4.2
+          }
         },
         "median|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 30,
-            "D7": 10,
-            "D14": 6,
-            "D30": 4
+            "day": {
+              "D1": 30,
+              "D7": 10,
+              "D14": 6,
+              "D30": 4
+            }
           },
-          "arpdau": 0.12,
-          "cpi_blended": 2.17,
-          "cpi_ios": 4.83,
-          "cpi_android": 0.65
+          "arpu_per_period": {
+            "day": 0.12
+          },
+          "cac_per_acquired": 2.17,
+          "display": {
+            "arpdau": 0.12,
+            "cpi_ios": 4.83,
+            "cpi_android": 0.65,
+            "cpi_blended": 2.17
+          }
         },
         "bottom_quartile|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 17,
-            "D7": 4,
-            "D14": 1.5,
-            "D30": 0.8
+            "day": {
+              "D1": 17,
+              "D7": 4,
+              "D14": 1.5,
+              "D30": 0.8
+            }
           },
-          "arpdau": 0.03,
-          "cpi_blended": 1.2
+          "arpu_per_period": {
+            "day": 0.03
+          },
+          "cac_per_acquired": 1.2,
+          "display": {
+            "arpdau": 0.03,
+            "cpi_blended": 1.2
+          }
         },
         "median|tier_2": {
+          "funnel": [],
           "retention": {
-            "D1": 28,
-            "D7": 9,
-            "D14": 5.5,
-            "D30": 3.5
+            "day": {
+              "D1": 28,
+              "D7": 9,
+              "D14": 5.5,
+              "D30": 3.5
+            }
           },
-          "arpdau": 0.08,
-          "cpi_blended": 1.08
+          "arpu_per_period": {
+            "day": 0.08
+          },
+          "cac_per_acquired": 1.08,
+          "display": {
+            "arpdau": 0.08,
+            "cpi_blended": 1.08
+          }
         },
         "median|tier_3": {
+          "funnel": [],
           "retention": {
-            "D1": 25,
-            "D7": 7,
-            "D14": 4,
-            "D30": 2.5
+            "day": {
+              "D1": 25,
+              "D7": 7,
+              "D14": 4,
+              "D30": 2.5
+            }
           },
-          "arpdau": 0.04,
-          "cpi_blended": 0.44
+          "arpu_per_period": {
+            "day": 0.04
+          },
+          "cac_per_acquired": 0.44,
+          "display": {
+            "arpdau": 0.04,
+            "cpi_blended": 0.44
+          }
         }
       }
     },
@@ -287,69 +473,117 @@
       "id": "mobile_midcore",
       "label": "Mobile Games — Midcore (Strategy, RPG, Shooter)",
       "category": "Mobile Games",
-      "period_unit": "days",
       "metric_type": "session_retention",
       "data_quality": "robust",
       "quality_warning": "First-month payback rare; D90+ ROAS is the operative metric. ATT opt-in materially lower (~30-35% NAMER) — top-quartile iOS likely under-reported. Genshin/RAID-tier RPGs distort segment averages.",
+      "cadence_default": "day",
+      "cadence_supported": [
+        "day"
+      ],
       "variants": {
         "top_quartile|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 40,
-            "D7": 22,
-            "D14": 15,
-            "D30": 10,
-            "D90": 5.5
+            "day": {
+              "D1": 40,
+              "D7": 22,
+              "D14": 15,
+              "D30": 10,
+              "D90": 5.5
+            }
           },
-          "arpdau": 0.8,
-          "cpi_blended": 5.45,
-          "cpi_ios": 8.5,
-          "cpi_android": 2.5
+          "arpu_per_period": {
+            "day": 0.8
+          },
+          "cac_per_acquired": 5.45,
+          "display": {
+            "arpdau": 0.8,
+            "cpi_ios": 8.5,
+            "cpi_android": 2.5,
+            "cpi_blended": 5.45
+          }
         },
         "median|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 28,
-            "D7": 10,
-            "D14": 6,
-            "D30": 3.5,
-            "D90": 1.5
+            "day": {
+              "D1": 28,
+              "D7": 10,
+              "D14": 6,
+              "D30": 3.5,
+              "D90": 1.5
+            }
           },
-          "arpdau": 0.22,
-          "cpi_blended": 4.5,
-          "cpi_ios": 7.47,
-          "cpi_android": 1.8
+          "arpu_per_period": {
+            "day": 0.22
+          },
+          "cac_per_acquired": 4.5,
+          "display": {
+            "arpdau": 0.22,
+            "cpi_ios": 7.47,
+            "cpi_android": 1.8,
+            "cpi_blended": 4.5
+          }
         },
         "bottom_quartile|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 15,
-            "D7": 4,
-            "D14": 1.5,
-            "D30": 0.5,
-            "D90": 0.2
+            "day": {
+              "D1": 15,
+              "D7": 4,
+              "D14": 1.5,
+              "D30": 0.5,
+              "D90": 0.2
+            }
           },
-          "arpdau": 0.04,
-          "cpi_blended": 2.5
+          "arpu_per_period": {
+            "day": 0.04
+          },
+          "cac_per_acquired": 2.5,
+          "display": {
+            "arpdau": 0.04,
+            "cpi_blended": 2.5
+          }
         },
         "median|tier_2": {
+          "funnel": [],
           "retention": {
-            "D1": 26,
-            "D7": 9,
-            "D14": 5,
-            "D30": 3,
-            "D90": 1.2
+            "day": {
+              "D1": 26,
+              "D7": 9,
+              "D14": 5,
+              "D30": 3,
+              "D90": 1.2
+            }
           },
-          "arpdau": 0.15,
-          "cpi_blended": 2.2
+          "arpu_per_period": {
+            "day": 0.15
+          },
+          "cac_per_acquired": 2.2,
+          "display": {
+            "arpdau": 0.15,
+            "cpi_blended": 2.2
+          }
         },
         "median|tier_3": {
+          "funnel": [],
           "retention": {
-            "D1": 22,
-            "D7": 7,
-            "D14": 3.5,
-            "D30": 1.8,
-            "D90": 0.7
+            "day": {
+              "D1": 22,
+              "D7": 7,
+              "D14": 3.5,
+              "D30": 1.8,
+              "D90": 0.7
+            }
           },
-          "arpdau": 0.06,
-          "cpi_blended": 0.27
+          "arpu_per_period": {
+            "day": 0.06
+          },
+          "cac_per_acquired": 0.27,
+          "display": {
+            "arpdau": 0.06,
+            "cpi_blended": 0.27
+          }
         }
       }
     },
@@ -357,70 +591,108 @@
       "id": "ecommerce",
       "label": "E-commerce (mobile + web shopping)",
       "category": "E-commerce",
-      "period_unit": "days",
       "metric_type": "session_retention",
       "data_quality": "robust",
       "quality_warning": "Two materially different sub-types: marketplaces (Amazon, eBay, Temu) vs. DTC brand apps. AppsFlyer: avg user makes first purchase 3.6 days after install; 75% of remarketing conversions in week 1.",
+      "cadence_default": "day",
+      "cadence_supported": [
+        "day"
+      ],
       "variants": {
         "top_quartile|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 34,
-            "D7": 16,
-            "D30": 9,
-            "D60": 5.5,
-            "D90": 3.5
+            "day": {
+              "D1": 34,
+              "D7": 16,
+              "D30": 9,
+              "D60": 5.5,
+              "D90": 3.5
+            }
           },
-          "arpu_annual": 500,
-          "arpu_per_day": 1.37,
-          "cac": 130
+          "arpu_per_period": {
+            "day": 1.37
+          },
+          "cac_per_acquired": 130,
+          "display": {
+            "arpu_annual": 500
+          }
         },
         "median|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 25,
-            "D7": 11,
-            "D30": 5,
-            "D60": 3,
-            "D90": 1.8
+            "day": {
+              "D1": 25,
+              "D7": 11,
+              "D30": 5,
+              "D60": 3,
+              "D90": 1.8
+            }
           },
-          "arpu_annual": 200,
-          "arpu_per_day": 0.55,
-          "cac": 90
+          "arpu_per_period": {
+            "day": 0.55
+          },
+          "cac_per_acquired": 90,
+          "display": {
+            "arpu_annual": 200
+          }
         },
         "bottom_quartile|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 16,
-            "D7": 5,
-            "D30": 2,
-            "D60": 1,
-            "D90": 0.5
+            "day": {
+              "D1": 16,
+              "D7": 5,
+              "D30": 2,
+              "D60": 1,
+              "D90": 0.5
+            }
           },
-          "arpu_annual": 70,
-          "arpu_per_day": 0.19,
-          "cac": 65
+          "arpu_per_period": {
+            "day": 0.19
+          },
+          "cac_per_acquired": 65,
+          "display": {
+            "arpu_annual": 70
+          }
         },
         "median|tier_2": {
+          "funnel": [],
           "retention": {
-            "D1": 22,
-            "D7": 9.5,
-            "D30": 4,
-            "D60": 2.5,
-            "D90": 1.5
+            "day": {
+              "D1": 22,
+              "D7": 9.5,
+              "D30": 4,
+              "D60": 2.5,
+              "D90": 1.5
+            }
           },
-          "arpu_annual": 140,
-          "arpu_per_day": 0.38,
-          "cac": 60
+          "arpu_per_period": {
+            "day": 0.38
+          },
+          "cac_per_acquired": 60,
+          "display": {
+            "arpu_annual": 140
+          }
         },
         "median|tier_3": {
+          "funnel": [],
           "retention": {
-            "D1": 19,
-            "D7": 7,
-            "D30": 3,
-            "D60": 1.8,
-            "D90": 1
+            "day": {
+              "D1": 19,
+              "D7": 7,
+              "D30": 3,
+              "D60": 1.8,
+              "D90": 1
+            }
           },
-          "arpu_annual": 60,
-          "arpu_per_day": 0.16,
-          "cac": 25
+          "arpu_per_period": {
+            "day": 0.16
+          },
+          "cac_per_acquired": 25,
+          "display": {
+            "arpu_annual": 60
+          }
         }
       }
     },
@@ -428,65 +700,1425 @@
       "id": "fintech",
       "label": "Fintech / Banking apps",
       "category": "Fintech",
-      "period_unit": "days",
       "metric_type": "session_retention",
       "data_quality": "moderate",
       "quality_warning": "Highest D30 retention of consumer apps (11.6% median, Plotline 2024). Massive sub-segment variance: neobank vs. traditional bank vs. investment vs. crypto = effectively 4 different businesses. Numbers below assume neobank baseline.",
+      "cadence_default": "day",
+      "cadence_supported": [
+        "day"
+      ],
       "variants": {
         "top_quartile|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 35,
-            "D7": 22,
-            "D30": 15,
-            "D90": 8
+            "day": {
+              "D1": 35,
+              "D7": 22,
+              "D30": 15,
+              "D90": 8
+            }
           },
-          "arpu_annual": 102,
-          "arpu_per_day": 0.28,
-          "cac": 20
+          "arpu_per_period": {
+            "day": 0.28
+          },
+          "cac_per_acquired": 20,
+          "display": {
+            "arpu_annual": 102
+          }
         },
         "median|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 30,
-            "D7": 17,
-            "D30": 11,
-            "D90": 5
+            "day": {
+              "D1": 30,
+              "D7": 17,
+              "D30": 11,
+              "D90": 5
+            }
           },
-          "arpu_annual": 45,
-          "arpu_per_day": 0.12,
-          "cac": 50
+          "arpu_per_period": {
+            "day": 0.12
+          },
+          "cac_per_acquired": 50,
+          "display": {
+            "arpu_annual": 45
+          }
         },
         "bottom_quartile|tier_1": {
+          "funnel": [],
           "retention": {
-            "D1": 20,
-            "D7": 9,
-            "D30": 5,
-            "D90": 1.5
+            "day": {
+              "D1": 20,
+              "D7": 9,
+              "D30": 5,
+              "D90": 1.5
+            }
           },
-          "arpu_annual": 25,
-          "arpu_per_day": 0.07,
-          "cac": 100
+          "arpu_per_period": {
+            "day": 0.07
+          },
+          "cac_per_acquired": 100,
+          "display": {
+            "arpu_annual": 25
+          }
         },
         "median|tier_2": {
+          "funnel": [],
           "retention": {
-            "D1": 27,
-            "D7": 15,
-            "D30": 9.5,
-            "D90": 4
+            "day": {
+              "D1": 27,
+              "D7": 15,
+              "D30": 9.5,
+              "D90": 4
+            }
           },
-          "arpu_annual": 35,
-          "arpu_per_day": 0.1,
-          "cac": 30
+          "arpu_per_period": {
+            "day": 0.1
+          },
+          "cac_per_acquired": 30,
+          "display": {
+            "arpu_annual": 35
+          }
         },
         "median|tier_3": {
+          "funnel": [],
           "retention": {
-            "D1": 25,
-            "D7": 13,
-            "D30": 8,
-            "D90": 3
+            "day": {
+              "D1": 25,
+              "D7": 13,
+              "D30": 8,
+              "D90": 3
+            }
           },
-          "arpu_annual": 18,
-          "arpu_per_day": 0.05,
-          "cac": 8
+          "arpu_per_period": {
+            "day": 0.05
+          },
+          "cac_per_acquired": 8,
+          "display": {
+            "arpu_annual": 18
+          }
+        }
+      }
+    },
+    {
+      "id": "subs_utilities",
+      "label": "Utilities (VPN, cleaners, scanners)",
+      "category": "Subscription Apps",
+      "metric_type": "subscription",
+      "data_quality": "robust",
+      "quality_warning": "Heavily weekly-plan dominant (73.6% revenue from weekly per Adapty 2026). Utilities have shortest avg session, highest weekly retention but lowest annual retention. VPN is sub-segment with highest pricing power. CIS-built leaders: many VPN apps in this space. Weekly cadence retention curves anchored to Adapty SOIS 2026 first-renewal benchmark + global weekly conversion funnel (W1 direct, W2-W5 via global ratios, W8-W26 via power-law extrapolation toward Day-380 anchor of 5.5%). Per-quartile/per-geo weekly data not publicly disclosed; only median|T1 and top_quartile|T1 weekly curves provided.",
+      "dominant_plan": "weekly",
+      "cadence_default": "week",
+      "cadence_supported": [
+        "week",
+        "month"
+      ],
+      "examples": [
+        "NordVPN",
+        "Surfshark",
+        "CCleaner",
+        "CamScanner",
+        "TurboVPN"
+      ],
+      "variants": {
+        "top_quartile|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 12
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 60
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 70,
+              "M3": 55,
+              "M6": 45,
+              "M12": 35
+            },
+            "week": {
+              "W1": 70,
+              "W2": 56,
+              "W4": 42,
+              "W8": 28,
+              "W12": 20,
+              "W26": 12
+            }
+          },
+          "arpu_per_period": {
+            "month": 30,
+            "week": 11
+          },
+          "cac_per_acquired": 4.5,
+          "display": {
+            "rpi_d14": 0.65,
+            "rpi_d60": 0.95,
+            "arpu_paid_monthly": 30,
+            "arpu_paid_weekly": 11,
+            "cpi_ios": 6.5,
+            "cpi_android": 2.5,
+            "cpi_blended": 4.5,
+            "ltv_12m_per_paying_user": 68.9
+          }
+        },
+        "median|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 8.6
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 35
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 50,
+              "M3": 32,
+              "M6": 22,
+              "M12": 12
+            },
+            "week": {
+              "W1": 58,
+              "W2": 44,
+              "W4": 31,
+              "W8": 18,
+              "W12": 12,
+              "W26": 7
+            }
+          },
+          "arpu_per_period": {
+            "month": 12,
+            "week": 7.5
+          },
+          "cac_per_acquired": 2.1,
+          "display": {
+            "rpi_d14": 0.2,
+            "rpi_d60": 0.32,
+            "arpu_paid_monthly": 12,
+            "arpu_paid_weekly": 7.5,
+            "cpi_ios": 2.9,
+            "cpi_android": 1.3,
+            "cpi_blended": 2.1,
+            "ltv_12m_per_paying_user": 28
+          }
+        },
+        "bottom_quartile|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 3
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 18
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 30,
+              "M3": 15,
+              "M6": 8,
+              "M12": 3
+            }
+          },
+          "arpu_per_period": {
+            "month": 6
+          },
+          "cac_per_acquired": 1.4,
+          "display": {
+            "rpi_d14": 0.06,
+            "rpi_d60": 0.1,
+            "arpu_paid_monthly": 6,
+            "cpi_blended": 1.4,
+            "ltv_12m_per_paying_user": 12
+          }
+        },
+        "median|tier_2": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 7
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 30
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 48,
+              "M3": 30,
+              "M6": 20,
+              "M12": 11
+            }
+          },
+          "arpu_per_period": {
+            "month": 10
+          },
+          "cac_per_acquired": 1,
+          "display": {
+            "rpi_d14": 0.14,
+            "rpi_d60": 0.22,
+            "arpu_paid_monthly": 10,
+            "cpi_blended": 1,
+            "ltv_12m_per_paying_user": 22
+          }
+        },
+        "median|tier_3": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 4
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 25
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 42,
+              "M3": 25,
+              "M6": 16,
+              "M12": 8
+            }
+          },
+          "arpu_per_period": {
+            "month": 5
+          },
+          "cac_per_acquired": 0.4,
+          "display": {
+            "rpi_d14": 0.08,
+            "rpi_d60": 0.12,
+            "arpu_paid_monthly": 5,
+            "cpi_blended": 0.4,
+            "ltv_12m_per_paying_user": 10
+          }
+        }
+      }
+    },
+    {
+      "id": "subs_lifestyle_wellness",
+      "label": "Lifestyle / Wellness (habit trackers, meditation)",
+      "category": "Subscription Apps",
+      "metric_type": "subscription",
+      "data_quality": "robust",
+      "quality_warning": "RevenueCat groups Lifestyle with Social, which includes Dating — Lifestyle-only numbers are estimates within that group. Meditation apps (Calm, Headspace) drive the high end; habit trackers struggle. Annual plans dominate revenue mix.",
+      "dominant_plan": "annual_then_monthly",
+      "cadence_default": "month",
+      "cadence_supported": [
+        "month"
+      ],
+      "examples": [
+        "Calm",
+        "Headspace",
+        "Reflectly",
+        "Fabulous",
+        "Stoic",
+        "Insight Timer"
+      ],
+      "variants": {
+        "top_quartile|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 8
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 55
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 75,
+              "M3": 58,
+              "M6": 45,
+              "M12": 35
+            }
+          },
+          "arpu_per_period": {
+            "month": 12
+          },
+          "cac_per_acquired": 5.5,
+          "display": {
+            "rpi_d14": 0.4,
+            "rpi_d60": 0.65,
+            "arpu_paid_monthly": 12,
+            "cpi_ios": 7.5,
+            "cpi_android": 3.2,
+            "cpi_blended": 5.5,
+            "ltv_12m_per_paying_user": 82
+          }
+        },
+        "median|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 4.2
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 28
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 55,
+              "M3": 35,
+              "M6": 22,
+              "M12": 14
+            }
+          },
+          "arpu_per_period": {
+            "month": 7
+          },
+          "cac_per_acquired": 3.2,
+          "display": {
+            "rpi_d14": 0.12,
+            "rpi_d60": 0.2,
+            "arpu_paid_monthly": 7,
+            "cpi_ios": 4.5,
+            "cpi_android": 1.8,
+            "cpi_blended": 3.2,
+            "ltv_12m_per_paying_user": 35
+          }
+        },
+        "bottom_quartile|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 1.5
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 12
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 30,
+              "M3": 14,
+              "M6": 6,
+              "M12": 2
+            }
+          },
+          "arpu_per_period": {
+            "month": 4
+          },
+          "cac_per_acquired": 2,
+          "display": {
+            "rpi_d14": 0.04,
+            "rpi_d60": 0.07,
+            "arpu_paid_monthly": 4,
+            "cpi_blended": 2,
+            "ltv_12m_per_paying_user": 12
+          }
+        },
+        "median|tier_2": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 3.5
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 24
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 52,
+              "M3": 32,
+              "M6": 20,
+              "M12": 12
+            }
+          },
+          "arpu_per_period": {
+            "month": 6
+          },
+          "cac_per_acquired": 1.6,
+          "display": {
+            "rpi_d14": 0.08,
+            "rpi_d60": 0.14,
+            "arpu_paid_monthly": 6,
+            "cpi_blended": 1.6,
+            "ltv_12m_per_paying_user": 28
+          }
+        },
+        "median|tier_3": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 2
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 20
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 48,
+              "M3": 28,
+              "M6": 16,
+              "M12": 9
+            }
+          },
+          "arpu_per_period": {
+            "month": 3
+          },
+          "cac_per_acquired": 0.6,
+          "display": {
+            "rpi_d14": 0.04,
+            "rpi_d60": 0.07,
+            "arpu_paid_monthly": 3,
+            "cpi_blended": 0.6,
+            "ltv_12m_per_paying_user": 15
+          }
+        }
+      }
+    },
+    {
+      "id": "subs_health_fitness",
+      "label": "Health & Fitness (workout, calorie tracking, weight loss)",
+      "category": "Subscription Apps",
+      "metric_type": "subscription",
+      "data_quality": "robust",
+      "quality_warning": "Best-monetizing category in RevenueCat data: median D60 RPI $0.63 (2x category avg). Annual plans dominate (60.6% revenue). Top 10% trial-to-paid 68.3% — exceptional. CIS-built leader: BetterMe (large H&F player).",
+      "dominant_plan": "annual",
+      "cadence_default": "month",
+      "cadence_supported": [
+        "month"
+      ],
+      "examples": [
+        "MyFitnessPal",
+        "Strava",
+        "Nike Training",
+        "Fitbit",
+        "Noom",
+        "BetterMe",
+        "Yazio",
+        "Lose It!"
+      ],
+      "variants": {
+        "top_quartile|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 10
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 68.3
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 80,
+              "M3": 65,
+              "M6": 52,
+              "M12": 40
+            }
+          },
+          "arpu_per_period": {
+            "month": 15
+          },
+          "cac_per_acquired": 6.5,
+          "display": {
+            "rpi_d14": 1.31,
+            "rpi_d60": 2.97,
+            "arpu_paid_monthly": 15,
+            "cpi_ios": 9,
+            "cpi_android": 3.8,
+            "cpi_blended": 6.5,
+            "ltv_12m_per_paying_user": 110
+          }
+        },
+        "median|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 6.5
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 39.9
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 65,
+              "M3": 45,
+              "M6": 32,
+              "M12": 22
+            }
+          },
+          "arpu_per_period": {
+            "month": 9
+          },
+          "cac_per_acquired": 4.2,
+          "display": {
+            "rpi_d14": 0.44,
+            "rpi_d60": 0.63,
+            "arpu_paid_monthly": 9,
+            "cpi_ios": 6.5,
+            "cpi_android": 2.2,
+            "cpi_blended": 4.2,
+            "ltv_12m_per_paying_user": 55
+          }
+        },
+        "bottom_quartile|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 2.5
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 22
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 40,
+              "M3": 22,
+              "M6": 12,
+              "M12": 5
+            }
+          },
+          "arpu_per_period": {
+            "month": 5
+          },
+          "cac_per_acquired": 2.5,
+          "display": {
+            "rpi_d14": 0.1,
+            "rpi_d60": 0.15,
+            "arpu_paid_monthly": 5,
+            "cpi_blended": 2.5,
+            "ltv_12m_per_paying_user": 18
+          }
+        },
+        "median|tier_2": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 5.5
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 35
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 62,
+              "M3": 42,
+              "M6": 30,
+              "M12": 20
+            }
+          },
+          "arpu_per_period": {
+            "month": 7
+          },
+          "cac_per_acquired": 2,
+          "display": {
+            "rpi_d14": 0.32,
+            "rpi_d60": 0.45,
+            "arpu_paid_monthly": 7,
+            "cpi_blended": 2,
+            "ltv_12m_per_paying_user": 42
+          }
+        },
+        "median|tier_3": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 3.5
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 25
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 55,
+              "M3": 35,
+              "M6": 22,
+              "M12": 14
+            }
+          },
+          "arpu_per_period": {
+            "month": 4
+          },
+          "cac_per_acquired": 0.8,
+          "display": {
+            "rpi_d14": 0.12,
+            "rpi_d60": 0.18,
+            "arpu_paid_monthly": 4,
+            "cpi_blended": 0.8,
+            "ltv_12m_per_paying_user": 22
+          }
+        }
+      }
+    },
+    {
+      "id": "subs_photo_video",
+      "label": "Photo / Video Editors",
+      "category": "Subscription Apps",
+      "metric_type": "subscription",
+      "data_quality": "robust",
+      "quality_warning": "Lowest median trial-to-paid of consumer subs (26.2% RevenueCat 2024) but highest spread top vs. bottom (3x). Heavily weekly-plan, refund-rate prone. CIS-built leaders: Reface, FaceApp, Prequel — typical viral spike + churn pattern. Weekly cadence retention curves anchored to Adapty SOIS 2026 first-renewal benchmark + global weekly conversion funnel (W1 direct, W2-W5 via global ratios, W8-W26 via power-law extrapolation toward Day-380 anchor of 5.5%). Per-quartile/per-geo weekly data not publicly disclosed; only median|T1 and top_quartile|T1 weekly curves provided.",
+      "dominant_plan": "weekly",
+      "cadence_default": "week",
+      "cadence_supported": [
+        "week",
+        "month"
+      ],
+      "examples": [
+        "Prequel",
+        "FaceApp",
+        "Reface",
+        "VSCO",
+        "Lightroom Mobile",
+        "CapCut",
+        "Snapseed"
+      ],
+      "variants": {
+        "top_quartile|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 15
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 70
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 60,
+              "M3": 38,
+              "M6": 25,
+              "M12": 15
+            },
+            "week": {
+              "W1": 55,
+              "W2": 42,
+              "W4": 30,
+              "W8": 19,
+              "W12": 13,
+              "W26": 8
+            }
+          },
+          "arpu_per_period": {
+            "month": 18,
+            "week": 10
+          },
+          "cac_per_acquired": 4.8,
+          "display": {
+            "rpi_d14": 0.8,
+            "rpi_d60": 1.2,
+            "arpu_paid_monthly": 18,
+            "arpu_paid_weekly": 10,
+            "cpi_ios": 7.2,
+            "cpi_android": 2.5,
+            "cpi_blended": 4.8,
+            "ltv_12m_per_paying_user": 65
+          }
+        },
+        "median|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 7
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 26.2
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 38,
+              "M3": 20,
+              "M6": 11,
+              "M12": 5
+            },
+            "week": {
+              "W1": 40,
+              "W2": 30,
+              "W4": 21,
+              "W8": 12,
+              "W12": 8,
+              "W26": 5
+            }
+          },
+          "arpu_per_period": {
+            "month": 9,
+            "week": 7.5
+          },
+          "cac_per_acquired": 3,
+          "display": {
+            "rpi_d14": 0.15,
+            "rpi_d60": 0.22,
+            "arpu_paid_monthly": 9,
+            "arpu_paid_weekly": 7.5,
+            "cpi_ios": 4.2,
+            "cpi_android": 1.7,
+            "cpi_blended": 3,
+            "ltv_12m_per_paying_user": 22
+          }
+        },
+        "bottom_quartile|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 2.5
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 10
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 18,
+              "M3": 7,
+              "M6": 3,
+              "M12": 1
+            }
+          },
+          "arpu_per_period": {
+            "month": 5
+          },
+          "cac_per_acquired": 1.8,
+          "display": {
+            "rpi_d14": 0.04,
+            "rpi_d60": 0.06,
+            "arpu_paid_monthly": 5,
+            "cpi_blended": 1.8,
+            "ltv_12m_per_paying_user": 8
+          }
+        },
+        "median|tier_2": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 6
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 23
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 36,
+              "M3": 19,
+              "M6": 10,
+              "M12": 4
+            }
+          },
+          "arpu_per_period": {
+            "month": 7
+          },
+          "cac_per_acquired": 1.5,
+          "display": {
+            "rpi_d14": 0.1,
+            "rpi_d60": 0.15,
+            "arpu_paid_monthly": 7,
+            "cpi_blended": 1.5,
+            "ltv_12m_per_paying_user": 16
+          }
+        },
+        "median|tier_3": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 4
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 18
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 32,
+              "M3": 16,
+              "M6": 8,
+              "M12": 3
+            }
+          },
+          "arpu_per_period": {
+            "month": 4
+          },
+          "cac_per_acquired": 0.55,
+          "display": {
+            "rpi_d14": 0.05,
+            "rpi_d60": 0.08,
+            "arpu_paid_monthly": 4,
+            "cpi_blended": 0.55,
+            "ltv_12m_per_paying_user": 9
+          }
+        }
+      }
+    },
+    {
+      "id": "subs_language_learning",
+      "label": "Language Learning",
+      "category": "Subscription Apps",
+      "metric_type": "subscription",
+      "data_quality": "robust",
+      "quality_warning": "Duolingo dominates: 8.5-8.9% paid penetration of 113M MAU in 2024. Long trials (5-9 days dominate) lead to higher conversion. Heavy organic growth (Duolingo S&M only 10-12% of revenue).",
+      "dominant_plan": "annual",
+      "cadence_default": "month",
+      "cadence_supported": [
+        "month"
+      ],
+      "examples": [
+        "Duolingo",
+        "Babbel",
+        "Memrise",
+        "Drops",
+        "Mondly",
+        "Lingvist",
+        "Busuu"
+      ],
+      "variants": {
+        "top_quartile|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 14
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 58
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 78,
+              "M3": 60,
+              "M6": 48,
+              "M12": 38
+            }
+          },
+          "arpu_per_period": {
+            "month": 9.5
+          },
+          "cac_per_acquired": 4.5,
+          "display": {
+            "rpi_d14": 0.7,
+            "rpi_d60": 1.1,
+            "arpu_paid_monthly": 9.5,
+            "cpi_ios": 6.2,
+            "cpi_android": 2.5,
+            "cpi_blended": 4.5,
+            "ltv_12m_per_paying_user": 75
+          }
+        },
+        "median|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 7.5
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 38
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 60,
+              "M3": 40,
+              "M6": 28,
+              "M12": 18
+            }
+          },
+          "arpu_per_period": {
+            "month": 7
+          },
+          "cac_per_acquired": 2.8,
+          "display": {
+            "rpi_d14": 0.3,
+            "rpi_d60": 0.45,
+            "arpu_paid_monthly": 7,
+            "cpi_ios": 3.8,
+            "cpi_android": 1.6,
+            "cpi_blended": 2.8,
+            "ltv_12m_per_paying_user": 42
+          }
+        },
+        "bottom_quartile|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 2.5
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 18
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 35,
+              "M3": 18,
+              "M6": 9,
+              "M12": 3
+            }
+          },
+          "arpu_per_period": {
+            "month": 4
+          },
+          "cac_per_acquired": 1.5,
+          "display": {
+            "rpi_d14": 0.07,
+            "rpi_d60": 0.12,
+            "arpu_paid_monthly": 4,
+            "cpi_blended": 1.5,
+            "ltv_12m_per_paying_user": 14
+          }
+        },
+        "median|tier_2": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 6.5
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 33
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 58,
+              "M3": 38,
+              "M6": 26,
+              "M12": 16
+            }
+          },
+          "arpu_per_period": {
+            "month": 5.5
+          },
+          "cac_per_acquired": 1.4,
+          "display": {
+            "rpi_d14": 0.22,
+            "rpi_d60": 0.32,
+            "arpu_paid_monthly": 5.5,
+            "cpi_blended": 1.4,
+            "ltv_12m_per_paying_user": 32
+          }
+        },
+        "median|tier_3": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 4.5
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 25
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 52,
+              "M3": 32,
+              "M6": 20,
+              "M12": 11
+            }
+          },
+          "arpu_per_period": {
+            "month": 3
+          },
+          "cac_per_acquired": 0.55,
+          "display": {
+            "rpi_d14": 0.1,
+            "rpi_d60": 0.15,
+            "arpu_paid_monthly": 3,
+            "cpi_blended": 0.55,
+            "ltv_12m_per_paying_user": 18
+          }
+        }
+      }
+    },
+    {
+      "id": "subs_dating",
+      "label": "Dating Apps",
+      "category": "Subscription Apps",
+      "metric_type": "subscription",
+      "data_quality": "robust",
+      "quality_warning": "Public 10-Q data (Match, Bumble) is gold standard — better than RevenueCat which buckets dating into Social & Lifestyle. Hybrid model: subscriptions + boosts/super-likes (consumables). Tinder churn structurally high — users leave when they find a match (success churn). CIS-built: Mamba, Badoo (Bumble Inc).",
+      "dominant_plan": "monthly",
+      "cadence_default": "month",
+      "cadence_supported": [
+        "month"
+      ],
+      "examples": [
+        "Tinder",
+        "Bumble",
+        "Hinge",
+        "Match.com",
+        "Badoo",
+        "Mamba",
+        "Grindr"
+      ],
+      "variants": {
+        "top_quartile|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 6
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 50
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 70,
+              "M3": 50,
+              "M6": 35,
+              "M12": 22
+            }
+          },
+          "arpu_per_period": {
+            "month": 27
+          },
+          "cac_per_acquired": 5.5,
+          "display": {
+            "rpi_d14": 0.55,
+            "rpi_d60": 0.95,
+            "arpu_paid_monthly": 27,
+            "cpi_ios": 7.5,
+            "cpi_android": 3.2,
+            "cpi_blended": 5.5,
+            "ltv_12m_per_paying_user": 130
+          }
+        },
+        "median|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 3.5
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 30
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 50,
+              "M3": 28,
+              "M6": 16,
+              "M12": 8
+            }
+          },
+          "arpu_per_period": {
+            "month": 16
+          },
+          "cac_per_acquired": 3.5,
+          "display": {
+            "rpi_d14": 0.18,
+            "rpi_d60": 0.28,
+            "arpu_paid_monthly": 16,
+            "cpi_ios": 4.8,
+            "cpi_android": 1.9,
+            "cpi_blended": 3.5,
+            "ltv_12m_per_paying_user": 60
+          }
+        },
+        "bottom_quartile|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 1
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 12
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 25,
+              "M3": 10,
+              "M6": 4,
+              "M12": 1
+            }
+          },
+          "arpu_per_period": {
+            "month": 8
+          },
+          "cac_per_acquired": 2.2,
+          "display": {
+            "rpi_d14": 0.05,
+            "rpi_d60": 0.08,
+            "arpu_paid_monthly": 8,
+            "cpi_blended": 2.2,
+            "ltv_12m_per_paying_user": 16
+          }
+        },
+        "median|tier_2": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 3
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 27
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 48,
+              "M3": 26,
+              "M6": 14,
+              "M12": 7
+            }
+          },
+          "arpu_per_period": {
+            "month": 12
+          },
+          "cac_per_acquired": 1.8,
+          "display": {
+            "rpi_d14": 0.14,
+            "rpi_d60": 0.22,
+            "arpu_paid_monthly": 12,
+            "cpi_blended": 1.8,
+            "ltv_12m_per_paying_user": 45
+          }
+        },
+        "median|tier_3": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 1.8
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 20
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 42,
+              "M3": 22,
+              "M6": 11,
+              "M12": 5
+            }
+          },
+          "arpu_per_period": {
+            "month": 5
+          },
+          "cac_per_acquired": 0.65,
+          "display": {
+            "rpi_d14": 0.06,
+            "rpi_d60": 0.1,
+            "arpu_paid_monthly": 5,
+            "cpi_blended": 0.65,
+            "ltv_12m_per_paying_user": 18
+          }
+        }
+      }
+    },
+    {
+      "id": "subs_ai_companions",
+      "label": "AI Companions / Chatbots",
+      "category": "Subscription Apps",
+      "metric_type": "subscription",
+      "data_quality": "moderate",
+      "quality_warning": "Fastest-growing category 2024-2025 (+64% YoY revenue, +88% downloads). Replika/Character.AI/Chai dominate top of market — top 10% capture 89% of revenue. Replika has unusually high free→paid conversion (25%, vs typical 2-5%). Numbers will likely shift quickly — refresh quarterly. CIS-built leader: Replika (Eugenia Kuyda / Luka).",
+      "dominant_plan": "monthly_with_some_weekly",
+      "cadence_default": "week",
+      "cadence_supported": [
+        "month"
+      ],
+      "examples": [
+        "Replika",
+        "Character.AI",
+        "PolyBuzz",
+        "Chai",
+        "Anima",
+        "Talkie",
+        "Candy.ai",
+        "Nomi AI"
+      ],
+      "variants": {
+        "top_quartile|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 12
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 65
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 75,
+              "M3": 60,
+              "M6": 50,
+              "M12": 38
+            }
+          },
+          "arpu_per_period": {
+            "month": 15
+          },
+          "cac_per_acquired": 4.5,
+          "display": {
+            "rpi_d14": 0.85,
+            "rpi_d60": 1.3,
+            "arpu_paid_monthly": 15,
+            "cpi_ios": 6.2,
+            "cpi_android": 2.5,
+            "cpi_blended": 4.5,
+            "ltv_12m_per_paying_user": 95
+          }
+        },
+        "median|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 6
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 38
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 55,
+              "M3": 35,
+              "M6": 22,
+              "M12": 12
+            }
+          },
+          "arpu_per_period": {
+            "month": 10
+          },
+          "cac_per_acquired": 3.2,
+          "display": {
+            "rpi_d14": 0.44,
+            "rpi_d60": 0.63,
+            "arpu_paid_monthly": 10,
+            "cpi_ios": 4.5,
+            "cpi_android": 1.8,
+            "cpi_blended": 3.2,
+            "ltv_12m_per_paying_user": 45
+          }
+        },
+        "bottom_quartile|tier_1": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 1.5
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 12
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 25,
+              "M3": 10,
+              "M6": 4,
+              "M12": 1
+            }
+          },
+          "arpu_per_period": {
+            "month": 5
+          },
+          "cac_per_acquired": 2,
+          "display": {
+            "rpi_d14": 0.06,
+            "rpi_d60": 0.1,
+            "arpu_paid_monthly": 5,
+            "cpi_blended": 2,
+            "ltv_12m_per_paying_user": 12
+          }
+        },
+        "median|tier_2": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 5
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 32
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 52,
+              "M3": 32,
+              "M6": 20,
+              "M12": 10
+            }
+          },
+          "arpu_per_period": {
+            "month": 7
+          },
+          "cac_per_acquired": 1.6,
+          "display": {
+            "rpi_d14": 0.32,
+            "rpi_d60": 0.45,
+            "arpu_paid_monthly": 7,
+            "cpi_blended": 1.6,
+            "ltv_12m_per_paying_user": 32
+          }
+        },
+        "median|tier_3": {
+          "funnel": [
+            {
+              "label": "Install → Trial",
+              "conversionPct": 3.5
+            },
+            {
+              "label": "Trial → Paid",
+              "conversionPct": 24
+            }
+          ],
+          "retention": {
+            "month": {
+              "M1": 48,
+              "M3": 28,
+              "M6": 16,
+              "M12": 7
+            }
+          },
+          "arpu_per_period": {
+            "month": 3.5
+          },
+          "cac_per_acquired": 0.55,
+          "display": {
+            "rpi_d14": 0.14,
+            "rpi_d60": 0.2,
+            "arpu_paid_monthly": 3.5,
+            "cpi_blended": 0.55,
+            "ltv_12m_per_paying_user": 18
+          }
         }
       }
     }
