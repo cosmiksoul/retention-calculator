@@ -30,6 +30,35 @@ function useTheme() {
   return [theme, setTheme]
 }
 
+// Force light theme during printing so the dark backgrounds don't waste ink
+// and chart colours stay readable on paper. The data-theme attribute is
+// mutated synchronously on beforeprint and reverted on afterprint — Recharts
+// re-renders automatically because useThemeColors observes that attribute.
+// Fires for both the in-app "Export PDF" button (which calls window.print)
+// and native Cmd/Ctrl+P.
+function usePrintLightTheme(currentTheme) {
+  useEffect(() => {
+    const root = document.documentElement
+    let restoreTo = null
+    const before = () => {
+      restoreTo = root.getAttribute('data-theme')
+      if (restoreTo !== 'light') root.setAttribute('data-theme', 'light')
+    }
+    const after = () => {
+      if (restoreTo && restoreTo !== 'light') {
+        root.setAttribute('data-theme', restoreTo)
+      }
+      restoreTo = null
+    }
+    window.addEventListener('beforeprint', before)
+    window.addEventListener('afterprint', after)
+    return () => {
+      window.removeEventListener('beforeprint', before)
+      window.removeEventListener('afterprint', after)
+    }
+  }, [currentTheme])
+}
+
 function ThemeToggle({ theme, onToggle }) {
   const isDark = theme === 'dark'
   return (
@@ -54,7 +83,7 @@ function navClass({ isActive }) {
 
 function Header({ theme, onToggleTheme }) {
   return (
-    <header className="sticky top-0 z-10 border-b border-line bg-bg-elev/80 backdrop-blur">
+    <header className="sticky top-0 z-10 border-b border-line bg-bg-elev/80 backdrop-blur print:hidden">
       <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
         <NavLink to="/" className="font-semibold tracking-tight text-fg-strong">
           Retention &amp; LTV Calculator
@@ -83,7 +112,7 @@ function Header({ theme, onToggleTheme }) {
 
 function Footer() {
   return (
-    <footer className="border-t border-line px-6 py-4 text-xs text-fg-faint">
+    <footer className="border-t border-line px-6 py-4 text-xs text-fg-faint print:hidden">
       <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2">
         <span>
           Power-law model. See the{' '}
@@ -107,13 +136,14 @@ function Footer() {
 
 export default function App() {
   const [theme, setTheme] = useTheme()
+  usePrintLightTheme(theme)
   const toggleTheme = () =>
     setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'))
   return (
     <HashRouter>
       <div className="flex min-h-screen flex-col font-sans">
         <Header theme={theme} onToggleTheme={toggleTheme} />
-        <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8">
+        <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8 print:max-w-none">
           <Suspense fallback={<div className="text-fg-faint">Loading…</div>}>
             <Routes>
               <Route path="/" element={<Calculator />} />

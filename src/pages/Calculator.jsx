@@ -777,19 +777,23 @@ export default function Calculator() {
 
   return (
     <section>
-      <header className="mb-6">
+      <header className="mb-6 print:mb-3">
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
           <h1 className="text-3xl font-semibold tracking-tight">Calculator</h1>
+          <span className="hidden text-xs text-fg-faint print:inline">
+            Snapshot · {new Date().toLocaleDateString()}
+            {presetLabel ? ` · ${presetLabel}` : ''}
+          </span>
         </div>
-        <p className="mt-1 text-sm text-fg-dim">
+        <p className="mt-1 text-sm text-fg-dim print:hidden">
           Power-law fit of retention curve, then ARPU × Σ R(t) for LTV. Funnel
           conversions cascade the cohort to the active pool; one model for
           DAU and subscription presets.
         </p>
       </header>
 
-      <div className="grid gap-8 lg:grid-cols-[360px,minmax(0,1fr)]">
-        <aside className="space-y-5 rounded-lg border border-line bg-bg-elev/40 p-4">
+      <div className="grid gap-8 lg:grid-cols-[360px,minmax(0,1fr)] print:block">
+        <aside className="space-y-5 rounded-lg border border-line bg-bg-elev/40 p-4 print:hidden">
           {bundleError && (
             <div className="rounded border border-red-900/50 bg-red-950/40 p-2 text-xs text-red-300">
               Failed to load presets: {bundleError}
@@ -1022,7 +1026,7 @@ export default function Calculator() {
 
         <section aria-label="Outputs" className="space-y-5">
           {periodToast && (
-            <div className="rounded-lg border border-accent/40 bg-accent-surface/40 p-3 text-sm text-accent-fg">
+            <div className="rounded-lg border border-accent/40 bg-accent-surface/40 p-3 text-sm text-accent-fg print:hidden">
               {periodToast}
             </div>
           )}
@@ -1043,7 +1047,7 @@ export default function Calculator() {
 
           {allValid && fit && ltvData && fitSeries && cascade && (
             <>
-              <div className="flex items-center justify-end gap-2">
+              <div className="flex items-center justify-end gap-2 print:hidden">
                 <button
                   type="button"
                   onClick={handlePinBaseline}
@@ -1072,6 +1076,14 @@ export default function Calculator() {
                   className="rounded border border-line-strong bg-bg-subtle px-3 py-1.5 text-xs text-fg-muted transition-colors hover:border-accent/50 hover:text-accent-fg"
                 >
                   Download CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  className="rounded border border-line-strong bg-bg-subtle px-3 py-1.5 text-xs text-fg-muted transition-colors hover:border-accent/50 hover:text-accent-fg"
+                  title="Open browser print dialog — pick &quot;Save as PDF&quot; to download"
+                >
+                  Export PDF
                 </button>
               </div>
 

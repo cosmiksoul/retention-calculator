@@ -34,7 +34,7 @@ export default function HoverHint({
       : 'left-1/2 -translate-x-1/2'
 
   return (
-    <span className="group relative inline-flex align-baseline">
+    <span className="group relative inline-flex align-baseline print:hidden">
       <button
         type="button"
         aria-label={label}

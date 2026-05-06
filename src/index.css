@@ -109,3 +109,51 @@ body {
 .scroll-thin::-webkit-scrollbar-thumb:hover {
   background-color: rgb(var(--c-line-strong));
 }
+
+/* Print rules — used by the "Export PDF" button. Strategy: page is rendered
+   with a temporary light-theme swap (handled in App.jsx via beforeprint /
+   afterprint), so all token-based colours auto-flip via the `data-theme`
+   attribute. CSS here just handles page geometry and break behaviour for
+   the output blocks (KPI cards, charts, tables) so they don't split across
+   pages awkwardly. Tailwind's `print:hidden` modifier handles per-element
+   visibility (header, input panel, action buttons, hover hints). */
+@media print {
+  body {
+    background: white !important;
+  }
+
+  /* Force backgrounds and colours to print — browsers strip background-color
+     by default to save ink. This affects KPI card fills, funnel cascade bars,
+     coloured KPI accents, etc. — all rendered via Tailwind background utilities.
+     Without this rule the funnel waterfall prints as text rows with no bars. */
+  *,
+  *::before,
+  *::after {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* Direct children of the calculator's Outputs section are atomic blocks
+     for pagination — KPI cards, charts, tables. Avoids splitting a chart
+     or KPI grid mid-element. */
+  section[aria-label='Outputs'] > * {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Recharts wraps every chart in this container — keep each on one page. */
+  .recharts-responsive-container {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* Tables: avoid breaking a single row. */
+  tr,
+  thead {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+  thead {
+    display: table-header-group;
+  }
+}
