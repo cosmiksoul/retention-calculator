@@ -391,6 +391,29 @@ export default function Calculator() {
     applyVariantForPeriod(variant, targetPeriod)
   }
 
+  // Wipe everything back to "Custom (no preset), day defaults". Used by the
+  // Reset button — we don't gate it behind a confirmation since the rest of
+  // the UI doesn't either (preset / period switches also clobber state).
+  const handleReset = () => {
+    setPeriod('day')
+    setPoints(defaultPoints('day'))
+    setFunnel(defaultFunnel('day'))
+    setCohortSize(1000)
+    setArpuPerPeriod(DEFAULT_ARPU.day)
+    setCacInput('10')
+    setHorizon(DEFAULT_HORIZON.day)
+    setPresetState({ presetId: null, quality: 'median', geo: 'tier_1' })
+    setAdjustMode('pure')
+    setBandSigma(1)
+    setRefundInput('')
+    setBaseline(null)
+    setInputMode('manual')
+    setPasteText('')
+    setDauText('')
+    setDauSmoothWindow(0)
+    setPeriodToast(null)
+  }
+
   const handlePeriodChange = (next) => {
     if (next === period) return
     setBaseline(null) // baseline t-scale would mismatch
@@ -764,6 +787,17 @@ export default function Calculator() {
             period={period}
             onChange={handlePresetChange}
           />
+
+          <div className="-mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={handleReset}
+              className="text-xs text-fg-faint transition-colors hover:text-accent-fg"
+              title="Reset to Custom (no preset) with day-model defaults"
+            >
+              ↺ Reset to defaults
+            </button>
+          </div>
 
           <div className="grid grid-cols-2 gap-4 border-t border-line pt-4">
             <NumberField
