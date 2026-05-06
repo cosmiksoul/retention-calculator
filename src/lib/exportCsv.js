@@ -45,7 +45,8 @@ function fmtPct(fraction) {
  *     cac: number|null,
  *     cohortSize: number,
  *     horizon: number,
- *     funnel: Array<{label:string, conversionPct:number}>,
+ *     refundRate?: number,
+ *     funnel: Array<{label:string, conversionPct:number, oneTimeFeeUsd?:number|null}>,
  *   },
  *   fit: {a:number, b:number, se:number, rSquared:number, n:number},
  *   kpi: {
@@ -103,10 +104,13 @@ export function buildCsv(snapshot) {
   lines.push('')
 
   lines.push(row('Inputs'))
-  lines.push(row('ARPU', `$/${unit}`, fmtN(inputs.arpuPerPeriod, 4)))
+  lines.push(row('ARPPU', `$/${unit}`, fmtN(inputs.arpuPerPeriod, 4)))
   lines.push(row('CAC', '$ per cohort entrant', cacShown != null ? fmtN(cacShown, 2) : ''))
   lines.push(row('Cohort size', 'entrants', String(inputs.cohortSize)))
   lines.push(row('Horizon', `${unit}s`, String(inputs.horizon)))
+  if (Number.isFinite(inputs.refundRate) && inputs.refundRate > 0) {
+    lines.push(row('Refund rate', '% of gross revenue', fmtN(inputs.refundRate, 2)))
+  }
   if (hasFunnel) {
     lines.push('')
     lines.push(row('Funnel'))

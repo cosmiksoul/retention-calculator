@@ -542,6 +542,73 @@ describe('cohortLtv — one-time revenue lumping', () => {
   })
 })
 
+describe('cohortLtv — refund rate', () => {
+  const base = {
+    fit: { a: 1, b: 0 },
+    acquiredAtZero: 100,
+    arpuPerPeriod: 5,
+    cohortSize: 1000,
+    horizon: 4,
+  }
+
+  it('default refundRate=0 reproduces pre-refund behaviour', () => {
+    const a = cohortLtv(base)
+    const b = cohortLtv({ ...base, refundRate: 0 })
+    expect(a).toEqual(b)
+  })
+
+  it('scales every period revenue by (1 - refundRate)', () => {
+    // Without refund: 100 × $5 × 1 = $500/period, cumRev = 500, 1000, 1500, 2000
+    // With 10% refund: $450/period, cumRev = 450, 900, 1350, 1800
+    const series = cohortLtv({ ...base, refundRate: 0.1 })
+    expect(series[0].revenue).toBeCloseTo(450, 9)
+    expect(series[3].cumRevenue).toBeCloseTo(1800, 9)
+    expect(series[3].cumLtvPerCohort).toBeCloseTo(1.8, 9)
+    expect(series[3].cumLtvPerAcquired).toBeCloseTo(18, 9)
+  })
+
+  it('also scales one-time revenue, not just recurring', () => {
+    // Recurring: 100 × $5 = $500/period × 4 = $2000 gross
+    // One-time: $1000 lump at t=1
+    // Gross total = $3000. With 20% refund → $2400 net.
+    const series = cohortLtv({
+      ...base,
+      oneTimeRevenue: 1000,
+      refundRate: 0.2,
+    })
+    expect(series[3].cumRevenue).toBeCloseTo(2400, 9)
+    // Period 1 net: (500 + 1000) × 0.8 = 1200; period 2..4: 500 × 0.8 = 400 each
+    expect(series[0].revenue).toBeCloseTo(1200, 9)
+    expect(series[1].revenue).toBeCloseTo(400, 9)
+  })
+
+  it('100% refund kills all revenue but retention curve stays', () => {
+    const series = cohortLtv({ ...base, refundRate: 1 })
+    for (const p of series) {
+      expect(p.revenue).toBe(0)
+      expect(p.cumRevenue).toBe(0)
+      // active count is unchanged
+      expect(p.active).toBe(100)
+    }
+  })
+
+  it('payback lengthens with refunds', () => {
+    // CAC × cohort = $5 × 1000 = $5000.
+    // Without refund: $500/period → payback at t=10.
+    // With 50% refund: $250/period → payback at t=20.
+    const noRefund = cohortLtv({ ...base, horizon: 30 })
+    const withRefund = cohortLtv({ ...base, horizon: 30, refundRate: 0.5 })
+    expect(payback(noRefund, 5)).toBe(10)
+    expect(payback(withRefund, 5)).toBe(20)
+  })
+
+  it('throws on out-of-range refundRate', () => {
+    expect(() => cohortLtv({ ...base, refundRate: -0.1 })).toThrow()
+    expect(() => cohortLtv({ ...base, refundRate: 1.5 })).toThrow()
+    expect(() => cohortLtv({ ...base, refundRate: NaN })).toThrow()
+  })
+})
+
 describe('cohortLtvBand — one-time offset', () => {
   const fit = fitPowerLaw([
     { t: 1, r: 0.42 },
@@ -567,6 +634,21 @@ describe('cohortLtvBand — one-time offset', () => {
   it('throws on negative or non-finite offset', () => {
     expect(() => cohortLtvBand(fit, 100, 30, 1, -1)).toThrow()
     expect(() => cohortLtvBand(fit, 100, 30, 1, NaN)).toThrow()
+  })
+
+  it('refundRate scales both bounds uniformly', () => {
+    const noRefund = cohortLtvBand(fit, 100, 30, 1, 50)
+    const withRefund = cohortLtvBand(fit, 100, 30, 1, 50, 0.25)
+    for (let i = 0; i < noRefund.length; i++) {
+      expect(withRefund[i].lower).toBeCloseTo(noRefund[i].lower * 0.75, 9)
+      expect(withRefund[i].upper).toBeCloseTo(noRefund[i].upper * 0.75, 9)
+    }
+  })
+
+  it('throws on out-of-range refundRate', () => {
+    expect(() => cohortLtvBand(fit, 100, 30, 1, 0, -0.1)).toThrow()
+    expect(() => cohortLtvBand(fit, 100, 30, 1, 0, 2)).toThrow()
+    expect(() => cohortLtvBand(fit, 100, 30, 1, 0, NaN)).toThrow()
   })
 })
 

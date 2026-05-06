@@ -162,10 +162,15 @@ export function funnelCascade({
  * window as R(1). Compounds into cumRevenue and therefore both LTV reads
  * and payback.
  *
+ * `refundRate` (optional, fraction in [0, 1]) is applied uniformly to
+ * gross revenue — both recurring and one-time. Net = gross × (1 - refundRate).
+ * Retention curve is unchanged: refunds claw back money but the user was
+ * still "active" in their period. Set 0.05 for 5% refunds, etc.
+ *
  * Output fields:
  *   active                — acquiredAtZero × R(t)
- *   revenue               — arpuPerPeriod × active (+ oneTimeRevenue at t=1)
- *   cumRevenue            — Σ revenue, total cohort
+ *   revenue               — net per-period revenue after refunds
+ *   cumRevenue            — Σ revenue, total cohort, net of refunds
  *   cumLtvPerCohort       — cumRevenue / cohortSize  (per cohort entrant —
  *                           matches v1 cumLtv when funnel=[])
  *   cumLtvPerAcquired     — cumRevenue / acquiredAtZero (matches v2
@@ -179,6 +184,7 @@ export function funnelCascade({
  * @param {number} params.cohortSize          install/cohort base
  * @param {number} params.horizon             # of periods to project
  * @param {number} [params.oneTimeRevenue=0]  one-time funnel revenue lumped into t=1
+ * @param {number} [params.refundRate=0]      fraction of revenue lost to refunds, in [0,1]
  * @returns {Array<{
  *   t:number, retention:number, active:number, revenue:number,
  *   cumRevenue:number, cumLtvPerCohort:number, cumLtvPerAcquired:number,
@@ -191,6 +197,7 @@ export function cohortLtv({
   cohortSize,
   horizon,
   oneTimeRevenue = 0,
+  refundRate = 0,
 }) {
   if (!(horizon >= 1)) throw new Error('cohortLtv: horizon must be >= 1')
   if (!Number.isFinite(arpuPerPeriod)) {
@@ -203,7 +210,11 @@ export function cohortLtv({
   if (!Number.isFinite(oneTimeRevenue) || oneTimeRevenue < 0) {
     throw new Error('cohortLtv: oneTimeRevenue must be a non-negative finite number')
   }
+  if (!Number.isFinite(refundRate) || refundRate < 0 || refundRate > 1) {
+    throw new Error('cohortLtv: refundRate must be a fraction in [0, 1]')
+  }
 
+  const netMultiplier = 1 - refundRate
   const r1 = predict(1, fit)
   const out = []
   let cumRev = 0
@@ -211,7 +222,8 @@ export function cohortLtv({
     const retention = Math.max(0, Math.min(predict(t, fit), r1))
     const active = acquiredAtZero * retention
     const recurring = active * arpuPerPeriod
-    const revenue = recurring + (t === 1 ? oneTimeRevenue : 0)
+    const grossRevenue = recurring + (t === 1 ? oneTimeRevenue : 0)
+    const revenue = grossRevenue * netMultiplier
     cumRev += revenue
     out.push({
       t,
@@ -240,6 +252,10 @@ export function cohortLtv({
  * both bounds — same units as `perPeriodRate × t`. Used for paid-trial /
  * activation fees, which carry no power-law uncertainty.
  *
+ * `refundRate` (optional, fraction in [0, 1]) scales both bounds and the
+ * offset uniformly — same multiplicative effect refunds have on the mean
+ * series, so band stays consistent with cohortLtv output.
+ *
  * Width grows monotonically with t in log-space, by construction.
  *
  * @param {{a:number, b:number, se:number}} fit
@@ -247,9 +263,17 @@ export function cohortLtv({
  * @param {number} horizon
  * @param {number} [kSigma=1]
  * @param {number} [oneTimeOffset=0]
+ * @param {number} [refundRate=0]
  * @returns {Array<{t:number, lower:number, upper:number}>}
  */
-export function cohortLtvBand(fit, perPeriodRate, horizon, kSigma = 1, oneTimeOffset = 0) {
+export function cohortLtvBand(
+  fit,
+  perPeriodRate,
+  horizon,
+  kSigma = 1,
+  oneTimeOffset = 0,
+  refundRate = 0,
+) {
   if (!(horizon >= 1)) throw new Error('cohortLtvBand: horizon must be >= 1')
   if (!Number.isFinite(perPeriodRate)) {
     throw new Error('cohortLtvBand: perPeriodRate must be finite')
@@ -258,7 +282,11 @@ export function cohortLtvBand(fit, perPeriodRate, horizon, kSigma = 1, oneTimeOf
   if (!Number.isFinite(oneTimeOffset) || oneTimeOffset < 0) {
     throw new Error('cohortLtvBand: oneTimeOffset must be a non-negative finite number')
   }
+  if (!Number.isFinite(refundRate) || refundRate < 0 || refundRate > 1) {
+    throw new Error('cohortLtvBand: refundRate must be a fraction in [0, 1]')
+  }
 
+  const netMultiplier = 1 - refundRate
   const halfWidth = fit.se * kSigma
   let cumLow = 0
   let cumUp = 0
@@ -266,11 +294,12 @@ export function cohortLtvBand(fit, perPeriodRate, horizon, kSigma = 1, oneTimeOf
   for (let t = 1; t <= horizon; t++) {
     const upR = Math.min(1, fit.a * Math.pow(t, -(fit.b - halfWidth)))
     const loR = Math.max(0, fit.a * Math.pow(t, -(fit.b + halfWidth)))
-    cumUp += perPeriodRate * upR
-    cumLow += perPeriodRate * loR
+    cumUp += perPeriodRate * upR * netMultiplier
+    cumLow += perPeriodRate * loR * netMultiplier
     if (t === 1) {
-      cumUp += oneTimeOffset
-      cumLow += oneTimeOffset
+      const netOffset = oneTimeOffset * netMultiplier
+      cumUp += netOffset
+      cumLow += netOffset
     }
     out.push({ t, lower: cumLow, upper: cumUp })
   }

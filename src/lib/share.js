@@ -76,10 +76,12 @@ const CODE_TO_PERIOD = { d: 'day', w: 'week', m: 'month' }
  *   presetState: {presetId:string|null, quality:string, geo:string},
  *   adjustMode: 'pure'|'adjusted',
  *   bandSigma: 1|2,
+ *   refundRate?: number,
  * }} state
  * @returns {string}
  */
 export function encodeState(state) {
+  const refund = Number.isFinite(state.refundRate) ? state.refundRate : 0
   const payload = {
     v: VERSION,
     pe: PERIOD_TO_CODE[state.period] ?? 'd',
@@ -96,6 +98,9 @@ export function encodeState(state) {
     m: state.adjustMode === 'adjusted' ? 'a' : 'p',
     s: state.bandSigma,
   }
+  // Only emit refund key when non-zero — keeps default URLs minimal and
+  // back-compat with recipients that don't yet know the field.
+  if (refund > 0) payload.rr = refund
   return toBase64Url(JSON.stringify(payload))
 }
 
@@ -170,6 +175,10 @@ export function decodeState(encoded) {
 
   const adjustMode = payload.m === 'a' ? 'adjusted' : 'pure'
   const bandSigma = payload.s === 2 ? 2 : 1
+  const refundRate =
+    Number.isFinite(payload.rr) && payload.rr >= 0 && payload.rr <= 100
+      ? payload.rr
+      : 0
 
   return {
     period,
@@ -182,6 +191,7 @@ export function decodeState(encoded) {
     presetState,
     adjustMode,
     bandSigma,
+    refundRate,
   }
 }
 

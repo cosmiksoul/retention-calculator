@@ -16,6 +16,7 @@ const sample = () => ({
   presetState: { presetId: 'mobile_casual', quality: 'top_quartile', geo: 'tier_2' },
   adjustMode: 'adjusted',
   bandSigma: 2,
+  refundRate: 0,
 })
 
 describe('share encode/decode (v2 unified schema)', () => {
@@ -43,6 +44,7 @@ describe('share encode/decode (v2 unified schema)', () => {
       presetState: { presetId: 'subs_utilities', quality: 'median', geo: 'tier_1' },
       adjustMode: 'pure',
       bandSigma: 1,
+      refundRate: 0,
     }
     const decoded = decodeState(encodeState(subState))
     expect(decoded).toEqual(subState)
@@ -111,6 +113,7 @@ describe('share encode/decode (v2 unified schema)', () => {
     })
     expect(decoded.adjustMode).toBe('pure')
     expect(decoded.bandSigma).toBe(1)
+    expect(decoded.refundRate).toBe(0)
   })
 
   it('uses URL-safe characters only', () => {
@@ -130,6 +133,27 @@ describe('share encode/decode (v2 unified schema)', () => {
   it('encodes month period and round-trips it', () => {
     const decoded = decodeState(encodeState({ ...sample(), period: 'month' }))
     expect(decoded.period).toBe('month')
+  })
+
+  it('round-trips a non-zero refund rate', () => {
+    const decoded = decodeState(encodeState({ ...sample(), refundRate: 7.5 }))
+    expect(decoded.refundRate).toBe(7.5)
+  })
+
+  it('round-trips funnel steps that carry a one-time fee', () => {
+    const decoded = decodeState(
+      encodeState({
+        ...sample(),
+        funnel: [
+          { label: 'Install → Trial', conversionPct: 8.6, oneTimeFeeUsd: 1.99 },
+          { label: 'Trial → Paid', conversionPct: 35 },
+        ],
+      }),
+    )
+    expect(decoded.funnel).toEqual([
+      { label: 'Install → Trial', conversionPct: 8.6, oneTimeFeeUsd: 1.99 },
+      { label: 'Trial → Paid', conversionPct: 35 },
+    ])
   })
 })
 

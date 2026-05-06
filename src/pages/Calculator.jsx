@@ -269,6 +269,9 @@ export default function Calculator() {
   const [bandSigma, setBandSigma] = useState(
     () => shareInitial?.bandSigma ?? 1,
   )
+  const [refundInput, setRefundInput] = useState(() =>
+    shareInitial?.refundRate != null ? String(shareInitial.refundRate) : '',
+  )
 
   const [bundle, setBundle] = useState(null)
   const [bundleError, setBundleError] = useState(null)
@@ -482,6 +485,11 @@ export default function Calculator() {
   }, [inputMode, dauR])
 
   const cac = cacInput === '' || cacInput == null ? null : Number(cacInput)
+  const refundRatePct =
+    refundInput === '' || refundInput == null ? 0 : Number(refundInput)
+  const refundFraction = Number.isFinite(refundRatePct)
+    ? Math.max(0, Math.min(1, refundRatePct / 100))
+    : 0
   const pointErrors = useMemo(() => validateRetentionPoints(points), [points])
   const numericErrors = useMemo(
     () =>
@@ -490,8 +498,10 @@ export default function Calculator() {
         arpuPerPeriod,
         cac,
         horizon,
+        refundRate:
+          refundInput === '' || refundInput == null ? null : refundRatePct,
       }),
-    [cohortSize, arpuPerPeriod, cac, horizon],
+    [cohortSize, arpuPerPeriod, cac, horizon, refundInput, refundRatePct],
   )
   const funnelErrors = useMemo(() => validateFunnel(funnel), [funnel])
   const allValid =
@@ -531,7 +541,8 @@ export default function Calculator() {
     })
   }, [allValid, cohortSize, funnel, points, period])
 
-  // LTV series — one-time funnel revenue lumps into period 1.
+  // LTV series — one-time funnel revenue lumps into period 1; refundRate
+  // scales every period's gross revenue (recurring + one-time) to net.
   const ltvData = useMemo(() => {
     if (!fit || !cascade) return null
     return cohortLtv({
@@ -541,8 +552,9 @@ export default function Calculator() {
       cohortSize,
       horizon,
       oneTimeRevenue: cascade.oneTimeRevenue,
+      refundRate: refundFraction,
     })
-  }, [fit, cascade, arpuPerPeriod, cohortSize, horizon])
+  }, [fit, cascade, arpuPerPeriod, cohortSize, horizon, refundFraction])
 
   const fitSeries = useMemo(
     () => (fit ? retentionCurve(fit, horizon) : null),
@@ -569,8 +581,9 @@ export default function Calculator() {
       horizon,
       bandSigma,
       oneTimeOffsetPerEntrant,
+      refundFraction,
     )
-  }, [fit, cascade, arpuPerPeriod, cohortSize, horizon, bandSigma])
+  }, [fit, cascade, arpuPerPeriod, cohortSize, horizon, bandSigma, refundFraction])
 
   const benchmarkSeries = useMemo(
     () => (benchmarkFit ? retentionCurve(benchmarkFit, horizon) : null),
@@ -627,6 +640,7 @@ export default function Calculator() {
       presetState,
       adjustMode,
       bandSigma,
+      refundRate: refundRatePct,
     })
     const url = buildShareUrl(
       encoded,
@@ -655,9 +669,11 @@ export default function Calculator() {
         cac,
         cohortSize,
         horizon,
+        refundRate: refundRatePct,
         funnel: funnel.map((s) => ({
           label: s.label,
           conversionPct: s.conversionPct,
+          oneTimeFeeUsd: s.oneTimeFeeUsd,
         })),
       },
       fit: {
@@ -836,26 +852,64 @@ export default function Calculator() {
               }
             />
             <NumberField
-              label="Horizon"
-              value={horizon}
-              min={1}
-              step={1}
-              suffix={`${periodUnitCur}s`}
-              onChange={(v) => setHorizon(Number(v))}
-              error={numericErrors.errors.horizon}
+              label="Refund %"
+              value={refundInput}
+              min={0}
+              step={0.1}
+              suffix="of gross revenue (optional)"
+              onChange={setRefundInput}
+              error={numericErrors.errors.refundRate}
+              hint="Empty = 0% (no refunds)"
               tooltipAlign="right"
               tooltip={
                 <>
                   <p>
-                    Окно прогноза LTV в выбранном period. Predicted LTV =
-                    Σ ARPU·R(t) от t=1 до t=horizon.
+                    Доля gross revenue, которая возвращается как refund /
+                    chargeback. Применяется флэт-процентом в каждом периоде —
+                    и к recurring (ARPPU × active), и к one-time fees из
+                    funnel-шагов. Net revenue = gross × (1 − refund/100).
                   </p>
                   <p className="mt-1.5">
-                    Чем больше горизонт, тем больше неопределённость прогноза.
+                    Retention curve не трогает: refunded user всё равно был
+                    активен в своём периоде, просто деньги вернулись. Влияет
+                    на cumRevenue → обе LTV и payback.
+                  </p>
+                  <p className="mt-1.5">
+                    Стандартное определение (App Store / SaaS): % refunded
+                    revenue ÷ gross revenue. Если ты считаешь по «доле
+                    юзеров, попросивших refund» — численно совпадёт, когда
+                    средний refunded ticket ≈ средний ticket; иначе нет.
+                  </p>
+                  <p className="mt-1.5">
+                    Типичные значения: 1–3% для зрелых subscription apps,
+                    5–10% для агрессивных paid-trial воронок, 10–20%+ для
+                    iGaming chargeback-prone сегментов.
                   </p>
                 </>
               }
             />
+            <div className="col-span-2">
+              <NumberField
+                label="Horizon"
+                value={horizon}
+                min={1}
+                step={1}
+                suffix={`${periodUnitCur}s`}
+                onChange={(v) => setHorizon(Number(v))}
+                error={numericErrors.errors.horizon}
+                tooltip={
+                  <>
+                    <p>
+                      Окно прогноза LTV в выбранном period. Predicted LTV =
+                      Σ ARPU·R(t) от t=1 до t=horizon.
+                    </p>
+                    <p className="mt-1.5">
+                      Чем больше горизонт, тем больше неопределённость прогноза.
+                    </p>
+                  </>
+                }
+              />
+            </div>
           </div>
 
           {benchmarkFit && (

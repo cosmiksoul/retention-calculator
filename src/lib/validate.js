@@ -99,6 +99,7 @@ export function validateFunnel(funnel) {
 /**
  * Cohort size, ARPU, horizon must be positive finite numbers.
  * CAC is optional — null/undefined/empty string ⇒ valid (just no payback).
+ * Refund rate is optional — accepted as a percentage in [0, 100].
  *
  * Accepts both `arpu` (legacy call sites) and `arpuPerPeriod` (unified).
  */
@@ -108,6 +109,7 @@ export function validateNumericInputs({
   arpuPerPeriod,
   cac,
   horizon,
+  refundRate,
 }) {
   const errors = {}
   if (!(cohortSize > 0) || !Number.isFinite(cohortSize)) {
@@ -122,6 +124,13 @@ export function validateNumericInputs({
   }
   if (!(horizon >= 1) || !Number.isFinite(horizon) || !Number.isInteger(horizon)) {
     errors.horizon = 'Forecast horizon must be a positive integer'
+  }
+  if (
+    refundRate != null &&
+    refundRate !== '' &&
+    (!Number.isFinite(refundRate) || refundRate < 0 || refundRate > 100)
+  ) {
+    errors.refundRate = 'Refund rate must be 0–100%'
   }
   return { valid: Object.keys(errors).length === 0, errors }
 }
