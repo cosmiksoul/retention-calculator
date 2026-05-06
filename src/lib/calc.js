@@ -17,12 +17,12 @@
 
 import { predict } from './powerLaw.js'
 
-const PERIOD_ABBR = { day: 'D', week: 'W', month: 'M' }
-const PERIOD_UNIT = { day: 'day', week: 'week', month: 'month' }
+const PERIOD_ABBR = { day: 'D', week: 'W', month: 'M', year: 'Y' }
+const PERIOD_UNIT = { day: 'day', week: 'week', month: 'month', year: 'year' }
 
 /**
- * Single-letter prefix for the chosen period: D / W / M.
- * @param {'day'|'week'|'month'} period
+ * Single-letter prefix for the chosen period: D / W / M / Y.
+ * @param {'day'|'week'|'month'|'year'} period
  * @returns {string}
  */
 export function periodAbbr(period) {
@@ -30,8 +30,8 @@ export function periodAbbr(period) {
 }
 
 /**
- * Lowercase singular unit name for the chosen period: day / week / month.
- * @param {'day'|'week'|'month'} period
+ * Lowercase singular unit name for the chosen period: day / week / month / year.
+ * @param {'day'|'week'|'month'|'year'} period
  * @returns {string}
  */
 export function periodUnit(period) {
@@ -39,9 +39,9 @@ export function periodUnit(period) {
 }
 
 /**
- * Composite label like "D7", "W4", "M12".
+ * Composite label like "D7", "W4", "M12", "Y3".
  * @param {number} t
- * @param {'day'|'week'|'month'} period
+ * @param {'day'|'week'|'month'|'year'} period
  * @returns {string}
  */
 export function periodLabel(t, period) {
@@ -52,13 +52,14 @@ const PERIOD_TICKS = {
   day: [1, 7, 14, 30, 60, 90, 180, 365],
   week: [1, 4, 8, 13, 26, 39, 52],
   month: [1, 3, 6, 9, 12, 18, 24, 36],
+  year: [1, 2, 3, 5, 7, 10],
 }
 
 /**
  * Reasonable X-axis tick positions for the chosen period, capped to horizon.
  * Used by chart components so axis-tick spacing matches the period scale.
  *
- * @param {'day'|'week'|'month'} period
+ * @param {'day'|'week'|'month'|'year'} period
  * @param {number} horizon
  * @returns {number[]}
  */

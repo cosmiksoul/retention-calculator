@@ -1,5 +1,5 @@
-// Period radio group: day / week / month. The single switch that controls
-// the modeling period of the unified calculator.
+// Period radio group: day / week / month / year. The single switch that
+// controls the modeling period of the unified calculator.
 //
 // Indicators on the right show whether the currently-selected preset has
 // data for each period (a dot for "data available" vs. dim "no preset
@@ -12,13 +12,14 @@ const PERIODS = [
   { key: 'day', label: 'Day' },
   { key: 'week', label: 'Week' },
   { key: 'month', label: 'Month' },
+  { key: 'year', label: 'Year' },
 ]
 
 /**
  * @param {{
- *   value: 'day'|'week'|'month',
- *   onChange: (period: 'day'|'week'|'month') => void,
- *   supported?: Array<'day'|'week'|'month'>|null,  // periods the active preset has data for
+ *   value: 'day'|'week'|'month'|'year',
+ *   onChange: (period: 'day'|'week'|'month'|'year') => void,
+ *   supported?: Array<'day'|'week'|'month'|'year'>|null,  // periods the active preset has data for
  * }} props
  */
 export default function PeriodSelector({ value, onChange, supported = null }) {
@@ -40,8 +41,14 @@ export default function PeriodSelector({ value, onChange, supported = null }) {
               cadence (utilities, photo/video). Точки W1, W2, W4, …
             </li>
             <li>
-              <strong className="text-fg">Month</strong> — monthly/annual
-              subscription. Точки M1, M3, M6, M12.
+              <strong className="text-fg">Month</strong> — monthly subscription.
+              Точки M1, M3, M6, M12.
+            </li>
+            <li>
+              <strong className="text-fg">Year</strong> — annual subscription
+              (Adobe CC, Duolingo Plus annual, B2B SaaS). Точки Y1, Y2, Y3,
+              Y5 — ARPPU = годовая цена, retention = доля юзеров, дошедших
+              до соответствующего ренюала.
             </li>
           </ul>
           <p className="mt-1.5">

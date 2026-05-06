@@ -3,6 +3,7 @@ import {
   periodAbbr,
   periodUnit,
   periodLabel,
+  periodTicks,
   funnelCascade,
   cohortLtv,
   cohortLtvBand,
@@ -11,10 +12,11 @@ import {
 import { fitPowerLaw } from '../../src/lib/powerLaw.js'
 
 describe('period helpers', () => {
-  it('periodAbbr → D / W / M', () => {
+  it('periodAbbr → D / W / M / Y', () => {
     expect(periodAbbr('day')).toBe('D')
     expect(periodAbbr('week')).toBe('W')
     expect(periodAbbr('month')).toBe('M')
+    expect(periodAbbr('year')).toBe('Y')
   })
 
   it('periodAbbr falls back to D on unknown', () => {
@@ -26,12 +28,20 @@ describe('period helpers', () => {
     expect(periodUnit('day')).toBe('day')
     expect(periodUnit('week')).toBe('week')
     expect(periodUnit('month')).toBe('month')
+    expect(periodUnit('year')).toBe('year')
   })
 
   it('periodLabel composes prefix and t', () => {
     expect(periodLabel(7, 'day')).toBe('D7')
     expect(periodLabel(4, 'week')).toBe('W4')
     expect(periodLabel(12, 'month')).toBe('M12')
+    expect(periodLabel(3, 'year')).toBe('Y3')
+  })
+
+  it('periodTicks returns cadence-appropriate axis ticks under horizon', () => {
+    expect(periodTicks('year', 5)).toEqual([1, 2, 3, 5])
+    expect(periodTicks('year', 10)).toEqual([1, 2, 3, 5, 7, 10])
+    expect(periodTicks('day', 30)).toEqual([1, 7, 14, 30])
   })
 })
 
@@ -716,6 +726,46 @@ describe('end-to-end control scenarios', () => {
     const pb = payback(series, 4.5)
     expect(pb).not.toBeNull()
     expect(pb).toBeLessThan(12)
+  })
+
+  it('annual subscription: yearly cadence, horizon=5y, ARPPU=$60/year', () => {
+    // Adobe-CC-style annual SKU: $60/year, Y1=60% renew, decaying.
+    const retention = [
+      { t: 1, r: 0.60 },
+      { t: 2, r: 0.45 },
+      { t: 3, r: 0.35 },
+      { t: 5, r: 0.25 },
+    ]
+    const fit = fitPowerLaw(retention)
+    const { acquiredAtZero } = funnelCascade({
+      cohortSize: 1000,
+      funnel: [
+        { label: 'Install → Trial', conversionPct: 8.6 },
+        { label: 'Trial → Paid (annual)', conversionPct: 35 },
+      ],
+      retention,
+      period: 'year',
+    })
+    expect(acquiredAtZero).toBeCloseTo(30.1, 6)
+
+    const series = cohortLtv({
+      fit,
+      acquiredAtZero,
+      arpuPerPeriod: 60,
+      cohortSize: 1000,
+      horizon: 5,
+    })
+    expect(series).toHaveLength(5)
+    // Y5 cumulative LTV per acquired should be substantial — >$100 on $60/yr
+    // with a curve that retains ~25% by year 5.
+    expect(series[4].cumLtvPerAcquired).toBeGreaterThan(100)
+    // Per-cohort LTV is heavily diluted by the 3% post-funnel survival rate.
+    expect(series[4].cumLtvPerCohort).toBeLessThan(series[4].cumLtvPerAcquired)
+    // Payback against $3 CAC per cohort entrant: cum LTV/cohort grows
+    // from ~$1.08 in Y1 to >$3 in Y4 — expect payback at year 4.
+    expect(payback(series, 3)).toBe(4)
+    // Cheap CAC ($1 per entrant) gets covered already by Y1.
+    expect(payback(series, 1)).toBe(1)
   })
 
   it('iGaming-style DAU mode (no funnel): single retention curve drives LTV', () => {

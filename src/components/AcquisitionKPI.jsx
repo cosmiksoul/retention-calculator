@@ -70,7 +70,13 @@ export default function AcquisitionKPI({
     : null
 
   const paybackLabel =
-    period === 'day' ? 'Day' : period === 'week' ? 'Week' : 'Month'
+    period === 'day'
+      ? 'Day'
+      : period === 'week'
+      ? 'Week'
+      : period === 'month'
+      ? 'Month'
+      : 'Year'
   const paybackValue = !hasCac
     ? '—'
     : payback != null

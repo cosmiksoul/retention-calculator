@@ -61,8 +61,8 @@ function pickPreset(p) {
   return out
 }
 
-const PERIOD_TO_CODE = { day: 'd', week: 'w', month: 'm' }
-const CODE_TO_PERIOD = { d: 'day', w: 'week', m: 'month' }
+const PERIOD_TO_CODE = { day: 'd', week: 'w', month: 'm', year: 'y' }
+const CODE_TO_PERIOD = { d: 'day', w: 'week', m: 'month', y: 'year' }
 
 /**
  * @param {{

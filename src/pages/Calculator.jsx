@@ -77,10 +77,19 @@ const DEFAULT_POINTS = {
     { t: 6, percent: 22 },
     { t: 12, percent: 12 },
   ],
+  // Annual cadence: t=1 is "% of paying cohort that hit the first renewal",
+  // i.e. survived a full year. Typical SaaS / consumer-annual curves: ~60%
+  // Y1 renewal, then survival bias steepens — Y2/Y1 ≈ 75%, plateaus from Y3.
+  year: [
+    { t: 1, percent: 60 },
+    { t: 2, percent: 45 },
+    { t: 3, percent: 35 },
+    { t: 5, percent: 25 },
+  ],
 }
 
-const DEFAULT_HORIZON = { day: 180, week: 26, month: 24 }
-const DEFAULT_ARPU = { day: 2, week: 8, month: 12 }
+const DEFAULT_HORIZON = { day: 180, week: 26, month: 24, year: 5 }
+const DEFAULT_ARPU = { day: 2, week: 8, month: 12, year: 60 }
 
 function defaultPoints(period) {
   return (DEFAULT_POINTS[period] ?? DEFAULT_POINTS.day).map((p) => ({
@@ -222,6 +231,12 @@ const DEFAULT_FUNNEL_BY_PERIOD = {
   month: [
     { label: 'Install → Trial', conversionPct: 8.6 },
     { label: 'Trial → Paid', conversionPct: 35 },
+  ],
+  // Annual SKUs typically still funnel through a short trial (often
+  // monthly), then commit to an annual plan. Same shape as monthly default.
+  year: [
+    { label: 'Install → Trial', conversionPct: 8.6 },
+    { label: 'Trial → Paid (annual)', conversionPct: 35 },
   ],
 }
 
@@ -973,7 +988,9 @@ export default function Calculator() {
                       ? 'daily'
                       : period === 'week'
                       ? 'weekly'
-                      : 'monthly'
+                      : period === 'month'
+                      ? 'monthly'
+                      : 'yearly'
                   }
                 />
                 {pointErrors.formError && (

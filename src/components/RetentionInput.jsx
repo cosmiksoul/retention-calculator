@@ -1,8 +1,8 @@
-// Generic retention-points input. Shared by session mode (cadence='daily',
-// label prefix 'D') and subscription mode (cadence='weekly'|'monthly',
-// prefix 'W'/'M'). The math is cadence-agnostic — only the prefix label
-// and (optionally) the header copy differ. Add/remove/edit is enabled in
-// every mode; cadence-specific defaults seed the initial set of points.
+// Generic retention-points input. Shared by all cadences: 'daily'/'D',
+// 'weekly'/'W', 'monthly'/'M', 'yearly'/'Y'. The math is cadence-agnostic —
+// only the prefix label and (optionally) the header copy differ. Add/
+// remove/edit is enabled in every mode; cadence-specific defaults seed
+// the initial set of points.
 
 import { newPointId } from '../lib/idGen.js'
 
@@ -21,6 +21,7 @@ const PREFIX_BY_CADENCE = {
   daily: 'D',
   weekly: 'W',
   monthly: 'M',
+  yearly: 'Y',
 }
 
 const inputCls =
@@ -32,7 +33,7 @@ const inputCls =
  *   points: Array<{id:string, t:number, percent:number}>,
  *   onChange: (next: Array<{id:string, t:number, percent:number}>) => void,
  *   errors?: Map<string, string>,
- *   cadence?: 'daily'|'weekly'|'monthly',
+ *   cadence?: 'daily'|'weekly'|'monthly'|'yearly',
  *   header?: string,
  *   tooltip?: import('react').ReactNode,
  *   minPoints?: number,
