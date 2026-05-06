@@ -204,6 +204,13 @@ function withIds(arr) {
   return arr.map((p) => ({ id: newPointId(), ...p }))
 }
 
+// Initial funnel for a fresh state (no preset, no share link). One predefined
+// "Registration" step so the funnel cascade visualization renders out of the
+// box. User can edit/remove it; loading a preset replaces the funnel with the
+// preset's own (often [] for session presets, [Install→Trial, Trial→Paid] for
+// subscription).
+const DEFAULT_FUNNEL = [{ label: 'Registration', conversionPct: 50 }]
+
 export default function Calculator() {
   const [shareInitial] = useState(readInitialFromUrl)
 
@@ -214,7 +221,7 @@ export default function Calculator() {
       : defaultPoints(shareInitial?.period ?? 'day'),
   )
   const [funnel, setFunnel] = useState(() =>
-    shareInitial?.funnel?.length ? withIds(shareInitial.funnel) : [],
+    shareInitial ? withIds(shareInitial.funnel ?? []) : withIds(DEFAULT_FUNNEL),
   )
   const [cohortSize, setCohortSize] = useState(
     () => shareInitial?.cohortSize ?? 1000,
