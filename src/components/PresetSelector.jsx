@@ -1,5 +1,12 @@
+// Industry preset selector. Surfaces the unified-schema bundle as one
+// dropdown with optgroups by category (Mobile games / iGaming / Subscription
+// apps / Fintech / E-commerce). Each preset declares its own
+// cadence_default + cadence_supported; the parent decides whether to also
+// apply the preset's cadence on selection.
+
 import { Link } from 'react-router-dom'
 import HoverHint from './HoverHint.jsx'
+import { variantForPeriod } from '../lib/presetsLoader.js'
 
 const QUALITY_LABELS = {
   top_quartile: 'Top quartile',
@@ -19,16 +26,13 @@ const QUALITY_BADGE = {
   estimated: { label: '🟠 Estimated', cls: 'border-orange-700/50 bg-orange-900/30 text-orange-300' },
 }
 
-// Surfaces the cohort-definition gotcha for iGaming presets.
 const METRIC_HINTS = {
   depositor_retention:
     'Cohort = first-time depositors. CAC is per-FTD, not per-install — interpret your "cohort size" accordingly.',
   session_retention: 'Cohort = installs / new sessions.',
+  subscription:
+    'Cohort = installs. Funnel converts installs to paying subscribers; retention is on paying users.',
 }
-
-const selectCls =
-  'block w-full rounded border border-line-strong bg-bg-subtle px-2 py-1.5 text-sm ' +
-  'text-fg-strong focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/40'
 
 const DOMINANT_PLAN_LABEL = {
   weekly: 'Weekly',
@@ -38,94 +42,104 @@ const DOMINANT_PLAN_LABEL = {
   monthly_with_some_weekly: 'Monthly (some weekly)',
 }
 
+// Category order is the visual grouping in the dropdown. Anything else
+// falls into "Other".
+const CATEGORY_ORDER = [
+  'Mobile games',
+  'iGaming',
+  'Subscription Apps',
+  'E-commerce',
+  'Fintech',
+]
+
+const selectCls =
+  'block w-full rounded border border-line-strong bg-bg-subtle px-2 py-1.5 text-sm ' +
+  'text-fg-strong focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/40'
+
+function groupByCategory(presets) {
+  const buckets = new Map()
+  for (const p of presets) {
+    const cat = p.category || 'Other'
+    if (!buckets.has(cat)) buckets.set(cat, [])
+    buckets.get(cat).push(p)
+  }
+  // Stable order: known categories first in CATEGORY_ORDER, then the rest A-Z.
+  const known = CATEGORY_ORDER.filter((c) => buckets.has(c))
+  const unknown = [...buckets.keys()]
+    .filter((c) => !CATEGORY_ORDER.includes(c))
+    .sort()
+  return [...known, ...unknown].map((c) => [c, buckets.get(c)])
+}
+
 /**
  * @param {{
- *   bundles: { session: object|null, subscription: object|null },
+ *   bundle: { presets: Array<object> } | null,
  *   value: { presetId: string|null, quality: string, geo: string },
- *   onChange: (state, variant, meta?: {mode:'session'|'subscription', preset:object|null}) => void,
+ *   period: 'day'|'week'|'month',
+ *   onChange: (
+ *     next: { presetId: string|null, quality: string, geo: string },
+ *     variant: object|null,
+ *     meta?: { preset: object|null }
+ *   ) => void,
  * }} props
  */
-export default function PresetSelector({ bundles, value, onChange }) {
-  const sessionBundle = bundles?.session ?? null
-  const subscriptionBundle = bundles?.subscription ?? null
-  if (!sessionBundle && !subscriptionBundle) {
+export default function PresetSelector({ bundle, value, period, onChange }) {
+  if (!bundle) {
     return <div className="text-xs text-fg-faint">Loading presets…</div>
   }
 
   const { presetId, quality, geo } = value
-  const sessionPreset =
-    presetId && sessionBundle
-      ? sessionBundle.presets.find((p) => p.id === presetId)
-      : null
-  const subscriptionPreset =
-    presetId && subscriptionBundle
-      ? subscriptionBundle.presets.find((p) => p.id === presetId)
-      : null
-  const preset = sessionPreset ?? subscriptionPreset
-  const presetMode = sessionPreset ? 'session' : subscriptionPreset ? 'subscription' : null
+  const preset = presetId
+    ? bundle.presets.find((p) => p.id === presetId) ?? null
+    : null
 
   const slices = preset ? Object.keys(preset.variants) : []
   const isAvailable = (q, g) => slices.includes(`${q}|${g}`)
-
-  const variant = preset && isAvailable(quality, geo) ? preset.variants[`${quality}|${geo}`] : null
+  const variant =
+    preset && isAvailable(quality, geo)
+      ? preset.variants[`${quality}|${geo}`]
+      : null
 
   const handleIndustryChange = (id) => {
     if (!id) {
-      onChange({ presetId: null, quality: 'median', geo: 'tier_1' }, null, {
-        mode: null,
-        preset: null,
-      })
+      onChange({ presetId: null, quality: 'median', geo: 'tier_1' }, null, { preset: null })
       return
     }
-    const p =
-      sessionBundle?.presets.find((pp) => pp.id === id) ??
-      subscriptionBundle?.presets.find((pp) => pp.id === id) ??
-      null
-    const mode = sessionBundle?.presets.includes(p)
-      ? 'session'
-      : subscriptionBundle?.presets.includes(p)
-      ? 'subscription'
-      : null
-    // All presets ship a median|tier_1 baseline — see methodology.
+    const p = bundle.presets.find((pp) => pp.id === id) ?? null
     const v = p?.variants['median|tier_1'] ?? null
-    onChange({ presetId: id, quality: 'median', geo: 'tier_1' }, v, {
-      mode,
-      preset: p,
-    })
+    onChange({ presetId: id, quality: 'median', geo: 'tier_1' }, v, { preset: p })
   }
 
   const handleQualityChange = (q) => {
     if (!preset) return
     const finalQ = isAvailable(q, geo) ? q : 'median'
     const v = preset.variants[`${finalQ}|${geo}`] ?? null
-    onChange({ presetId, quality: finalQ, geo }, v, {
-      mode: presetMode,
-      preset,
-    })
+    onChange({ presetId, quality: finalQ, geo }, v, { preset })
   }
 
   const handleGeoChange = (g) => {
     if (!preset) return
     const finalQ = isAvailable(quality, g) ? quality : 'median'
     const v = preset.variants[`${finalQ}|${g}`] ?? null
-    onChange({ presetId, quality: finalQ, geo: g }, v, {
-      mode: presetMode,
-      preset,
-    })
+    onChange({ presetId, quality: finalQ, geo: g }, v, { preset })
   }
 
+  const groups = groupByCategory(bundle.presets)
   const badge = preset ? QUALITY_BADGE[preset.dataQuality] : null
   const metricHint = preset ? METRIC_HINTS[preset.metricType] : null
-  const isSubs = presetMode === 'subscription'
+
+  // Convenience slice for the active period — drives the preset card's
+  // contextual displays (funnel, ARPU, CAC).
+  const slice = variant ? variantForPeriod(variant, period) : null
 
   const arpuDisplays = []
   if (variant?.display?.arpu_monthly) arpuDisplays.push(`≈ $${variant.display.arpu_monthly}/mo`)
   if (variant?.display?.arpu_annual) arpuDisplays.push(`≈ $${variant.display.arpu_annual}/yr`)
   if (variant?.display?.arpdau != null) arpuDisplays.push(`ARPDAU $${variant.display.arpdau}`)
-  if (isSubs && variant?.display?.arpu_paid_monthly != null) {
+  if (variant?.display?.arpu_paid_monthly != null) {
     arpuDisplays.push(`paid $${variant.display.arpu_paid_monthly}/mo`)
   }
-  if (isSubs && variant?.display?.arpu_paid_weekly != null) {
+  if (variant?.display?.arpu_paid_weekly != null) {
     arpuDisplays.push(`paid $${variant.display.arpu_paid_weekly}/wk`)
   }
 
@@ -143,7 +157,7 @@ export default function PresetSelector({ bundles, value, onChange }) {
           <HoverHint align="left">
             <p>
               Каждый пресет — отраслевой бенчмарк: дефолтные точки кривой
-              ретеншена + типичные ARPU и CAC.
+              ретеншена + типичные ARPU и CAC + опциональный funnel.
             </p>
             <p className="mt-1.5">
               После выбора можно тонко настроить через Quality (квартиль среди
@@ -158,24 +172,15 @@ export default function PresetSelector({ bundles, value, onChange }) {
           className={selectCls}
         >
           <option value="">Custom (no preset)</option>
-          {sessionBundle && (
-            <optgroup label="DAU presets">
-              {sessionBundle.presets.map((p) => (
+          {groups.map(([cat, list]) => (
+            <optgroup key={cat} label={cat}>
+              {list.map((p) => (
                 <option key={p.id} value={p.id}>
                   {p.label}
                 </option>
               ))}
             </optgroup>
-          )}
-          {subscriptionBundle && (
-            <optgroup label="Subscription presets">
-              {subscriptionBundle.presets.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.label}
-                </option>
-              ))}
-            </optgroup>
-          )}
+          ))}
         </select>
       </div>
 
@@ -186,9 +191,7 @@ export default function PresetSelector({ bundles, value, onChange }) {
               <label className="mb-1 flex items-center text-xs text-fg-dim">
                 <span>Quality</span>
                 <HoverHint align="left" width="sm">
-                  <p>
-                    Уровень результата среди игроков отрасли:
-                  </p>
+                  <p>Уровень результата среди игроков отрасли:</p>
                   <ul className="mt-1.5 list-disc space-y-1 pl-4">
                     <li><strong className="text-fg">top quartile</strong> — лучшие 25%</li>
                     <li><strong className="text-fg">median</strong> — медиана</li>
@@ -243,7 +246,7 @@ export default function PresetSelector({ bundles, value, onChange }) {
                   {badge.label}
                 </span>
               )}
-              {isSubs && preset.dominantPlan && (
+              {preset.dominantPlan && (
                 <span
                   className="rounded border border-line-strong bg-bg-subtle px-2 py-0.5 text-xs text-fg-muted"
                   title="Dominant billing plan for the vertical"
@@ -260,13 +263,13 @@ export default function PresetSelector({ bundles, value, onChange }) {
                 </span>
               )}
             </div>
-            {isSubs && variant && (
+            {slice && slice.funnel.length > 0 && (
               <div className="text-xs text-fg-faint">
                 <span className="text-fg-dim">Funnel: </span>
                 <span className="tabular-nums">
-                  install→trial {variant.installToTrial?.toFixed?.(1) ?? '—'}%
-                  {' · '}
-                  trial→paid {variant.trialToPaid?.toFixed?.(1) ?? '—'}%
+                  {slice.funnel
+                    .map((s) => `${s.label} ${s.conversionPct.toFixed(1)}%`)
+                    .join(' · ')}
                 </span>
               </div>
             )}
@@ -289,7 +292,7 @@ export default function PresetSelector({ bundles, value, onChange }) {
                 )}
               </dl>
             )}
-            {isSubs && preset.examples?.length > 0 && (
+            {preset.examples?.length > 0 && (
               <div className="text-xs text-fg-faint">
                 <span className="text-fg-dim">Examples: </span>
                 {preset.examples.slice(0, 6).join(', ')}

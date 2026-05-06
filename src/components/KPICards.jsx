@@ -1,4 +1,19 @@
+// Unified 5-card KPI panel for the calculator. Period-aware — the same
+// component renders D-prefixed labels for DAU mode, M-prefixed for monthly
+// subscriptions, W-prefixed for weekly subscriptions.
+//
+// Cards (always in this order):
+//   1. Predicted LTV       — per cohort entrant at horizon
+//   2. Model fit (R²)      — power-law fit quality
+//   3. Payback             — first period where cumulative LTV ≥ CAC
+//   4. LTV / CAC           — ratio, colored by health band
+//   5. <period><horizon> retention — fit value at the horizon endpoint
+//
+// Cards 3 & 4 hide when CAC is missing — keeps the panel honest about
+// what's calculable.
+
 import HoverHint from './HoverHint.jsx'
+import { periodAbbr, periodUnit } from '../lib/calc.js'
 
 function fmtUsd(x) {
   if (!Number.isFinite(x)) return '—'
@@ -14,10 +29,42 @@ function rsqTone(r2) {
 }
 
 function ltvCacTone(ratio) {
-  if (!Number.isFinite(ratio)) return 'text-fg'
+  if (!Number.isFinite(ratio)) return 'text-fg-strong'
   if (ratio >= 3) return 'text-emerald-300'
   if (ratio >= 1) return 'text-amber-300'
   return 'text-red-400'
+}
+
+function pctDelta(current, base, { higherIsBetter }) {
+  if (!Number.isFinite(current) || !Number.isFinite(base) || base === 0) {
+    return null
+  }
+  const pct = ((current - base) / base) * 100
+  if (Math.abs(pct) < 0.05) {
+    return { text: '= baseline', tone: 'text-fg-faint' }
+  }
+  const sign = pct > 0 ? '+' : ''
+  const better = higherIsBetter ? pct > 0 : pct < 0
+  const tone = better ? 'text-emerald-300' : 'text-red-400'
+  return { text: `${sign}${pct.toFixed(1)}% vs baseline`, tone }
+}
+
+function periodDelta(current, base, { unit, lowerIsBetter }) {
+  if (current == null && base == null) return null
+  if (current == null && base != null) {
+    return { text: 'Not reached vs baseline', tone: 'text-red-400' }
+  }
+  if (current != null && base == null) {
+    return { text: 'reached vs N/A', tone: 'text-emerald-300' }
+  }
+  const diff = current - base
+  if (diff === 0) {
+    return { text: '= baseline', tone: 'text-fg-faint' }
+  }
+  const sign = diff > 0 ? '+' : ''
+  const better = lowerIsBetter ? diff < 0 : diff > 0
+  const tone = better ? 'text-emerald-300' : 'text-red-400'
+  return { text: `${sign}${diff}${unit} vs baseline`, tone }
 }
 
 function Card({ label, value, hint, tooltip, tooltipAlign = 'left', tone = 'text-fg-strong', delta }) {
@@ -40,54 +87,19 @@ function Card({ label, value, hint, tooltip, tooltipAlign = 'left', tone = 'text
   )
 }
 
-function pctDelta(current, base, { higherIsBetter }) {
-  if (
-    !Number.isFinite(current) ||
-    !Number.isFinite(base) ||
-    base === 0
-  ) {
-    return null
-  }
-  const pct = ((current - base) / base) * 100
-  if (Math.abs(pct) < 0.05) {
-    return { text: '= baseline', tone: 'text-fg-faint' }
-  }
-  const sign = pct > 0 ? '+' : ''
-  const better = higherIsBetter ? pct > 0 : pct < 0
-  const tone = better ? 'text-emerald-300' : 'text-red-400'
-  return { text: `${sign}${pct.toFixed(1)}% vs baseline`, tone }
-}
-
-function dayDelta(current, base, { lowerIsBetter }) {
-  if (current == null && base == null) return null
-  if (current == null && base != null) {
-    return { text: 'Not reached vs baseline', tone: 'text-red-400' }
-  }
-  if (current != null && base == null) {
-    return { text: 'reached vs N/A', tone: 'text-emerald-300' }
-  }
-  const diff = current - base
-  if (diff === 0) {
-    return { text: '= baseline', tone: 'text-fg-faint' }
-  }
-  const sign = diff > 0 ? '+' : ''
-  const better = lowerIsBetter ? diff < 0 : diff > 0
-  const tone = better ? 'text-emerald-300' : 'text-red-400'
-  return { text: `${sign}${diff}d vs baseline`, tone }
-}
-
 /**
  * @param {{
  *   ltvAtHorizon: number,
  *   horizon: number,
+ *   period: 'day'|'week'|'month',
  *   rSquared: number,
- *   beDay: number|null,
+ *   payback: number|null,
  *   cac: number|null,
  *   horizonRetention: number,
  *   baseline?: {
  *     ltvAtHorizon: number,
  *     ratio: number|null,
- *     beDay: number|null,
+ *     payback: number|null,
  *     horizonRetention: number,
  *   } | null,
  * }} props
@@ -95,15 +107,18 @@ function dayDelta(current, base, { lowerIsBetter }) {
 export default function KPICards({
   ltvAtHorizon,
   horizon,
+  period,
   rSquared,
-  beDay,
+  payback,
   cac,
   horizonRetention,
   baseline,
 }) {
-  const r2 = rsqTone(rSquared)
+  const abbr = periodAbbr(period)
+  const unit = periodUnit(period)
   const showCacCards = cac != null && cac > 0
   const ratio = showCacCards ? ltvAtHorizon / cac : null
+  const r2 = rsqTone(rSquared)
 
   const ltvDelta = baseline
     ? pctDelta(ltvAtHorizon, baseline.ltvAtHorizon, { higherIsBetter: true })
@@ -112,17 +127,27 @@ export default function KPICards({
     baseline && ratio != null && baseline.ratio != null
       ? pctDelta(ratio, baseline.ratio, { higherIsBetter: true })
       : null
-  const beDelta = baseline ? dayDelta(beDay, baseline.beDay, { lowerIsBetter: true }) : null
+  const paybackDelta = baseline
+    ? periodDelta(payback, baseline.payback, {
+        unit: abbr.toLowerCase(),
+        lowerIsBetter: true,
+      })
+    : null
   const retDelta = baseline
-    ? pctDelta(horizonRetention, baseline.horizonRetention, { higherIsBetter: true })
+    ? pctDelta(horizonRetention, baseline.horizonRetention, {
+        higherIsBetter: true,
+      })
     : null
 
-  const paybackValue = beDay != null ? `Day ${beDay}` : 'Not reached'
-  const paybackTone = beDay != null ? 'text-fg-strong' : 'text-amber-300'
+  const paybackLabel =
+    period === 'day' ? 'Day' : period === 'week' ? 'Week' : 'Month'
+  const paybackValue =
+    payback != null ? `${paybackLabel} ${payback}` : 'Not reached'
+  const paybackTone = payback != null ? 'text-fg-strong' : 'text-amber-300'
   const paybackHint =
-    beDay != null
-      ? `at D${beDay}`
-      : `LTV < CAC at D${horizon}`
+    payback != null
+      ? `at ${abbr}${payback}`
+      : `LTV < CAC at ${abbr}${horizon}`
 
   return (
     <div
@@ -135,13 +160,15 @@ export default function KPICards({
       <Card
         label="Predicted LTV"
         value={fmtUsd(ltvAtHorizon)}
-        hint={`at D${horizon}`}
+        hint={`at ${abbr}${horizon}`}
         delta={ltvDelta}
         tooltip={
           <>
             <p>
-              Считается как ARPU × Σ R(t) для t = 1…{horizon} — складываются
-              ожидаемые дневные доходы по степенной кривой ретеншена.
+              Per cohort entrant, на горизонте {abbr}{horizon}. Считается как
+              ARPU × Σ R(t) × (acquired/cohort) для t = 1…{horizon} —
+              складываются ожидаемые периодные доходы по степенной кривой
+              ретеншена.
             </p>
             <p className="mt-1.5">
               Чем дальше горизонт, тем больше неопределённость — после ~3× от
@@ -178,11 +205,12 @@ export default function KPICards({
             value={paybackValue}
             hint={paybackHint}
             tone={paybackTone}
-            delta={beDelta}
+            delta={paybackDelta}
             tooltip={
               <>
                 <p>
-                  Первый день, на котором накопленный доход ≥ CAC. После этой
+                  Первый {unit}, на котором накопленная выручка покрыла полную
+                  стоимость привлечения когорты (cohort × CAC). После этой
                   точки когорта переходит в плюс.
                 </p>
                 <p className="mt-1.5">
@@ -210,15 +238,12 @@ export default function KPICards({
             tooltip={
               <>
                 <p>
-                  Стандартная метрика юнит-экономики. ≥ 3.0 — здоровый
-                  бизнес, можно масштабировать paid acquisition. 1.0–3.0 — на
-                  грани, экономика хрупкая. &lt; 1.0 — теряете деньги на
-                  каждом привлечённом юзере.
+                  Стандартная метрика юнит-экономики. ≥ 3.0 — здоровый бизнес,
+                  можно масштабировать paid acquisition. 1.0–3.0 — на грани.
+                  &lt; 1.0 — теряете деньги на каждом привлечённом юзере.
                 </p>
                 <p className="mt-1.5">
-                  Считается на горизонте D{horizon}; на коротком горизонте
-                  отношение будет ниже — ретеншен ещё генерирует доход после
-                  обрезки.
+                  Считается на горизонте {abbr}{horizon}; на коротком — ниже.
                 </p>
               </>
             }
@@ -226,7 +251,7 @@ export default function KPICards({
         </>
       )}
       <Card
-        label={`D${horizon} retention`}
+        label={`${abbr}${horizon} retention`}
         value={
           Number.isFinite(horizonRetention)
             ? `${(horizonRetention * 100).toFixed(2)}%`
@@ -238,13 +263,13 @@ export default function KPICards({
         tooltip={
           <>
             <p>
-              Прогноз ретеншена в самой дальней точке горизонта (D{horizon}) —
+              Прогноз ретеншена в самой дальней точке горизонта ({abbr}{horizon}) —
               значение фита R(t) = a·t<sup>−b</sup> на конце окна.
             </p>
             <p className="mt-1.5">
               Sanity-check для модели: если число выглядит нереалистично
-              высоким или низким — фит плохо экстраполируется и стоит добавить
-              точек или сменить пресет.
+              высоким или низким — фит плохо экстраполируется и стоит
+              добавить точек или сменить пресет.
             </p>
           </>
         }
