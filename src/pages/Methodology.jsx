@@ -168,7 +168,7 @@ export default function Methodology() {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[240px,minmax(0,1fr)] lg:gap-10">
-      <aside className="scroll-thin text-sm lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2">
+      <aside className="scroll-thin min-w-0 text-sm lg:sticky lg:top-4 lg:self-start lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto lg:pr-2">
         <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-faint">
           On this page
         </div>
@@ -178,7 +178,7 @@ export default function Methodology() {
           {toc && <TocList items={toc.v2} />}
         </ul>
       </aside>
-      <article className="prose prose-invert max-w-none prose-headings:scroll-mt-20 prose-a:text-accent-fg">
+      <article className="prose prose-invert min-w-0 max-w-none prose-headings:scroll-mt-20 prose-a:text-accent-fg">
         <h1>Методология</h1>
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}

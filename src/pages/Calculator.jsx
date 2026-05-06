@@ -793,7 +793,7 @@ export default function Calculator() {
       </header>
 
       <div className="grid gap-8 lg:grid-cols-[360px,minmax(0,1fr)] print:block">
-        <aside className="space-y-5 rounded-lg border border-line bg-bg-elev/40 p-4 print:hidden">
+        <aside className="min-w-0 space-y-5 rounded-lg border border-line bg-bg-elev/40 p-4 print:hidden">
           {bundleError && (
             <div className="rounded border border-red-900/50 bg-red-950/40 p-2 text-xs text-red-300">
               Failed to load presets: {bundleError}
@@ -1024,7 +1024,7 @@ export default function Calculator() {
           </div>
         </aside>
 
-        <section aria-label="Outputs" className="space-y-5">
+        <section aria-label="Outputs" className="min-w-0 space-y-5">
           {periodToast && (
             <div className="rounded-lg border border-accent/40 bg-accent-surface/40 p-3 text-sm text-accent-fg print:hidden">
               {periodToast}
