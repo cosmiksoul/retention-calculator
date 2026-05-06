@@ -86,6 +86,12 @@ body {
   color: rgb(var(--c-fg));
   -webkit-font-smoothing: antialiased;
   transition: background-color 120ms ease, color 120ms ease;
+  /* Safety net for narrow mobile viewports: clip any rogue horizontal
+     overflow (wide tables, charts at fixed pixel widths, long URLs in
+     pinned baseline) instead of letting the whole page scroll sideways.
+     Vertical scrolling is unaffected, and `position: sticky` on the
+     header still pins because body remains the scroll container. */
+  overflow-x: hidden;
 }
 
 /* Thin, themed scrollbar for sidebars/tables. Stays out of the way until

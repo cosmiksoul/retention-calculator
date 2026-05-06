@@ -84,11 +84,11 @@ function navClass({ isActive }) {
 function Header({ theme, onToggleTheme }) {
   return (
     <header className="sticky top-0 z-10 border-b border-line bg-bg-elev/80 backdrop-blur print:hidden">
-      <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-3">
+      <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-3 sm:px-6">
         <NavLink to="/" className="font-semibold tracking-tight text-fg-strong">
           Retention &amp; LTV Calculator
         </NavLink>
-        <nav className="flex items-center gap-6">
+        <nav className="flex flex-wrap items-center gap-x-4 gap-y-2 sm:gap-x-6">
           <NavLink to="/" end className={navClass}>
             Calculator
           </NavLink>
@@ -143,7 +143,7 @@ export default function App() {
     <HashRouter>
       <div className="flex min-h-screen flex-col font-sans">
         <Header theme={theme} onToggleTheme={toggleTheme} />
-        <main className="mx-auto w-full max-w-6xl flex-1 px-6 py-8 print:max-w-none">
+        <main className="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6 sm:py-8 print:max-w-none">
           <Suspense fallback={<div className="text-fg-faint">Loading…</div>}>
             <Routes>
               <Route path="/" element={<Calculator />} />

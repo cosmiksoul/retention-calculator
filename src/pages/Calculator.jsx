@@ -818,7 +818,7 @@ export default function Calculator() {
             </button>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 border-t border-line pt-4">
+          <div className="grid grid-cols-1 gap-4 border-t border-line pt-4 sm:grid-cols-2">
             <NumberField
               label="Cohort (Acquired)"
               value={cohortSize}
@@ -874,7 +874,7 @@ export default function Calculator() {
             supported={selectedPreset?.cadenceSupported ?? null}
           />
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <NumberField
               label="ARPPU"
               value={arpuPerPeriod}
