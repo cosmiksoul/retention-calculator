@@ -9,6 +9,7 @@ const root = resolve(fileURLToPath(import.meta.url), '..', '..')
 
 const files = [
   ['docs/presets.json', 'public/presets.json'],
+  ['docs/methodology-overview.md', 'public/methodology-overview.md'],
   ['docs/methodology.md', 'public/methodology.md'],
   ['docs/methodology-subscription.md', 'public/methodology-subscription.md'],
 ]

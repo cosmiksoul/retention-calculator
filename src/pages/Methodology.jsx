@@ -1,6 +1,8 @@
-// Combined methodology page — renders both `methodology.md` (DAU) and
-// `methodology-subscription.md` (subscription) sequentially under a
-// single page-level H1, with a sticky-sidebar TOC for both sections.
+// Combined methodology page — renders three markdown files sequentially
+// under a single page-level H1 with a sticky-sidebar TOC:
+//   1. methodology-overview.md       (how the calculator works — model, math, limits)
+//   2. methodology.md                 (DAU-style preset sources)
+//   3. methodology-subscription.md   (subscription preset sources)
 //
 // Heading levels in the source markdown are shifted down by one when
 // rendered (h1→h2, h2→h3, etc.) so the page has exactly one H1
@@ -97,6 +99,7 @@ function TocList({ items }) {
 }
 
 export default function Methodology() {
+  const [overview, setOverview] = useState('')
   const [v1, setV1] = useState('')
   const [v2, setV2] = useState('')
   const [error, setError] = useState(null)
@@ -105,6 +108,10 @@ export default function Methodology() {
   useEffect(() => {
     let cancelled = false
     Promise.all([
+      fetch(`${import.meta.env.BASE_URL}methodology-overview.md`).then((r) => {
+        if (!r.ok) throw new Error(`methodology-overview.md HTTP ${r.status}`)
+        return r.text()
+      }),
       fetch(`${import.meta.env.BASE_URL}methodology.md`).then((r) => {
         if (!r.ok) throw new Error(`methodology.md HTTP ${r.status}`)
         return r.text()
@@ -117,8 +124,9 @@ export default function Methodology() {
         },
       ),
     ])
-      .then(([a, b]) => {
+      .then(([o, a, b]) => {
         if (cancelled) return
+        setOverview(o)
         setV1(a)
         setV2(b)
       })
@@ -131,17 +139,21 @@ export default function Methodology() {
   }, [])
 
   const toc = useMemo(() => {
-    if (!v1 || !v2) return null
-    return { v1: extractToc(v1), v2: extractToc(v2) }
-  }, [v1, v2])
+    if (!overview || !v1 || !v2) return null
+    return {
+      overview: extractToc(overview),
+      v1: extractToc(v1),
+      v2: extractToc(v2),
+    }
+  }, [overview, v1, v2])
 
-  // After both files render, scroll to the in-page anchor (if any).
+  // After all files render, scroll to the in-page anchor (if any).
   useEffect(() => {
-    if (!v1 || !v2 || !location.hash) return
+    if (!overview || !v1 || !v2 || !location.hash) return
     const id = decodeURIComponent(location.hash.slice(1))
     const el = document.getElementById(id)
     if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' })
-  }, [v1, v2, location.hash])
+  }, [overview, v1, v2, location.hash])
 
   if (error) {
     return (
@@ -150,7 +162,7 @@ export default function Methodology() {
       </div>
     )
   }
-  if (!v1 || !v2) {
+  if (!overview || !v1 || !v2) {
     return <div className="text-fg-faint">Loading…</div>
   }
 
@@ -161,22 +173,21 @@ export default function Methodology() {
           On this page
         </div>
         <ul className="space-y-3">
+          {toc && <TocList items={toc.overview} />}
           {toc && <TocList items={toc.v1} />}
           {toc && <TocList items={toc.v2} />}
         </ul>
       </aside>
       <article className="prose prose-invert max-w-none prose-headings:scroll-mt-20 prose-a:text-accent-fg">
         <h1>Методология</h1>
-        <p className="lead">
-          Калькулятор LTV использует одну модель — power-law fit ретеншена
-          с настраиваемым period (<strong>day</strong> /{' '}
-          <strong>week</strong> / <strong>month</strong>) и опциональным
-          n-step funnel. Под капотом две группы пресетов с разными
-          источниками: первый раздел — DAU-стилевые (игры, iGaming,
-          sportsbook, ecommerce, fintech), второй — subscription apps
-          (consumer subscriptions: utilities, fitness, language learning,
-          AI companions, etc.).
-        </p>
+        <ReactMarkdown
+          remarkPlugins={[remarkGfm]}
+          rehypePlugins={[rehypeSlug]}
+          components={headingShift}
+        >
+          {overview}
+        </ReactMarkdown>
+        <hr className="my-12 border-line" />
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           rehypePlugins={[rehypeSlug]}

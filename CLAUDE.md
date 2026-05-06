@@ -25,8 +25,9 @@
 ```
 docs/spec.md                       ← v1 спецификация (с post-refactor нотой)
 docs/spec-v2-subscription.md       ← v2 спецификация (исторический контекст)
-docs/methodology.md                ← методология + источники DAU-стилевых пресетов
-docs/methodology-subscription.md   ← методология + источники subscription-пресетов
+docs/methodology-overview.md       ← как работает калькулятор (модель, математика, ограничения)
+docs/methodology.md                ← источники DAU-стилевых пресетов
+docs/methodology-subscription.md   ← источники subscription-пресетов
 docs/presets.json                  ← единый bundle всех пресетов (schema v2.0)
 README.md                          ← витрина для GitHub
 CLAUDE.md                          ← этот файл
