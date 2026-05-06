@@ -204,12 +204,29 @@ function withIds(arr) {
   return arr.map((p) => ({ id: newPointId(), ...p }))
 }
 
-// Initial funnel for a fresh state (no preset, no share link). One predefined
-// "Registration" step so the funnel cascade visualization renders out of the
-// box. User can edit/remove it; loading a preset replaces the funnel with the
-// preset's own (often [] for session presets, [Install→Trial, Trial→Paid] for
-// subscription).
-const DEFAULT_FUNNEL = [{ label: 'Registration', conversionPct: 50 }]
+// Initial funnel per period. Day = generic Registration step (DAU-style
+// products). Week/month = classic subscription cascade (Install→Trial→Paid),
+// seeded from RevenueCat utilities median benchmark so a fresh weekly /
+// monthly setup looks like a real subscription right out of the box.
+//
+// Loading a preset replaces the funnel with the preset's own; switching
+// period without preset data resets the funnel back to the new period's
+// default. User can edit/remove steps freely.
+const DEFAULT_FUNNEL_BY_PERIOD = {
+  day: [{ label: 'Registration', conversionPct: 50 }],
+  week: [
+    { label: 'Install → Trial', conversionPct: 8.6 },
+    { label: 'Trial → Paid', conversionPct: 35 },
+  ],
+  month: [
+    { label: 'Install → Trial', conversionPct: 8.6 },
+    { label: 'Trial → Paid', conversionPct: 35 },
+  ],
+}
+
+function defaultFunnel(period) {
+  return withIds(DEFAULT_FUNNEL_BY_PERIOD[period] ?? [])
+}
 
 export default function Calculator() {
   const [shareInitial] = useState(readInitialFromUrl)
@@ -221,7 +238,9 @@ export default function Calculator() {
       : defaultPoints(shareInitial?.period ?? 'day'),
   )
   const [funnel, setFunnel] = useState(() =>
-    shareInitial ? withIds(shareInitial.funnel ?? []) : withIds(DEFAULT_FUNNEL),
+    shareInitial
+      ? withIds(shareInitial.funnel ?? [])
+      : defaultFunnel(shareInitial?.period ?? 'day'),
   )
   const [cohortSize, setCohortSize] = useState(
     () => shareInitial?.cohortSize ?? 1000,
@@ -374,6 +393,7 @@ export default function Calculator() {
       setPeriodToast(`Switched to ${next} — repopulated from "${selectedPreset?.label}".`)
     } else {
       setPoints(defaultPoints(next))
+      setFunnel(defaultFunnel(next))
       setArpuPerPeriod(DEFAULT_ARPU[next] ?? arpuPerPeriod)
       setPeriodToast(
         selectedPreset
