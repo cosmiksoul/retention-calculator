@@ -8,67 +8,93 @@
 
 ## С чего начать
 
-В калькуляторе **две модели**: v1 (Session retention, дневная шкала, для игр/iGaming/sportsbook) и v2 (Subscription mode, weekly+monthly cadence, для consumer subscription apps). Обе живут параллельно через mode-toggle.
+**Калькулятор использует одну унифицированную модель** с переключаемым period (`day` / `week` / `month`) и опциональным n-step funnel:
 
-1. **Прочитай `docs/spec.md`** — спецификация v1 (session retention). Особенное внимание секциям:
-   - §0 — карта документов (включает v2 файлы)
-   - §3.1 Блок 4 — структура пресетов с quality × geo (35 вариантов)
-   - §3.5 — страница методологии
-   - §5 — стек и обоснование
-   - §8 — структура проекта
-2. **Прочитай `docs/spec-v2-subscription.md`** — спецификация v2 (subscription mode). Additive расширение поверх v1. Содержит модель funnel + retention paying + dual cadence, KPI/funnel/charts/methodology.
-3. **Прочитай `docs/methodology.md`** и `docs/methodology-subscription.md` — оба source-of-truth по источникам пресетов. Рендерятся последовательно на странице `/methodology`.
-4. **Прочитай `docs/presets.json`** и `docs/presets-subscription.json` — данные пресетов. Калькулятор грузит оба файла параллельно.
+- `funnel = []` ⇒ DAU semantics (cohort = active pool, ARPU per cohort entrant per period). Подходит для игр, iGaming, sportsbook.
+- `funnel = [install→trial, trial→paid]` ⇒ subscription cascade. Acquired pool = paying users, ARPU per paying user per period. Поддерживает weekly + monthly cadence для consumer subscription apps.
+
+До рефакторинга (май 2026) это были две отдельные модели (v1 Session retention + v2 Subscription). См. `docs/spec.md` и `docs/spec-v2-subscription.md` для исторического контекста.
+
+1. **Прочитай `docs/spec.md`** — оригинальная спецификация v1 + раздел про unification сверху.
+2. **Прочитай `docs/spec-v2-subscription.md`** — оригинальная v2 spec для контекста; модель устарела, но methodology references актуальны.
+3. **Прочитай `docs/methodology.md`** и `docs/methodology-subscription.md` — source-of-truth по источникам пресетов. Рендерятся последовательно на странице `/methodology` (две группы пресетов с разными data sources).
+4. **Прочитай `docs/presets.json`** — единый bundle, 14 пресетов (7 DAU-style + 7 subscription) в schema v2.0.
 
 ## Карта файлов
 
 ```
-docs/spec.md                       ← v1 спецификация (session retention)
-docs/spec-v2-subscription.md       ← v2 спецификация (subscription mode)
-docs/methodology.md                ← v1 методология + источники session-пресетов
-docs/methodology-subscription.md   ← v2 методология + источники subscription-пресетов
-docs/presets.json                  ← session-пресеты (35 вариантов)
-docs/presets-subscription.json     ← subscription-пресеты (35 вариантов)
+docs/spec.md                       ← v1 спецификация (с post-refactor нотой)
+docs/spec-v2-subscription.md       ← v2 спецификация (исторический контекст)
+docs/methodology.md                ← методология + источники DAU-стилевых пресетов
+docs/methodology-subscription.md   ← методология + источники subscription-пресетов
+docs/presets.json                  ← единый bundle всех пресетов (schema v2.0)
 README.md                          ← витрина для GitHub
 CLAUDE.md                          ← этот файл
+scripts/migrate-presets.js         ← одноразовый migration tool (исторический)
+scripts/copy-data.js               ← копирует docs/* в public/ для Vite
 ```
 
 ## Жёсткие ограничения
 
 - **Хостинг:** только GitHub Pages (статика). Никакого бэкенда, БД, env-переменных
 - **Не black box:** методология как полноценная страница с anchor-навигацией, не expandable-блок
-- **Источники цифр:** для session-пресетов — `docs/methodology.md`; для subscription-пресетов — `docs/methodology-subscription.md`. В `presets.json` / `presets-subscription.json` поле `sources` намеренно отсутствует — не плодим дубли
-- **ARPU нормализация (v1):** канонический источник в session-пресете — `arpu_per_day`. Поля `arpu_monthly` / `arpu_annual` / `arpdau` — display-only
-- **ARPU нормализация (v2):** в subscription-пресете — `arpu_paid_monthly` (всегда) и `arpu_paid_weekly` (только где weekly cadence доступен). Поля cadence-специфичные, не cross-конвертируются
+- **Источники цифр:** для DAU-стилевых пресетов — `docs/methodology.md`; для subscription-пресетов — `docs/methodology-subscription.md`. В `presets.json` поле `sources` намеренно отсутствует — не плодим дубли
+- **Преcет schema v2.0:** каждый preset declares `cadence_default` + `cadence_supported`. Variants содержат `funnel`, `retention.{day|week|month}`, `arpu_per_period.{day|week|month}`, `cac_per_acquired`, `display`. См. `src/lib/presetsLoader.js` для нормализованной формы.
+- **ARPU нормализация:** канонический `arpu_per_period.<period>` per period в variants. Поля `arpu_monthly` / `arpu_annual` / `arpdau` / `arpu_paid_monthly|weekly` — display-only под `display`.
 
-## Рекомендуемый стек (см. §5 ТЗ)
+## Стек
 
-React 18 + Vite + Recharts + Tailwind + react-router-dom (HashRouter) + react-markdown.
+React 18 + Vite + Recharts + Tailwind + react-router-dom (HashRouter) + react-markdown + Vitest.
 
 Если в процессе видишь, что что-то лучше делать иначе — обсуди с пользователем перед тем как менять.
 
 ## Структура проекта (актуальное состояние)
 
-v1 + v2 уже задеплоены/в работе. Ключевые места:
+```
+src/lib/
+  powerLaw.js          fitPowerLaw / predict / retentionCurve / retentionBand / extrapolationLevel
+  calc.js              унифицированное math-ядро: funnelCascade, cohortLtv, cohortLtvBand, payback,
+                       periodAbbr, periodUnit, periodLabel, periodTicks
+  industryAdjusted.js  benchmark-based shape rescaling (period-agnostic)
+  presetsLoader.js     normalizePresetsBundle, loadPresets, variantForPeriod
+  share.js             v2 schema (period в payload, funnel массив)
+  exportCsv.js         единый buildCsv, period-aware колонки
+  validate.js          validateRetentionPoints (minPoints option), validateFunnel, validateNumericInputs
+  parseCohort.js, parseDAU.js, deconvolution.js  (input modes — без изменений)
+  baselineDelta.js, exportPng.js, idGen.js, useThemeColors.js  (utility)
 
-- `src/lib/powerLaw.js`, `src/lib/ltv.js` — math для session mode
-- `src/lib/subscriptionMath.js` — math для subscription mode (funnel cascade, LTV per install/paying user, cadence-зависимый payback)
-- `src/pages/Calculator.jsx` — корень UI, mode-dispatch (Session vs Subscription)
-- `src/pages/Methodology.jsx` — рендер двух методологий с sticky TOC
-- `src/components/` — session-компоненты в корне, subscription-компоненты в `subscription/`
-- `scripts/copy-data.js` — копирует `docs/*.json` и `docs/methodology*.md` в `public/`
+src/components/
+  PeriodSelector.jsx   day/week/month радио с per-period data indicators
+  FunnelSection.jsx    collapsible n-step (до 5) funnel input
+  FunnelWaterfall.jsx  generic n-step cascade visualization
+  PresetSelector.jsx   единый dropdown с optgroup по category
+  KPICards.jsx         унифицированный 5-card period-aware блок
+  RetentionChart, LTVChart, RevenueChart, ResultsTable, CohortPL  (period-aware)
+  RetentionInput, CohortPaste, DAUInput, DAUChart, ExtrapolationBanner,
+  ForecastModeToggle, BandSigmaToggle, HoverHint, ExportPngButton
+
+src/pages/
+  Calculator.jsx       единый render path (нет mode-toggle); state: { period, points, funnel, ... }
+  Methodology.jsx      рендер двух methodology файлов с sticky TOC
+
+tests/lib/
+  calc.test.js, integration.test.js, presetsLoader.test.js, share.test.js,
+  exportCsv.test.js, validate.test.js, powerLaw.test.js, industryAdjusted.test.js,
+  parseCohort.test.js, parseDAU.test.js, deconvolution.test.js
+  ~165 тестов, все зелёные
+```
 
 ## Чего не делать без обсуждения
 
 - Не добавлять backend / API
 - Не уходить от GitHub Pages-совместимого билда
-- Не править `methodology.md` или `methodology-subscription.md` без аккуратной причины — это публичный контент, видимый и в репо, и в приложении
-- Не добавлять `sources` обратно в `presets.json` / `presets-subscription.json` — источники в methodology файлах
-- **v1 не ломаем при работе над v2.** Все changes additive — существующие тесты должны продолжать проходить
+- Не править `methodology.md` или `methodology-subscription.md` без аккуратной причины — это публичный контент
+- Не добавлять `sources` обратно в `presets.json` — источники в methodology файлах
+- **Не возрождать mode-toggle.** Calculator теперь единый; period — runtime-toggle, не архитектурное разветвление.
 
 ## Definition of Done
 
-См. §7 ТЗ.
+См. §7 ТЗ (`docs/spec.md`).
 
 ## Контактные точки
 

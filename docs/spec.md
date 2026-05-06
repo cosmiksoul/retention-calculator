@@ -1,5 +1,13 @@
 # ТЗ: Retention & LTV Calculator
 
+> **Post-refactor note (2026-05-06):** v1 (Session retention) и v2
+> (Subscription mode) объединены в одну унифицированную модель с переключаемым
+> `period` ('day' / 'week' / 'month') и опциональным n-step funnel. Mode-toggle
+> и две параллельные state-tree удалены. См. `CLAUDE.md` для актуальной
+> архитектуры; этот документ сохранён как исторический контекст оригинальной
+> v1 spec. Numeric requirements (формулы, методология, ограничения) остались
+> в силе — поменялась только UI-композиция и shape preset bundle.
+
 ## 0. Карта документов и зависимостей
 
 | Файл | Роль |

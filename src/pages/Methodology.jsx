@@ -168,11 +168,14 @@ export default function Methodology() {
       <article className="prose prose-invert max-w-none prose-headings:scroll-mt-20 prose-a:text-accent-fg">
         <h1>Методология</h1>
         <p className="lead">
-          Калькулятор LTV поддерживает две модели — <strong>DAU</strong>{' '}
-          (дневная шкала, для игр / iGaming / sportsbook) и{' '}
-          <strong>Subscription</strong> (weekly / monthly cadence, для
-          consumer subscription apps). Источники пресетов разнесены по двум
-          разделам ниже.
+          Калькулятор LTV использует одну модель — power-law fit ретеншена
+          с настраиваемым period (<strong>day</strong> /{' '}
+          <strong>week</strong> / <strong>month</strong>) и опциональным
+          n-step funnel. Под капотом две группы пресетов с разными
+          источниками: первый раздел — DAU-стилевые (игры, iGaming,
+          sportsbook, ecommerce, fintech), второй — subscription apps
+          (consumer subscriptions: utilities, fitness, language learning,
+          AI companions, etc.).
         </p>
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}

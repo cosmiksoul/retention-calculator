@@ -1,5 +1,16 @@
 # spec-v2 — Subscription Mode
 
+> **Post-refactor note (2026-05-06):** этот документ описывает v2 как
+> отдельный режим (mode-toggle, parallel state, dual cadence). После
+> refactor `unified-calculator` v2 поглощён единой моделью с переключаемым
+> `period` и n-step funnel; `presets-subscription.json` и
+> `presets.json` объединены в один bundle с `cadence_default`/
+> `cadence_supported` per preset. Subscription cascade =
+> `funnel: [install→trial, trial→paid] + period: 'month'|'week'`.
+> Документ сохранён как исторический контекст и source-of-truth для
+> предметных требований (KPI набор, funnel waterfall, плановые
+> бейджи). Текущая архитектура — в `CLAUDE.md`.
+
 > Это **дополнение** к `docs/spec.md`. v1 (Session retention mode) уже задеплоен и работает. v2 добавляет вторую модель калькулятора — **Subscription mode** — для consumer subscription apps (VPN, fitness, photo editors, dating, AI companions, etc.). Существующая модель не меняется. v2 — additive.
 >
 > **Где этот файл живёт:** при разработке v2 — в `temp/spec-v2-subscription.md` (gitignored, локально). Claude Code в рамках работы над v2-ткой переносит этот файл в `docs/spec-v2-subscription.md` (см. §10).
