@@ -15,6 +15,7 @@ import HoverHint from './HoverHint.jsx'
 import ExportPngButton from './ExportPngButton.jsx'
 import { useThemeColors } from '../lib/useThemeColors.js'
 import { pngFilename } from '../lib/exportPng.js'
+import { periodAbbr, periodTicks } from '../lib/calc.js'
 
 function fmtUsd(v) {
   if (v == null || !Number.isFinite(v)) return '—'
@@ -23,7 +24,7 @@ function fmtUsd(v) {
   return `$${v.toFixed(2)}`
 }
 
-function CustomTooltip({ active, payload, label, cac, bandSigma }) {
+function CustomTooltip({ active, payload, label, cac, bandSigma, periodAbbrCur }) {
   if (!active || !payload || !payload.length) return null
   const ltvP = payload.find((p) => p.dataKey === 'cumLtv')
   const bandP = payload.find((p) => p.dataKey === 'band')
@@ -31,7 +32,7 @@ function CustomTooltip({ active, payload, label, cac, bandSigma }) {
   const ltv = ltvP?.value
   return (
     <div className="rounded border border-line-strong bg-bg-elev/95 px-3 py-2 text-xs">
-      <div className="font-medium text-fg">Day {label}</div>
+      <div className="font-medium text-fg">{periodAbbrCur}{label}</div>
       <div className="mt-1 flex items-center gap-2">
         <span className="text-fg-dim">Cum LTV</span>
         <span className="ml-auto tabular-nums text-fg">{fmtUsd(ltv)}</span>
@@ -89,7 +90,9 @@ export default function LTVChart({
   lastUserT,
   baselineSeries,
   presetLabel,
+  period = 'day',
 }) {
+  const abbr = periodAbbr(period)
   const colors = useThemeColors()
   const cardRef = useRef(null)
   const baselineByT = baselineSeries
@@ -130,7 +133,7 @@ export default function LTVChart({
           <span className="text-xs text-fg-faint">
             {cac != null && beDay != null && (
               <>
-                Breakeven at <span className="text-fg-muted">Day {beDay}</span>
+                Payback at <span className="text-fg-muted">{abbr}{beDay}</span>
               </>
             )}
             {cac != null && beDay == null && (
@@ -154,10 +157,11 @@ export default function LTVChart({
               dataKey="t"
               type="number"
               domain={[1, horizon]}
-              ticks={[1, 7, 14, 30, 60, 90, 180, 365].filter((t) => t <= horizon)}
+              ticks={periodTicks(period, horizon)}
               stroke={colors.axis}
               tick={{ fontSize: 11 }}
-              label={{ value: 'Day', position: 'insideBottom', offset: -2, fill: colors.axis, fontSize: 11 }}
+              tickFormatter={(v) => `${abbr}${v}`}
+              label={{ value: period.charAt(0).toUpperCase() + period.slice(1), position: 'insideBottom', offset: -2, fill: colors.axis, fontSize: 11 }}
             />
             <YAxis
               stroke={colors.axis}
@@ -165,7 +169,7 @@ export default function LTVChart({
               tickFormatter={fmtUsd}
               domain={[0, yMax]}
             />
-            <Tooltip content={<CustomTooltip cac={cac} bandSigma={bandSigma} />} />
+            <Tooltip content={<CustomTooltip cac={cac} bandSigma={bandSigma} periodAbbrCur={abbr} />} />
             {cac != null && beDay != null && (
               <ReferenceArea x1={1} x2={beDay} y1={0} y2={yMax} fill={colors.cac} fillOpacity={0.06} stroke="none" />
             )}
@@ -204,7 +208,7 @@ export default function LTVChart({
                 stroke={colors.fgDisabled}
                 strokeDasharray="2 4"
                 label={{
-                  value: `last data → D${lastUserT}`,
+                  value: `last data → ${abbr}${lastUserT}`,
                   position: 'insideTop',
                   fill: colors.fgFaint,
                   fontSize: 10,

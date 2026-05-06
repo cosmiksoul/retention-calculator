@@ -15,6 +15,7 @@ import HoverHint from './HoverHint.jsx'
 import ExportPngButton from './ExportPngButton.jsx'
 import { useThemeColors } from '../lib/useThemeColors.js'
 import { pngFilename } from '../lib/exportPng.js'
+import { periodAbbr, periodTicks } from '../lib/calc.js'
 
 function fmtUsd(v) {
   if (v == null || !Number.isFinite(v)) return '—'
@@ -30,7 +31,7 @@ function fmtPct(v) {
   return `${(v * 100).toFixed(0)}%`
 }
 
-function CustomTooltip({ active, payload, label, acquisitionCost }) {
+function CustomTooltip({ active, payload, label, acquisitionCost, periodAbbrCur }) {
   if (!active || !payload || !payload.length) return null
   const cumP = payload.find((p) => p.dataKey === 'cumRevenue')
   const baselineP = payload.find((p) => p.dataKey === 'baseline')
@@ -38,7 +39,7 @@ function CustomTooltip({ active, payload, label, acquisitionCost }) {
   const profit = cum - acquisitionCost
   return (
     <div className="rounded border border-line-strong bg-bg-elev/95 px-3 py-2 text-xs">
-      <div className="font-medium text-fg">Day {label}</div>
+      <div className="font-medium text-fg">{periodAbbrCur}{label}</div>
       <div className="mt-1 flex items-center gap-3">
         <span className="text-fg-dim">Cum revenue</span>
         <span className="ml-auto tabular-nums text-emerald-300">
@@ -86,7 +87,9 @@ export default function CohortPL({
   baselineSeries,
   baselineCohortSize,
   presetLabel,
+  period = 'day',
 }) {
+  const abbr = periodAbbr(period)
   const colors = useThemeColors()
   const cardRef = useRef(null)
   const acquisitionCost = cohortSize * cac
@@ -118,18 +121,18 @@ export default function CohortPL({
       formula: `${cohortSize.toLocaleString()} × ${fmtUsd(cac)}`,
     },
     {
-      label: `Revenue at breakeven`,
+      label: `Revenue at payback`,
       value:
         revenueAtBreakeven != null
           ? fmtUsd(revenueAtBreakeven)
           : '— (not reached)',
       formula:
         beDay != null
-          ? `Σ revenue up to Day ${beDay}`
+          ? `Σ revenue up to ${abbr}${beDay}`
           : `cum revenue stays below acquisition cost on the horizon`,
     },
     {
-      label: `Revenue at horizon (D${horizon})`,
+      label: `Revenue at horizon (${abbr}${horizon})`,
       value: fmtUsd(revenueAtHorizon),
       formula: `Σ revenue × cohort size`,
     },
@@ -151,8 +154,8 @@ export default function CohortPL({
           : 'text-red-400',
     },
     {
-      label: 'Breakeven day',
-      value: beDay != null ? `Day ${beDay}` : 'Not reached',
+      label: 'Payback period',
+      value: beDay != null ? `${abbr}${beDay}` : 'Not reached',
       formula: 'first t where cum revenue ≥ acquisition cost',
       tone: beDay != null ? 'text-fg-strong' : 'text-amber-300',
     },
@@ -223,10 +226,11 @@ export default function CohortPL({
               dataKey="t"
               type="number"
               domain={[1, horizon]}
-              ticks={[1, 7, 14, 30, 60, 90, 180, 365].filter((t) => t <= horizon)}
+              ticks={periodTicks(period, horizon)}
               stroke={colors.axis}
               tick={{ fontSize: 11 }}
-              label={{ value: 'Day', position: 'insideBottom', offset: -2, fill: colors.axis, fontSize: 11 }}
+              tickFormatter={(v) => `${abbr}${v}`}
+              label={{ value: period.charAt(0).toUpperCase() + period.slice(1), position: 'insideBottom', offset: -2, fill: colors.axis, fontSize: 11 }}
             />
             <YAxis
               stroke={colors.axis}
@@ -234,7 +238,7 @@ export default function CohortPL({
               tickFormatter={fmtUsd}
               domain={[0, yMax]}
             />
-            <Tooltip content={<CustomTooltip acquisitionCost={acquisitionCost} />} />
+            <Tooltip content={<CustomTooltip acquisitionCost={acquisitionCost} periodAbbrCur={abbr} />} />
             {beDay != null && (
               <ReferenceArea
                 x1={1}

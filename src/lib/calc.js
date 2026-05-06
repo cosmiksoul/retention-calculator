@@ -48,6 +48,25 @@ export function periodLabel(t, period) {
   return `${periodAbbr(period)}${t}`
 }
 
+const PERIOD_TICKS = {
+  day: [1, 7, 14, 30, 60, 90, 180, 365],
+  week: [1, 4, 8, 13, 26, 39, 52],
+  month: [1, 3, 6, 9, 12, 18, 24, 36],
+}
+
+/**
+ * Reasonable X-axis tick positions for the chosen period, capped to horizon.
+ * Used by chart components so axis-tick spacing matches the period scale.
+ *
+ * @param {'day'|'week'|'month'} period
+ * @param {number} horizon
+ * @returns {number[]}
+ */
+export function periodTicks(period, horizon) {
+  const all = PERIOD_TICKS[period] ?? PERIOD_TICKS.day
+  return all.filter((t) => t <= horizon)
+}
+
 /**
  * Generic n-step funnel cascade. `funnel` is an array of `{label, conversionPct}`
  * entries; each entry's count is `previous_count × conversionPct / 100`.

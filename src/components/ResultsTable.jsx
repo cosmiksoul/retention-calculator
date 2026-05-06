@@ -2,6 +2,7 @@ import { useRef } from 'react'
 import HoverHint from './HoverHint.jsx'
 import ExportPngButton from './ExportPngButton.jsx'
 import { pngFilename } from '../lib/exportPng.js'
+import { periodAbbr } from '../lib/calc.js'
 
 function fmtUsd(v) {
   if (v == null || !Number.isFinite(v)) return '—'
@@ -20,13 +21,20 @@ function fmtPctFromPercent(v) {
   return `${v.toFixed(2)}%`
 }
 
+const CHECKPOINTS = {
+  day: [1, 7, 14, 30, 60, 90, 180, 365],
+  week: [1, 4, 8, 13, 26, 39, 52],
+  month: [1, 3, 6, 9, 12, 18, 24, 36],
+}
+
 /**
  * Picks rows to display: the user's input periods plus a few canonical
  * checkpoints that fall within the horizon, plus the horizon itself.
  */
-function pickRows(series, points, horizon) {
+function pickRows(series, points, horizon, period) {
   const ts = new Set(points.map((p) => p.t))
-  for (const t of [1, 7, 14, 30, 60, 90, 180, 365]) {
+  const checkpoints = CHECKPOINTS[period] ?? CHECKPOINTS.day
+  for (const t of checkpoints) {
     if (t <= horizon) ts.add(t)
   }
   ts.add(horizon)
@@ -45,8 +53,9 @@ function pickRows(series, points, horizon) {
  *   cac: number|null,
  * }} props
  */
-export default function ResultsTable({ series, points, horizon, cohortSize, cac, presetLabel }) {
-  const rows = pickRows(series, points, horizon)
+export default function ResultsTable({ series, points, horizon, cohortSize, cac, presetLabel, period = 'day' }) {
+  const abbr = periodAbbr(period)
+  const rows = pickRows(series, points, horizon, period)
   const showLtvCac = cac != null && cac > 0
   const userByT = new Map(points.map((p) => [p.t, p.percent]))
   const cardRef = useRef(null)
@@ -102,7 +111,7 @@ export default function ResultsTable({ series, points, horizon, cohortSize, cac,
                   }`}
                 >
                   <td className="px-3 py-1.5 text-fg-muted">
-                    Day {row.t}
+                    {abbr}{row.t}
                     {isUserPoint && (
                       <span
                         className="ml-1.5 text-[10px] uppercase tracking-wide text-accent-soft"

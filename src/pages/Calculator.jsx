@@ -988,6 +988,7 @@ export default function Calculator() {
                 horizon={horizon}
                 lastUserT={lastUserT}
                 presetLabel={presetLabel}
+                period={period}
               />
               <LTVChart
                 series={v1Series}
@@ -999,6 +1000,7 @@ export default function Calculator() {
                 lastUserT={lastUserT}
                 baselineSeries={baseline?.ltv}
                 presetLabel={presetLabel}
+                period={period}
               />
               <RevenueChart
                 series={v1Series}
@@ -1007,6 +1009,7 @@ export default function Calculator() {
                 baselineSeries={baseline?.ltv}
                 baselineCohortSize={baseline?.cohortSize}
                 presetLabel={presetLabel}
+                period={period}
               />
               <ResultsTable
                 series={v1Series}
@@ -1015,6 +1018,7 @@ export default function Calculator() {
                 cohortSize={cohortSize}
                 cac={cac}
                 presetLabel={presetLabel}
+                period={period}
               />
               {cac != null && cac > 0 ? (
                 <CohortPL
@@ -1026,6 +1030,7 @@ export default function Calculator() {
                   baselineSeries={baseline?.ltv}
                   baselineCohortSize={baseline?.cohortSize}
                   presetLabel={presetLabel}
+                  period={period}
                 />
               ) : (
                 <div className="rounded-lg border border-dashed border-line p-4 text-xs text-fg-faint">

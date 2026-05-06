@@ -15,8 +15,9 @@ import HoverHint from './HoverHint.jsx'
 import ExportPngButton from './ExportPngButton.jsx'
 import { useThemeColors } from '../lib/useThemeColors.js'
 import { pngFilename } from '../lib/exportPng.js'
+import { periodAbbr, periodTicks } from '../lib/calc.js'
 
-function CustomTooltip({ active, payload, label, bandSigma, colors }) {
+function CustomTooltip({ active, payload, label, bandSigma, colors, periodAbbrCur }) {
   if (!active || !payload || !payload.length) return null
   const userP = payload.find((p) => p.dataKey === 'user')
   const fitP = payload.find((p) => p.dataKey === 'fit')
@@ -25,7 +26,7 @@ function CustomTooltip({ active, payload, label, bandSigma, colors }) {
   const baselineP = payload.find((p) => p.dataKey === 'baseline')
   return (
     <div className="rounded border border-line-strong bg-bg-elev/95 px-3 py-2 text-xs">
-      <div className="font-medium text-fg">Day {label}</div>
+      <div className="font-medium text-fg">{periodAbbrCur}{label}</div>
       {userP && userP.value != null && (
         <Row color={colors.user} label="Your data" value={`${userP.value.toFixed(2)}%`} />
       )}
@@ -84,7 +85,9 @@ export default function RetentionChart({
   horizon,
   lastUserT,
   presetLabel,
+  period = 'day',
 }) {
+  const abbr = periodAbbr(period)
   const colors = useThemeColors()
   const cardRef = useRef(null)
   const userByT = new Map(userPoints.map((p) => [p.t, p.percent]))
@@ -144,10 +147,11 @@ export default function RetentionChart({
               dataKey="t"
               type="number"
               domain={[1, horizon]}
-              ticks={[1, 7, 14, 30, 60, 90, 180, 365].filter((t) => t <= horizon)}
+              ticks={periodTicks(period, horizon)}
               stroke={colors.axis}
               tick={{ fontSize: 11 }}
-              label={{ value: 'Day', position: 'insideBottom', offset: -2, fill: colors.axis, fontSize: 11 }}
+              tickFormatter={(v) => `${abbr}${v}`}
+              label={{ value: period.charAt(0).toUpperCase() + period.slice(1), position: 'insideBottom', offset: -2, fill: colors.axis, fontSize: 11 }}
             />
             <YAxis
               stroke={colors.axis}
@@ -155,7 +159,7 @@ export default function RetentionChart({
               tickFormatter={(v) => `${v}%`}
               domain={[0, 'auto']}
             />
-            <Tooltip content={<CustomTooltip bandSigma={bandSigma} colors={colors} />} />
+            <Tooltip content={<CustomTooltip bandSigma={bandSigma} colors={colors} periodAbbrCur={abbr} />} />
             <Legend wrapperStyle={{ fontSize: 11 }} />
             {showBand && (
               <Area
@@ -233,7 +237,7 @@ export default function RetentionChart({
                 stroke={colors.fgDisabled}
                 strokeDasharray="2 4"
                 label={{
-                  value: `last data → D${lastUserT}`,
+                  value: `last data → ${abbr}${lastUserT}`,
                   position: 'insideTop',
                   fill: colors.fgFaint,
                   fontSize: 10,
