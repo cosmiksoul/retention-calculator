@@ -110,10 +110,30 @@ export function buildCsv(snapshot) {
   if (hasFunnel) {
     lines.push('')
     lines.push(row('Funnel'))
+    let totalOneTimeRevenue = 0
+    let cumCount = inputs.cohortSize
     for (const [i, step] of inputs.funnel.entries()) {
-      lines.push(row(`Step ${i + 1}`, step.label, fmtN(step.conversionPct, 2), '%'))
+      cumCount = cumCount * (step.conversionPct / 100)
+      const fee =
+        Number.isFinite(step.oneTimeFeeUsd) && step.oneTimeFeeUsd > 0
+          ? step.oneTimeFeeUsd
+          : 0
+      totalOneTimeRevenue += cumCount * fee
+      const cells = [
+        `Step ${i + 1}`,
+        step.label,
+        fmtN(step.conversionPct, 2),
+        '%',
+      ]
+      if (fee > 0) cells.push(`$${fmtN(fee, 2)} fee`)
+      lines.push(row(...cells))
     }
     lines.push(row('Acquired at 0', 'count', fmtN(kpi.acquiredAtZero, 2)))
+    if (totalOneTimeRevenue > 0) {
+      lines.push(
+        row('One-time funnel revenue', '$ at t=1', fmtN(totalOneTimeRevenue, 2)),
+      )
+    }
   }
   lines.push('')
 

@@ -63,6 +63,10 @@ export function validateRetentionPoints(points, { minPoints = 2 } = {}) {
 /**
  * Validate funnel rows. Each row must have a non-empty label and a
  * conversionPct in (0, 100]. Empty funnel is allowed (DAU semantics).
+ *
+ * `oneTimeFeeUsd` is optional. When present (not null / not empty string)
+ * it must be a non-negative finite number — paid-trial fee, activation
+ * cost, etc.
  */
 export function validateFunnel(funnel) {
   const byId = new Map()
@@ -79,6 +83,14 @@ export function validateFunnel(funnel) {
       step.conversionPct > 100
     ) {
       byId.set(step.id, 'Conversion must be in (0, 100]')
+      continue
+    }
+    if (
+      step.oneTimeFeeUsd != null &&
+      step.oneTimeFeeUsd !== '' &&
+      (!Number.isFinite(step.oneTimeFeeUsd) || step.oneTimeFeeUsd < 0)
+    ) {
+      byId.set(step.id, 'Fee must be a non-negative number')
     }
   }
   return { valid: byId.size === 0, byId }

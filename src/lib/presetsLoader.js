@@ -48,10 +48,13 @@ function normalizeVariant(raw) {
   }
   return {
     funnel: Array.isArray(raw.funnel)
-      ? raw.funnel.map((s) => ({
-          label: s.label,
-          conversionPct: s.conversionPct,
-        }))
+      ? raw.funnel.map((s) => {
+          const step = { label: s.label, conversionPct: s.conversionPct }
+          if (Number.isFinite(s.oneTimeFeeUsd) && s.oneTimeFeeUsd > 0) {
+            step.oneTimeFeeUsd = s.oneTimeFeeUsd
+          }
+          return step
+        })
       : [],
     retention,
     retentionPoints,

@@ -164,6 +164,10 @@ export default function AcquisitionKPI({
                 Это LTV, которая парная к CAC. Сравнивайте с LTV per paid из
                 соседнего блока — расхождение показывает цену funnel.
               </p>
+              <p className="mt-1.5">
+                Если на funnel-шагах заданы one-time fees (paid trial и т.п.),
+                их выручка лежит в period 1 и тоже входит сюда.
+              </p>
             </>
           }
         />

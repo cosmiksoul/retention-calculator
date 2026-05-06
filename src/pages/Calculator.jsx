@@ -354,11 +354,17 @@ export default function Calculator() {
     const slice = variantForPeriod(variant, p)
     if (!slice) return false
     setFunnel(
-      slice.funnel.map((s) => ({
-        id: newPointId(),
-        label: s.label,
-        conversionPct: s.conversionPct,
-      })),
+      slice.funnel.map((s) => {
+        const step = {
+          id: newPointId(),
+          label: s.label,
+          conversionPct: s.conversionPct,
+        }
+        if (Number.isFinite(s.oneTimeFeeUsd) && s.oneTimeFeeUsd > 0) {
+          step.oneTimeFeeUsd = s.oneTimeFeeUsd
+        }
+        return step
+      }),
     )
     setPoints(
       slice.retentionPoints.map((pt) => ({
@@ -509,7 +515,8 @@ export default function Calculator() {
 
   const fit = adjustedFit ?? userFit
 
-  // Funnel cascade — generic n-step
+  // Funnel cascade — generic n-step. `oneTimeFeeUsd` is forwarded so the
+  // cascade can compute paid-trial / activation revenue on top of recurring.
   const cascade = useMemo(() => {
     if (!allValid) return null
     return funnelCascade({
@@ -517,13 +524,14 @@ export default function Calculator() {
       funnel: funnel.map((s) => ({
         label: s.label,
         conversionPct: s.conversionPct,
+        oneTimeFeeUsd: s.oneTimeFeeUsd,
       })),
       retention: points.map((p) => ({ t: p.t, r: p.percent / 100 })),
       period,
     })
   }, [allValid, cohortSize, funnel, points, period])
 
-  // LTV series
+  // LTV series — one-time funnel revenue lumps into period 1.
   const ltvData = useMemo(() => {
     if (!fit || !cascade) return null
     return cohortLtv({
@@ -532,6 +540,7 @@ export default function Calculator() {
       arpuPerPeriod,
       cohortSize,
       horizon,
+      oneTimeRevenue: cascade.oneTimeRevenue,
     })
   }, [fit, cascade, arpuPerPeriod, cohortSize, horizon])
 
@@ -553,7 +562,14 @@ export default function Calculator() {
   const ltvBandSeries = useMemo(() => {
     if (!fit || fit.se === 0 || !cascade) return null
     const perEntrantRate = (arpuPerPeriod * cascade.acquiredAtZero) / cohortSize
-    return cohortLtvBand(fit, perEntrantRate, horizon, bandSigma)
+    const oneTimeOffsetPerEntrant = cascade.oneTimeRevenue / cohortSize
+    return cohortLtvBand(
+      fit,
+      perEntrantRate,
+      horizon,
+      bandSigma,
+      oneTimeOffsetPerEntrant,
+    )
   }, [fit, cascade, arpuPerPeriod, cohortSize, horizon, bandSigma])
 
   const benchmarkSeries = useMemo(
@@ -791,7 +807,7 @@ export default function Calculator() {
 
           <div className="grid grid-cols-2 gap-4">
             <NumberField
-              label="ARPU"
+              label="ARPPU"
               value={arpuPerPeriod}
               min={0}
               step={0.01}
@@ -801,13 +817,20 @@ export default function Calculator() {
               tooltip={
                 <>
                   <p>
-                    Average Revenue Per active User per period — на одного
-                    активного юзера из acquired pool в одном {periodUnitCur}.
+                    Average Revenue Per Paying User — на одного юзера активной
+                    платящей базы в одном {periodUnitCur}. Это та сумма,
+                    которую модель умножает на retention curve, чтобы получить
+                    cumulative revenue.
                   </p>
                   <p className="mt-1.5">
-                    DAU mode (нет funnel): pool = вся когорта, ARPU = средний
-                    дневной revenue per cohort entrant. Subscription: pool =
-                    paying users, ARPU = revenue per paying user per cycle.
+                    Subscription (с funnel): paying base = acquired pool после
+                    funnel, ARPPU = выручка per paying user per cycle.
+                    DAU-режим (funnel пустой): paying base = вся когорта,
+                    ARPPU вырождается в ARPDAU/ARPMAU.
+                  </p>
+                  <p className="mt-1.5">
+                    Если у тебя есть paid-trial — задавай его как $ на
+                    соответствующем funnel-шаге, не размазывай по ARPPU.
                   </p>
                 </>
               }
@@ -957,7 +980,7 @@ export default function Calculator() {
                     </span>
                     {[
                       ['Period', baseline.period],
-                      ['ARPU', `$${baseline.arpu}`],
+                      ['ARPPU', `$${baseline.arpu}`],
                       ['CAC', baseline.cac != null ? `$${baseline.cac}` : '—'],
                       ['LTV', fmtMoney(baseline.ltvAtHorizon)],
                       ['R²', Number.isFinite(baseline.rSquared) ? baseline.rSquared.toFixed(3) : '—'],

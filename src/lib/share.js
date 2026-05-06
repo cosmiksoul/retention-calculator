@@ -40,7 +40,16 @@ function pickFunnel(funnel) {
     .filter(
       (s) => s && typeof s.label === 'string' && Number.isFinite(s.conversionPct),
     )
-    .map((s) => [s.label, s.conversionPct])
+    .map((s) => {
+      // Include fee only when it's a positive finite number — keeps the
+      // share URL minimal for the typical no-fee case and back-compat with
+      // recipients that don't yet know about the third element.
+      const fee =
+        Number.isFinite(s.oneTimeFeeUsd) && s.oneTimeFeeUsd > 0
+          ? s.oneTimeFeeUsd
+          : null
+      return fee != null ? [s.label, s.conversionPct, fee] : [s.label, s.conversionPct]
+    })
 }
 
 function pickPreset(p) {
@@ -129,11 +138,17 @@ export function decodeState(encoded) {
         .filter(
           (row) =>
             Array.isArray(row) &&
-            row.length === 2 &&
+            row.length >= 2 &&
             typeof row[0] === 'string' &&
             Number.isFinite(row[1]),
         )
-        .map(([label, conversionPct]) => ({ label, conversionPct }))
+        .map((row) => {
+          const step = { label: row[0], conversionPct: row[1] }
+          if (row.length >= 3 && Number.isFinite(row[2]) && row[2] > 0) {
+            step.oneTimeFeeUsd = row[2]
+          }
+          return step
+        })
     : []
 
   const cohortSize = Number.isFinite(payload.cs) ? payload.cs : 1000

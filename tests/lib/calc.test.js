@@ -405,6 +405,171 @@ describe('compatibility shims (cross-period equivalence)', () => {
   })
 })
 
+describe('funnelCascade — one-time fees', () => {
+  it('returns oneTimeRevenue=0 when no step has a fee', () => {
+    const { oneTimeRevenue } = funnelCascade({
+      cohortSize: 1000,
+      funnel: [{ label: 'Install → Trial', conversionPct: 8.6 }],
+      retention: [],
+    })
+    expect(oneTimeRevenue).toBe(0)
+  })
+
+  it('paid-trial step: oneTimeRevenue = trial_count × fee', () => {
+    const { steps, acquiredAtZero, oneTimeRevenue } = funnelCascade({
+      cohortSize: 1000,
+      funnel: [
+        { label: 'Install → Trial', conversionPct: 8.6, oneTimeFeeUsd: 1.99 },
+        { label: 'Trial → Paid', conversionPct: 35 },
+      ],
+      retention: [],
+    })
+    expect(acquiredAtZero).toBeCloseTo(30.1, 9)
+    // 86 trials × $1.99 = $171.14
+    expect(oneTimeRevenue).toBeCloseTo(86 * 1.99, 9)
+    expect(steps[1].oneTimeFeeUsd).toBe(1.99)
+    expect(steps[1].oneTimeRevenue).toBeCloseTo(86 * 1.99, 9)
+    // Steps without fee don't get the field
+    expect(steps[2].oneTimeFeeUsd).toBeUndefined()
+  })
+
+  it('multiple paid steps sum into oneTimeRevenue', () => {
+    const { oneTimeRevenue } = funnelCascade({
+      cohortSize: 1000,
+      funnel: [
+        { label: 'Install → Trial', conversionPct: 10, oneTimeFeeUsd: 0.99 },
+        { label: 'Trial → Paid', conversionPct: 50, oneTimeFeeUsd: 9.99 },
+      ],
+      retention: [],
+    })
+    // 100 trials × $0.99 + 50 paid × $9.99 = 99 + 499.5 = 598.5
+    expect(oneTimeRevenue).toBeCloseTo(99 + 499.5, 9)
+  })
+
+  it('non-positive / non-finite fees are ignored', () => {
+    const { oneTimeRevenue, steps } = funnelCascade({
+      cohortSize: 1000,
+      funnel: [
+        { label: 'A', conversionPct: 50, oneTimeFeeUsd: 0 },
+        { label: 'B', conversionPct: 50, oneTimeFeeUsd: -1 },
+        { label: 'C', conversionPct: 50, oneTimeFeeUsd: NaN },
+        { label: 'D', conversionPct: 50, oneTimeFeeUsd: null },
+      ],
+      retention: [],
+    })
+    expect(oneTimeRevenue).toBe(0)
+    for (const s of steps.slice(1)) {
+      expect(s.oneTimeFeeUsd).toBeUndefined()
+      expect(s.oneTimeRevenue).toBeUndefined()
+    }
+  })
+})
+
+describe('cohortLtv — one-time revenue lumping', () => {
+  it('default oneTimeRevenue=0 reproduces pre-fee behaviour', () => {
+    const a = cohortLtv({
+      fit: { a: 1, b: 0 },
+      acquiredAtZero: 100,
+      arpuPerPeriod: 5,
+      cohortSize: 1000,
+      horizon: 4,
+    })
+    const b = cohortLtv({
+      fit: { a: 1, b: 0 },
+      acquiredAtZero: 100,
+      arpuPerPeriod: 5,
+      cohortSize: 1000,
+      horizon: 4,
+      oneTimeRevenue: 0,
+    })
+    expect(a).toEqual(b)
+  })
+
+  it('oneTimeRevenue lumps into period 1 only', () => {
+    // recurring = 100 × $5 × R(t)=1 = $500/period (4 periods → cumRev = $2000)
+    // + $400 one-time at t=1
+    const series = cohortLtv({
+      fit: { a: 1, b: 0 },
+      acquiredAtZero: 100,
+      arpuPerPeriod: 5,
+      cohortSize: 1000,
+      horizon: 4,
+      oneTimeRevenue: 400,
+    })
+    expect(series[0].revenue).toBe(900) // 500 recurring + 400 one-time
+    expect(series[1].revenue).toBe(500)
+    expect(series[2].revenue).toBe(500)
+    expect(series[3].revenue).toBe(500)
+    expect(series[3].cumRevenue).toBe(2400)
+    // Per-cohort: 2400/1000 = 2.4. Per-acquired: 2400/100 = 24
+    expect(series[3].cumLtvPerCohort).toBeCloseTo(2.4, 9)
+    expect(series[3].cumLtvPerAcquired).toBeCloseTo(24, 9)
+  })
+
+  it('payback shortens with one-time revenue', () => {
+    // CAC × cohort = $5 × 1000 = $5000.
+    // Without trial: cumRevenue grows $500/period → payback at t=10.
+    // With $1500 trial revenue at t=1: cumRev[1]=2000 < 5000, [2]=2500, [3]=3000, …, [7]=5000 ⇒ payback=7.
+    const noTrial = cohortLtv({
+      fit: { a: 1, b: 0 },
+      acquiredAtZero: 100,
+      arpuPerPeriod: 5,
+      cohortSize: 1000,
+      horizon: 20,
+    })
+    const withTrial = cohortLtv({
+      fit: { a: 1, b: 0 },
+      acquiredAtZero: 100,
+      arpuPerPeriod: 5,
+      cohortSize: 1000,
+      horizon: 20,
+      oneTimeRevenue: 1500,
+    })
+    expect(payback(noTrial, 5)).toBe(10)
+    expect(payback(withTrial, 5)).toBe(7)
+  })
+
+  it('throws on negative or non-finite oneTimeRevenue', () => {
+    const base = {
+      fit: { a: 1, b: 0 },
+      acquiredAtZero: 100,
+      arpuPerPeriod: 5,
+      cohortSize: 1000,
+      horizon: 4,
+    }
+    expect(() => cohortLtv({ ...base, oneTimeRevenue: -1 })).toThrow()
+    expect(() => cohortLtv({ ...base, oneTimeRevenue: NaN })).toThrow()
+  })
+})
+
+describe('cohortLtvBand — one-time offset', () => {
+  const fit = fitPowerLaw([
+    { t: 1, r: 0.42 },
+    { t: 7, r: 0.18 },
+    { t: 30, r: 0.06 },
+  ])
+
+  it('default offset=0 reproduces pre-fee bounds', () => {
+    const a = cohortLtvBand(fit, 100, 30, 1)
+    const b = cohortLtvBand(fit, 100, 30, 1, 0)
+    expect(a).toEqual(b)
+  })
+
+  it('offset bumps both bounds by the same constant from t=1 onward', () => {
+    const noOff = cohortLtvBand(fit, 100, 30, 1)
+    const withOff = cohortLtvBand(fit, 100, 30, 1, 50)
+    for (let i = 0; i < noOff.length; i++) {
+      expect(withOff[i].lower - noOff[i].lower).toBeCloseTo(50, 9)
+      expect(withOff[i].upper - noOff[i].upper).toBeCloseTo(50, 9)
+    }
+  })
+
+  it('throws on negative or non-finite offset', () => {
+    expect(() => cohortLtvBand(fit, 100, 30, 1, -1)).toThrow()
+    expect(() => cohortLtvBand(fit, 100, 30, 1, NaN)).toThrow()
+  })
+})
+
 describe('end-to-end control scenarios', () => {
   it('utilities-median-T1 monthly: marginal economics, payback not reached at M24', () => {
     const retention = [

@@ -68,12 +68,15 @@ export function periodTicks(period, horizon) {
 }
 
 /**
- * Generic n-step funnel cascade. `funnel` is an array of `{label, conversionPct}`
- * entries; each entry's count is `previous_count × conversionPct / 100`.
+ * Generic n-step funnel cascade. `funnel` is an array of `{label, conversionPct,
+ * oneTimeFeeUsd?}` entries; each entry's count is `previous_count ×
+ * conversionPct / 100`. A step may carry an optional `oneTimeFeeUsd` — a per-
+ * user fee paid by everyone reaching that step (e.g. paid trial price).
  *
  * Steps emitted:
  *   - step 0: the cohort itself (label='Cohort', dropoffPct=null)
- *   - one step per funnel entry (label = entry.label, dropoffPct = 1 - conv/100)
+ *   - one step per funnel entry (label = entry.label, dropoffPct = 1 - conv/100,
+ *     `oneTimeFeeUsd` and `oneTimeRevenue = count × fee` when fee > 0)
  *   - one step per retention checkpoint (label = `Active at ${period}${t}`,
  *     count = acquiredAtZero × retention.r, dropoff vs previous step)
  *
@@ -81,14 +84,18 @@ export function periodTicks(period, horizon) {
  * actually start paying / engaging. When funnel=[] it equals cohortSize
  * (DAU semantics).
  *
+ * `oneTimeRevenue` sums fees across all funnel steps that carry one. It is
+ * what cohortLtv lumps into period-1 revenue.
+ *
  * @param {Object} params
  * @param {number} params.cohortSize
- * @param {Array<{label:string, conversionPct:number}>} [params.funnel=[]]
+ * @param {Array<{label:string, conversionPct:number, oneTimeFeeUsd?:number|null}>} [params.funnel=[]]
  * @param {Array<{t:number, r:number}>} [params.retention=[]]   fractions (0..1)
  * @param {'day'|'week'|'month'} [params.period='day']
  * @returns {{
- *   steps: Array<{label:string, count:number, dropoffPct:number|null}>,
+ *   steps: Array<{label:string, count:number, dropoffPct:number|null, oneTimeFeeUsd?:number, oneTimeRevenue?:number}>,
  *   acquiredAtZero: number,
+ *   oneTimeRevenue: number,
  * }}
  */
 export function funnelCascade({
@@ -103,15 +110,27 @@ export function funnelCascade({
 
   const steps = [{ label: 'Cohort (acquired users)', count: cohortSize, dropoffPct: null }]
   let prevCount = cohortSize
+  let oneTimeRevenue = 0
 
   for (const entry of funnel) {
     const conv = entry.conversionPct / 100
     const count = prevCount * conv
-    steps.push({
+    const fee =
+      Number.isFinite(entry.oneTimeFeeUsd) && entry.oneTimeFeeUsd > 0
+        ? entry.oneTimeFeeUsd
+        : 0
+    const stepFeeRevenue = count * fee
+    oneTimeRevenue += stepFeeRevenue
+    const step = {
       label: entry.label,
       count,
       dropoffPct: 1 - conv,
-    })
+    }
+    if (fee > 0) {
+      step.oneTimeFeeUsd = fee
+      step.oneTimeRevenue = stepFeeRevenue
+    }
+    steps.push(step)
     prevCount = count
   }
 
@@ -127,7 +146,7 @@ export function funnelCascade({
     prevCount = count
   }
 
-  return { steps, acquiredAtZero }
+  return { steps, acquiredAtZero, oneTimeRevenue }
 }
 
 /**
@@ -137,9 +156,15 @@ export function funnelCascade({
  * and a poorly-fit power law (b ≤ 0) might briefly produce R(t) > R(1) in
  * the first few periods otherwise. Lower bound is 0.
  *
+ * `oneTimeRevenue` (optional) lumps non-recurring funnel revenue into period
+ * 1 — typically the sum of paid-trial / activation fees for users who reach
+ * those funnel steps. Modeled as paid right after acquisition, in the same
+ * window as R(1). Compounds into cumRevenue and therefore both LTV reads
+ * and payback.
+ *
  * Output fields:
  *   active                — acquiredAtZero × R(t)
- *   revenue               — arpuPerPeriod × active   (total cohort revenue)
+ *   revenue               — arpuPerPeriod × active (+ oneTimeRevenue at t=1)
  *   cumRevenue            — Σ revenue, total cohort
  *   cumLtvPerCohort       — cumRevenue / cohortSize  (per cohort entrant —
  *                           matches v1 cumLtv when funnel=[])
@@ -153,6 +178,7 @@ export function funnelCascade({
  * @param {number} params.arpuPerPeriod       revenue per acquired entrant per period
  * @param {number} params.cohortSize          install/cohort base
  * @param {number} params.horizon             # of periods to project
+ * @param {number} [params.oneTimeRevenue=0]  one-time funnel revenue lumped into t=1
  * @returns {Array<{
  *   t:number, retention:number, active:number, revenue:number,
  *   cumRevenue:number, cumLtvPerCohort:number, cumLtvPerAcquired:number,
@@ -164,6 +190,7 @@ export function cohortLtv({
   arpuPerPeriod,
   cohortSize,
   horizon,
+  oneTimeRevenue = 0,
 }) {
   if (!(horizon >= 1)) throw new Error('cohortLtv: horizon must be >= 1')
   if (!Number.isFinite(arpuPerPeriod)) {
@@ -173,6 +200,9 @@ export function cohortLtv({
     throw new Error('cohortLtv: acquiredAtZero must be finite')
   }
   if (!(cohortSize > 0)) throw new Error('cohortLtv: cohortSize must be > 0')
+  if (!Number.isFinite(oneTimeRevenue) || oneTimeRevenue < 0) {
+    throw new Error('cohortLtv: oneTimeRevenue must be a non-negative finite number')
+  }
 
   const r1 = predict(1, fit)
   const out = []
@@ -180,7 +210,8 @@ export function cohortLtv({
   for (let t = 1; t <= horizon; t++) {
     const retention = Math.max(0, Math.min(predict(t, fit), r1))
     const active = acquiredAtZero * retention
-    const revenue = active * arpuPerPeriod
+    const recurring = active * arpuPerPeriod
+    const revenue = recurring + (t === 1 ? oneTimeRevenue : 0)
     cumRev += revenue
     out.push({
       t,
@@ -205,20 +236,28 @@ export function cohortLtv({
  *   - `arpuPerPeriod × acquiredAtZero / cohortSize` ⇒ per-cohort-entrant band
  *     (matches v1 ltvBand call shape)
  *
+ * `oneTimeOffset` (optional) is a deterministic lump-sum added at t=1 on
+ * both bounds — same units as `perPeriodRate × t`. Used for paid-trial /
+ * activation fees, which carry no power-law uncertainty.
+ *
  * Width grows monotonically with t in log-space, by construction.
  *
  * @param {{a:number, b:number, se:number}} fit
  * @param {number} perPeriodRate    revenue rate at t=0 in chosen units
  * @param {number} horizon
  * @param {number} [kSigma=1]
+ * @param {number} [oneTimeOffset=0]
  * @returns {Array<{t:number, lower:number, upper:number}>}
  */
-export function cohortLtvBand(fit, perPeriodRate, horizon, kSigma = 1) {
+export function cohortLtvBand(fit, perPeriodRate, horizon, kSigma = 1, oneTimeOffset = 0) {
   if (!(horizon >= 1)) throw new Error('cohortLtvBand: horizon must be >= 1')
   if (!Number.isFinite(perPeriodRate)) {
     throw new Error('cohortLtvBand: perPeriodRate must be finite')
   }
   if (!(kSigma > 0)) throw new Error('cohortLtvBand: kSigma must be > 0')
+  if (!Number.isFinite(oneTimeOffset) || oneTimeOffset < 0) {
+    throw new Error('cohortLtvBand: oneTimeOffset must be a non-negative finite number')
+  }
 
   const halfWidth = fit.se * kSigma
   let cumLow = 0
@@ -229,6 +268,10 @@ export function cohortLtvBand(fit, perPeriodRate, horizon, kSigma = 1) {
     const loR = Math.max(0, fit.a * Math.pow(t, -(fit.b + halfWidth)))
     cumUp += perPeriodRate * upR
     cumLow += perPeriodRate * loR
+    if (t === 1) {
+      cumUp += oneTimeOffset
+      cumLow += oneTimeOffset
+    }
     out.push({ t, lower: cumLow, upper: cumUp })
   }
   return out

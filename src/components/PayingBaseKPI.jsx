@@ -176,6 +176,11 @@ export default function PayingBaseKPI({
                 разница большая — funnel «жрёт» много, имеет смысл вложиться
                 в conversion вместо новой закупки.
               </p>
+              <p className="mt-1.5">
+                Если на funnel-шагах заданы one-time fees, их выручка тоже
+                входит в numerator — даже от тех, кто заплатил trial и потом
+                не сконвертировался в paid.
+              </p>
             </>
           }
         />
