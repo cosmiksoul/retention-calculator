@@ -10,8 +10,8 @@ import FunnelWaterfall from '../components/FunnelWaterfall.jsx'
 import CohortPaste from '../components/CohortPaste.jsx'
 import DAUInput from '../components/DAUInput.jsx'
 import DAUChart from '../components/DAUChart.jsx'
-import KPICards from '../components/KPICards.jsx'
-import EconomicsFlow from '../components/EconomicsFlow.jsx'
+import AcquisitionKPI from '../components/AcquisitionKPI.jsx'
+import PayingBaseKPI from '../components/PayingBaseKPI.jsx'
 import RetentionChart from '../components/RetentionChart.jsx'
 import LTVChart from '../components/LTVChart.jsx'
 import RevenueChart from '../components/RevenueChart.jsx'
@@ -570,7 +570,16 @@ export default function Calculator() {
     [lastUserT, horizon],
   )
 
+  // Two parallel LTV reads: per-acquired = cumRevenue/cohort (pairs with CAC,
+  // includes funnel loss), per-paid = cumRevenue/payerBase (excludes funnel
+  // loss). DAU mode collapses both to the same number.
   const ltvAtHorizon = ltvData ? ltvData[ltvData.length - 1].cumLtvPerCohort : null
+  const ltvPerPaidAtHorizon = ltvData
+    ? ltvData[ltvData.length - 1].cumLtvPerAcquired
+    : null
+  const cumRevenueAtHorizon = ltvData
+    ? ltvData[ltvData.length - 1].cumRevenue
+    : null
   const horizonRetention = fitSeries ? fitSeries[fitSeries.length - 1].r : NaN
   const payback = useMemo(
     () => (ltvData ? paybackFn(ltvData, cac) : null),
@@ -682,13 +691,15 @@ export default function Calculator() {
     })
   }
 
-  const baselineForKpi = baseline
+  const acqBaseline = baseline
     ? {
-        ltvAtHorizon: baseline.ltvAtHorizon,
+        ltvPerAcquired: baseline.ltvAtHorizon,
         ratio: baseline.ratio,
         payback: baseline.payback,
-        horizonRetention: baseline.horizonRetention,
       }
+    : null
+  const payerBaseline = baseline
+    ? { horizonRetention: baseline.horizonRetention }
     : null
 
   const periodAbbrCur = periodAbbr(period)
@@ -978,25 +989,28 @@ export default function Calculator() {
                 </div>
               )}
 
-              <KPICards
-                ltvAtHorizon={ltvAtHorizon}
+              <AcquisitionKPI
+                cohortSize={cohortSize}
+                cac={cac}
+                ltvPerAcquired={ltvAtHorizon}
+                payback={payback}
                 horizon={horizon}
                 period={period}
-                rSquared={fit.rSquared}
-                payback={payback}
-                cac={cac}
-                horizonRetention={horizonRetention}
-                baseline={baselineForKpi}
+                baseline={acqBaseline}
               />
 
-              <EconomicsFlow
+              <PayingBaseKPI
                 cohortSize={cohortSize}
-                acquiredAtZero={cascade.acquiredAtZero}
-                cumRevenueAtHorizon={ltvData[ltvData.length - 1].cumRevenue}
-                cac={cac}
+                payerBase={cascade.acquiredAtZero}
+                rSquared={fit.rSquared}
+                cumRevenueAtHorizon={cumRevenueAtHorizon}
+                totalSpent={cac != null && cac > 0 ? cohortSize * cac : null}
+                ltvPerPaid={ltvPerPaidAtHorizon}
+                horizonRetention={horizonRetention}
                 horizon={horizon}
                 period={period}
                 funnelLength={funnel.length}
+                baseline={payerBaseline}
               />
 
               {extrap !== 'none' && (

@@ -68,7 +68,9 @@ src/components/
   FunnelSection.jsx    collapsible n-step (до 5) funnel input
   FunnelWaterfall.jsx  generic n-step cascade visualization
   PresetSelector.jsx   единый dropdown с optgroup по category
-  KPICards.jsx         унифицированный 5-card period-aware блок
+  KpiCard.jsx          один stat-tile (label + value + tooltip + delta), shared
+  AcquisitionKPI.jsx   6-card блок про acquisition (Cohort, CAC, Spent, LTV/acq, LTV/CAC, Payback)
+  PayingBaseKPI.jsx    6-card блок про paying base (Lost, Payers, R², Revenue, LTV/paid, Horizon ret)
   RetentionChart, LTVChart, RevenueChart, ResultsTable, CohortPL  (period-aware)
   RetentionInput, CohortPaste, DAUInput, DAUChart, ExtrapolationBanner,
   ForecastModeToggle, BandSigmaToggle, HoverHint, ExportPngButton
