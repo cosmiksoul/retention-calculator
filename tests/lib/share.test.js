@@ -2,13 +2,15 @@ import { describe, it, expect } from 'vitest'
 import { encodeState, decodeState, buildShareUrl } from '../../src/lib/share.js'
 
 const sample = () => ({
+  period: 'day',
   points: [
     { t: 1, percent: 100 },
     { t: 7, percent: 35.5 },
     { t: 30, percent: 12 },
   ],
+  funnel: [],
   cohortSize: 1500,
-  arpu: 2.5,
+  arpuPerPeriod: 2.5,
   cacInput: '12.5',
   horizon: 180,
   presetState: { presetId: 'mobile_casual', quality: 'top_quartile', geo: 'tier_2' },
@@ -16,42 +18,34 @@ const sample = () => ({
   bandSigma: 2,
 })
 
-describe('share encode/decode', () => {
-  it('round-trips a full session state with v2 mode/cadence defaults', () => {
+describe('share encode/decode (v2 unified schema)', () => {
+  it('round-trips a full DAU-mode state (empty funnel)', () => {
     const decoded = decodeState(encodeState(sample()))
-    // v2 decoder always includes mode/cadence/subInput; session payloads
-    // get mode='session' and the cadence default 'monthly'.
-    expect(decoded).toEqual({
-      ...sample(),
-      mode: 'session',
-      cadence: 'monthly',
-      subInput: null,
-    })
+    expect(decoded).toEqual(sample())
   })
 
-  it('round-trips a subscription state with subInput', () => {
-    const subSample = {
-      ...sample(),
-      mode: 'subscription',
-      cadence: 'weekly',
-      subInput: {
-        installToTrial: 8.6,
-        trialToPaid: 35,
-        retention: [
-          { t: 1, percent: 75 },
-          { t: 4, percent: 50 },
-          { t: 26, percent: 18 },
-        ],
-        arpuPaid: 7.99,
-        cac: 2.1,
-        cohortSize: 1000,
-        horizon: 26,
-      },
+  it('round-trips a subscription-style state with funnel and weekly period', () => {
+    const subState = {
+      period: 'week',
+      points: [
+        { t: 1, percent: 75 },
+        { t: 4, percent: 50 },
+        { t: 26, percent: 18 },
+      ],
+      funnel: [
+        { label: 'Install → Trial', conversionPct: 8.6 },
+        { label: 'Trial → Paid', conversionPct: 35 },
+      ],
+      cohortSize: 1000,
+      arpuPerPeriod: 7.99,
+      cacInput: '2.1',
+      horizon: 26,
+      presetState: { presetId: 'subs_utilities', quality: 'median', geo: 'tier_1' },
+      adjustMode: 'pure',
+      bandSigma: 1,
     }
-    const decoded = decodeState(encodeState(subSample))
-    expect(decoded.mode).toBe('subscription')
-    expect(decoded.cadence).toBe('weekly')
-    expect(decoded.subInput).toEqual(subSample.subInput)
+    const decoded = decodeState(encodeState(subState))
+    expect(decoded).toEqual(subState)
   })
 
   it('encodes empty/missing CAC as empty string back', () => {
@@ -67,16 +61,16 @@ describe('share encode/decode', () => {
     expect(decodeState(null)).toBeNull()
   })
 
-  it('returns null on a wrong version', () => {
-    // Hand-craft a payload with a future version
-    const bad = btoa(JSON.stringify({ v: 99, p: [] }))
+  it('returns null on a wrong version (v1 share links no longer decode)', () => {
+    // Hand-craft a v1 payload — the old format should be rejected cleanly.
+    const v1Bad = btoa(JSON.stringify({ v: 1, p: [] }))
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=+$/, '')
-    expect(decodeState(bad)).toBeNull()
+    expect(decodeState(v1Bad)).toBeNull()
   })
 
-  it('drops malformed points instead of crashing', () => {
+  it('drops malformed retention rows instead of crashing', () => {
     const enc = encodeState({
       ...sample(),
       points: [{ t: 1, percent: 100 }, { t: 'oops', percent: 50 }, null],
@@ -85,17 +79,31 @@ describe('share encode/decode', () => {
     expect(decoded.points).toEqual([{ t: 1, percent: 100 }])
   })
 
+  it('drops malformed funnel rows instead of crashing', () => {
+    const enc = encodeState({
+      ...sample(),
+      funnel: [
+        { label: 'Step', conversionPct: 50 },
+        { label: 'Bad', conversionPct: 'NaN' },
+        null,
+      ],
+    })
+    const decoded = decodeState(enc)
+    expect(decoded.funnel).toEqual([{ label: 'Step', conversionPct: 50 }])
+  })
+
   it('falls back to defaults when fields are missing', () => {
-    // Encode a minimal payload directly
-    const min = btoa(JSON.stringify({ v: 1 }))
+    const min = btoa(JSON.stringify({ v: 2 }))
       .replace(/\+/g, '-')
       .replace(/\//g, '_')
       .replace(/=+$/, '')
     const decoded = decodeState(min)
+    expect(decoded.period).toBe('day')
     expect(decoded.cohortSize).toBe(1000)
-    expect(decoded.arpu).toBe(2)
+    expect(decoded.arpuPerPeriod).toBe(2)
     expect(decoded.horizon).toBe(180)
     expect(decoded.cacInput).toBe('')
+    expect(decoded.funnel).toEqual([])
     expect(decoded.presetState).toEqual({
       presetId: null,
       quality: 'median',
@@ -110,13 +118,18 @@ describe('share encode/decode', () => {
     expect(enc).not.toMatch(/[+/=]/)
   })
 
-  it('survives non-ASCII content (e.g. preset label with cyrillic)', () => {
-    // Even though we don't typically encode labels, point arrays etc. should
-    // round-trip if a future schema includes UTF-8 strings.
+  it('survives non-ASCII content (cyrillic preset id, funnel labels)', () => {
     const s = sample()
     s.presetState.presetId = 'тест_id'
+    s.funnel = [{ label: 'Активация', conversionPct: 50 }]
     const decoded = decodeState(encodeState(s))
     expect(decoded.presetState.presetId).toBe('тест_id')
+    expect(decoded.funnel[0].label).toBe('Активация')
+  })
+
+  it('encodes month period and round-trips it', () => {
+    const decoded = decodeState(encodeState({ ...sample(), period: 'month' }))
+    expect(decoded.period).toBe('month')
   })
 })
 

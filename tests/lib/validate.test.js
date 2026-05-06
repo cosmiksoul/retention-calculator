@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   validateRetentionPoints,
   validateNumericInputs,
+  validateFunnel,
 } from '../../src/lib/validate.js'
 
 const okPoints = () => [
@@ -19,11 +20,20 @@ describe('validateRetentionPoints', () => {
     expect(r.formError).toBeNull()
   })
 
-  it('requires at least 3 points', () => {
-    const r = validateRetentionPoints([
-      { id: 'a', t: 1, percent: 40 },
-      { id: 'b', t: 7, percent: 20 },
-    ])
+  it('default minimum is 2 points', () => {
+    const r = validateRetentionPoints([{ id: 'a', t: 1, percent: 40 }])
+    expect(r.valid).toBe(false)
+    expect(r.formError).toMatch(/at least 2/i)
+  })
+
+  it('honors a custom minPoints option (e.g. ≥3 for callers that want bands)', () => {
+    const r = validateRetentionPoints(
+      [
+        { id: 'a', t: 1, percent: 40 },
+        { id: 'b', t: 7, percent: 20 },
+      ],
+      { minPoints: 3 },
+    )
     expect(r.valid).toBe(false)
     expect(r.formError).toMatch(/at least 3/i)
   })
@@ -90,11 +100,49 @@ describe('validateRetentionPoints', () => {
   })
 })
 
+describe('validateFunnel', () => {
+  it('empty funnel is valid (DAU semantics)', () => {
+    expect(validateFunnel([]).valid).toBe(true)
+  })
+
+  it('passes a clean install→trial→paid funnel', () => {
+    const r = validateFunnel([
+      { id: '1', label: 'Install → Trial', conversionPct: 8.6 },
+      { id: '2', label: 'Trial → Paid', conversionPct: 35 },
+    ])
+    expect(r.valid).toBe(true)
+  })
+
+  it('flags empty labels and out-of-range conversion %', () => {
+    const r = validateFunnel([
+      { id: '1', label: '', conversionPct: 50 },
+      { id: '2', label: 'B', conversionPct: 0 },
+      { id: '3', label: 'C', conversionPct: 110 },
+      { id: '4', label: 'D', conversionPct: NaN },
+    ])
+    expect(r.valid).toBe(false)
+    expect(r.byId.get('1')).toMatch(/label/i)
+    expect(r.byId.get('2')).toMatch(/0, 100/)
+    expect(r.byId.get('3')).toMatch(/0, 100/)
+    expect(r.byId.get('4')).toMatch(/0, 100/)
+  })
+})
+
 describe('validateNumericInputs', () => {
   const ok = { cohortSize: 1000, arpu: 2, cac: 10, horizon: 180 }
 
   it('passes a clean baseline', () => {
     expect(validateNumericInputs(ok).valid).toBe(true)
+  })
+
+  it('accepts arpuPerPeriod alias for arpu', () => {
+    expect(
+      validateNumericInputs({ ...ok, arpu: undefined, arpuPerPeriod: 5 }).valid,
+    ).toBe(true)
+    expect(
+      validateNumericInputs({ ...ok, arpu: undefined, arpuPerPeriod: -1 }).errors
+        .arpu,
+    ).toBeTruthy()
   })
 
   it('CAC empty/null is allowed', () => {

@@ -1,10 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import RetentionInput, {
-  DEFAULT_POINTS,
   newPointId,
 } from '../components/RetentionInput.jsx'
 import HoverHint from '../components/HoverHint.jsx'
 import PresetSelector from '../components/PresetSelector.jsx'
+import PeriodSelector from '../components/PeriodSelector.jsx'
+import FunnelSection from '../components/FunnelSection.jsx'
+import FunnelWaterfall from '../components/FunnelWaterfall.jsx'
 import CohortPaste from '../components/CohortPaste.jsx'
 import DAUInput from '../components/DAUInput.jsx'
 import DAUChart from '../components/DAUChart.jsx'
@@ -14,6 +16,9 @@ import LTVChart from '../components/LTVChart.jsx'
 import RevenueChart from '../components/RevenueChart.jsx'
 import ResultsTable from '../components/ResultsTable.jsx'
 import CohortPL from '../components/CohortPL.jsx'
+import BandSigmaToggle from '../components/BandSigmaToggle.jsx'
+import ExtrapolationBanner from '../components/ExtrapolationBanner.jsx'
+import ForecastModeToggle from '../components/ForecastModeToggle.jsx'
 import { parseCohortTable } from '../lib/parseCohort.js'
 import { parseDAUTable } from '../lib/parseDAU.js'
 import {
@@ -21,53 +26,68 @@ import {
   reconstructDAU,
   validateDAUInput,
 } from '../lib/deconvolution.js'
-import { loadAllPresets } from '../lib/presetsLoader.js'
+import { loadPresets, variantForPeriod } from '../lib/presetsLoader.js'
 import {
   fitPowerLaw,
   retentionCurve,
   retentionBand,
   extrapolationLevel,
 } from '../lib/powerLaw.js'
-import { ltvSeries, ltvBand, breakevenDay } from '../lib/ltv.js'
+import {
+  funnelCascade,
+  cohortLtv,
+  cohortLtvBand,
+  payback as paybackFn,
+  periodAbbr,
+  periodUnit,
+} from '../lib/calc.js'
 import { adjustFitToBenchmark } from '../lib/industryAdjusted.js'
 import {
   validateRetentionPoints,
   validateNumericInputs,
+  validateFunnel,
 } from '../lib/validate.js'
-import { buildCsv, buildSubscriptionCsv, buildFilename } from '../lib/exportCsv.js'
+import { buildCsv, buildFilename } from '../lib/exportCsv.js'
 import { encodeState, decodeState, buildShareUrl } from '../lib/share.js'
-import {
-  readInitialMode,
-  readInitialCadence,
-  persistMode,
-  persistCadence,
-  syncUrlState,
-} from '../lib/modeState.js'
-import ModeToggle from '../components/ModeToggle.jsx'
-import BandSigmaToggle from '../components/BandSigmaToggle.jsx'
-import ExtrapolationBanner from '../components/ExtrapolationBanner.jsx'
-import ForecastModeToggle from '../components/ForecastModeToggle.jsx'
-import PlanBadge from '../components/subscription/PlanBadge.jsx'
-import CadenceToggle from '../components/subscription/CadenceToggle.jsx'
-import SubscriptionInput from '../components/subscription/SubscriptionInput.jsx'
-import SubscriptionKPI from '../components/subscription/SubscriptionKPI.jsx'
-import FunnelWaterfall from '../components/subscription/FunnelWaterfall.jsx'
-import SubscriptionCohortPL from '../components/subscription/SubscriptionCohortPL.jsx'
-import SubscriptionRetentionChart from '../components/subscription/SubscriptionRetentionChart.jsx'
-import SubscriptionLTVChart from '../components/subscription/SubscriptionLTVChart.jsx'
-import SubscriptionRevenueChart from '../components/subscription/SubscriptionRevenueChart.jsx'
-import SubscriptionResultsTable from '../components/subscription/SubscriptionResultsTable.jsx'
-import { defaultsFor, validateSubscriptionInputs } from '../lib/subscriptionInputs.js'
-import {
-  funnelCascade,
-  subscriptionLtv,
-  subscriptionPayback,
-} from '../lib/subscriptionMath.js'
-import { predict } from '../lib/powerLaw.js'
 
 const inputCls =
   'rounded border border-line-strong bg-bg-subtle px-2 py-1 text-sm tabular-nums ' +
   'text-fg-strong focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent/40'
+
+// Default retention curves seeded into the form when there's no preset and
+// the user changes the period — so the tail visualisation always has
+// something to render.
+const DEFAULT_POINTS = {
+  day: [
+    { t: 1, percent: 40 },
+    { t: 7, percent: 20 },
+    { t: 14, percent: 15 },
+    { t: 30, percent: 10 },
+  ],
+  week: [
+    { t: 1, percent: 60 },
+    { t: 4, percent: 35 },
+    { t: 8, percent: 22 },
+    { t: 12, percent: 15 },
+  ],
+  month: [
+    { t: 1, percent: 50 },
+    { t: 3, percent: 32 },
+    { t: 6, percent: 22 },
+    { t: 12, percent: 12 },
+  ],
+}
+
+const DEFAULT_HORIZON = { day: 180, week: 26, month: 24 }
+const DEFAULT_ARPU = { day: 2, week: 8, month: 12 }
+
+function defaultPoints(period) {
+  return (DEFAULT_POINTS[period] ?? DEFAULT_POINTS.day).map((p) => ({
+    id: newPointId(),
+    t: p.t,
+    percent: p.percent,
+  }))
+}
 
 function fmtMoney(v) {
   if (!Number.isFinite(v)) return '—'
@@ -76,7 +96,19 @@ function fmtMoney(v) {
   return `$${v.toFixed(2)}`
 }
 
-function NumberField({ label, value, onChange, hint, error, min, step, suffix, ru, tooltip, tooltipAlign = 'left' }) {
+function pctDelta(current, base, { higherIsBetter }) {
+  if (!Number.isFinite(current) || !Number.isFinite(base) || base === 0) return null
+  const pct = ((current - base) / base) * 100
+  if (Math.abs(pct) < 0.05) return { text: '= baseline', tone: 'text-fg-faint' }
+  const sign = pct > 0 ? '+' : ''
+  const better = higherIsBetter ? pct > 0 : pct < 0
+  return {
+    text: `${sign}${pct.toFixed(1)}% vs baseline`,
+    tone: better ? 'text-emerald-300' : 'text-red-400',
+  }
+}
+
+function NumberField({ label, value, onChange, hint, error, min, step, suffix, tooltip, tooltipAlign = 'left' }) {
   return (
     <label className="block">
       <span className="mb-1 flex items-center text-sm font-medium text-fg-muted">
@@ -91,18 +123,9 @@ function NumberField({ label, value, onChange, hint, error, min, step, suffix, r
         onChange={(e) => onChange(e.target.value)}
         className={`${inputCls} w-full`}
       />
-      {suffix && (
-        <span className="mt-1 block text-xs text-fg-faint">{suffix}</span>
-      )}
-      {hint && !error && (
-        <span className="mt-1 block text-xs text-fg-faint">{hint}</span>
-      )}
+      {suffix && <span className="mt-1 block text-xs text-fg-faint">{suffix}</span>}
+      {hint && !error && <span className="mt-1 block text-xs text-fg-faint">{hint}</span>}
       {error && <span className="mt-1 block text-xs text-red-400">{error}</span>}
-      {ru && (
-        <span className="mt-1 block text-[11px] italic leading-snug text-fg-faint">
-          {ru}
-        </span>
-      )}
     </label>
   )
 }
@@ -128,19 +151,9 @@ function InputModeToggle({ mode, onChange }) {
         <HoverHint align="left">
           <p>Три способа задать кривую ретеншена:</p>
           <ul className="mt-1.5 list-disc space-y-1 pl-4">
-            <li>
-              <strong className="text-fg">Manual</strong> — точки t/%
-              вручную, минимум 3.
-            </li>
-            <li>
-              <strong className="text-fg">Paste cohort table</strong> —
-              таблица абсолютных или процентных значений из BI / экспорта.
-            </li>
-            <li>
-              <strong className="text-fg">Paste DAU + new users</strong>
-              {' '}— DAU и новые юзеры по дням; ретеншен восстанавливается
-              через свёрточную деконволюцию.
-            </li>
+            <li><strong className="text-fg">Manual</strong> — точки t/% вручную, минимум 2.</li>
+            <li><strong className="text-fg">Paste cohort table</strong> — таблица из BI / экспорта.</li>
+            <li><strong className="text-fg">Paste DAU + new users</strong> — деконволюция кривой из DAU.</li>
           </ul>
         </HoverHint>
       </div>
@@ -177,9 +190,6 @@ function downloadFile(content, filename, mime) {
   setTimeout(() => URL.revokeObjectURL(url), 1000)
 }
 
-// Reads `?s=<encoded>` from the hash route on mount. Returns null when
-// no share token is present. Failures (malformed token / wrong version)
-// also produce null — the calc just falls back to its default state.
 function readInitialFromUrl() {
   if (typeof window === 'undefined') return null
   const hash = window.location.hash
@@ -190,137 +200,34 @@ function readInitialFromUrl() {
   return s ? decodeState(s) : null
 }
 
-function safeFit(points) {
-  try {
-    return fitPowerLaw(points.map((p) => ({ t: p.t, r: p.percent / 100 })))
-  } catch {
-    return null
-  }
-}
-
-function safeBenchmarkFit(variant) {
-  if (!variant) return null
-  try {
-    return fitPowerLaw(variant.retentionPoints)
-  } catch {
-    return null
-  }
+function withIds(arr) {
+  return arr.map((p) => ({ id: newPointId(), ...p }))
 }
 
 export default function Calculator() {
-  // Read once — share-link decoding seeds initial state for both modes.
-  // Priority: share blob > URL ?mode=/?cadence= > localStorage > defaults.
   const [shareInitial] = useState(readInitialFromUrl)
 
-  // Mode + cadence — top-level dispatch between v1 (session retention,
-  // daily scale) and v2 (subscription, weekly/monthly cadence). Initial
-  // values come from share > URL > localStorage > defaults; mode/cadence
-  // both round-trip back to URL on every change so a refresh keeps you in
-  // the same view.
-  const [mode, setMode] = useState(() =>
-    shareInitial?.mode === 'subscription' ? 'subscription' : readInitialMode(),
-  )
-  const [cadence, setCadence] = useState(() =>
-    shareInitial?.subInput
-      ? shareInitial.cadence
-      : readInitialCadence(),
-  )
-
-  useEffect(() => {
-    persistMode(mode)
-    persistCadence(cadence)
-    syncUrlState({ mode, cadence })
-  }, [mode, cadence])
-
-  // Subscription input state. Initialised from cadence-specific defaults;
-  // cadence switch resets to defaults (or to the preset's variant for the
-  // new cadence, when a preset is selected). Per spec-v2 §3.4 the form
-  // intentionally cannot hold simultaneous values for both cadences.
-  const [subInput, setSubInput] = useState(() => {
-    if (shareInitial?.subInput) {
-      // Share payload doesn't carry React keys; mint fresh ids per row.
-      return {
-        ...shareInitial.subInput,
-        retention: shareInitial.subInput.retention.map((p) => ({
-          id: newPointId(),
-          t: p.t,
-          percent: p.percent,
-        })),
-      }
-    }
-    return defaultsFor(shareInitial?.cadence ?? readInitialCadence())
-  })
-  const [cadenceToast, setCadenceToast] = useState(null)
-  const handleCadenceChange = (next) => {
-    if (next === cadence) return
-    setCadence(next)
-    // Cadence change invalidates any pinned baseline (its t-scale differs).
-    setSubBaseline(null)
-    // Re-seed inputs. If a subscription preset is selected and has data
-    // for the new cadence, use that variant; otherwise fall back to fresh
-    // cadence defaults.
-    const subsBundle = bundle?.subscription
-    const preset = subsBundle?.presets.find((p) => p.id === presetState.presetId)
-    const variant = preset?.variants[`${presetState.quality}|${presetState.geo}`]
-    const cadenceData =
-      variant && next === 'weekly' ? variant.weekly : variant?.monthly
-    if (cadenceData) {
-      const seeded = defaultsFor(next)
-      setSubInput({
-        ...seeded,
-        installToTrial: variant.installToTrial ?? seeded.installToTrial,
-        trialToPaid: variant.trialToPaid ?? seeded.trialToPaid,
-        retention: cadenceData.retentionPoints.map((p) => ({
-          id: newPointId(),
-          t: p.t,
-          percent: Math.round(p.r * 1000) / 10,
-        })),
-        arpuPaid: cadenceData.arpuPaid ?? seeded.arpuPaid,
-        cac: variant.cac ?? seeded.cac,
-      })
-      setCadenceToast(`Switched to ${next} cadence — repopulated from "${preset.label}".`)
-    } else {
-      setSubInput(defaultsFor(next))
-      setCadenceToast(`Switched to ${next} cadence — inputs reset to defaults.`)
-    }
-  }
-  // Auto-dismiss the toast after a few seconds.
-  useEffect(() => {
-    if (!cadenceToast) return
-    const t = setTimeout(() => setCadenceToast(null), 4000)
-    return () => clearTimeout(t)
-  }, [cadenceToast])
-
-  // Pinned subscription snapshot — the live calculator becomes the
-  // comparison; charts overlay this as a faded dashed line and KPI cards
-  // show Δ from baseline. Auto-cleared when cadence changes (data scale
-  // mismatch) or when the user leaves Subscription mode.
-  const [subBaseline, setSubBaseline] = useState(null)
-  const subValidation = useMemo(
-    () => validateSubscriptionInputs(subInput),
-    [subInput],
-  )
-
+  const [period, setPeriod] = useState(() => shareInitial?.period ?? 'day')
   const [points, setPoints] = useState(() =>
     shareInitial?.points?.length
-      ? shareInitial.points.map((p) => ({
-          id: newPointId(),
-          t: p.t,
-          percent: p.percent,
-        }))
-      : DEFAULT_POINTS,
+      ? withIds(shareInitial.points)
+      : defaultPoints(shareInitial?.period ?? 'day'),
+  )
+  const [funnel, setFunnel] = useState(() =>
+    shareInitial?.funnel?.length ? withIds(shareInitial.funnel) : [],
   )
   const [cohortSize, setCohortSize] = useState(
     () => shareInitial?.cohortSize ?? 1000,
   )
-  const [arpu, setArpu] = useState(() => shareInitial?.arpu ?? 2)
+  const [arpuPerPeriod, setArpuPerPeriod] = useState(
+    () => shareInitial?.arpuPerPeriod ?? DEFAULT_ARPU[shareInitial?.period ?? 'day'],
+  )
   const [cacInput, setCacInput] = useState(() =>
     shareInitial?.cacInput != null ? shareInitial.cacInput : '10',
   )
-  const [horizon, setHorizon] = useState(() => shareInitial?.horizon ?? 180)
-
-  const [bundle, setBundle] = useState(null)
-  const [bundleError, setBundleError] = useState(null)
+  const [horizon, setHorizon] = useState(
+    () => shareInitial?.horizon ?? DEFAULT_HORIZON[shareInitial?.period ?? 'day'],
+  )
   const [presetState, setPresetState] = useState(
     () =>
       shareInitial?.presetState ?? {
@@ -331,151 +238,31 @@ export default function Calculator() {
   )
   const [adjustMode, setAdjustMode] = useState(
     () => shareInitial?.adjustMode ?? 'pure',
-  ) // 'pure' | 'adjusted'
-  const [inputMode, setInputMode] = useState('manual') // 'manual' | 'paste' | 'dau'
+  )
+  const [bandSigma, setBandSigma] = useState(
+    () => shareInitial?.bandSigma ?? 1,
+  )
+
+  const [bundle, setBundle] = useState(null)
+  const [bundleError, setBundleError] = useState(null)
+  const [inputMode, setInputMode] = useState('manual')
   const [pasteText, setPasteText] = useState('')
   const [dauText, setDauText] = useState('')
   const [dauSmoothWindow, setDauSmoothWindow] = useState(0)
-  const [bandSigma, setBandSigma] = useState(
-    () => shareInitial?.bandSigma ?? 1,
-  ) // 1 ≈ 68%, 2 ≈ 95%
 
-  // Cadence-specific benchmark block from the selected subscription preset
-  // (null for session presets or Custom). Drives the industry-adjusted fit
-  // and the dashed benchmark line on the retention chart.
-  const subBenchmarkVariant = useMemo(() => {
-    const p = bundle?.subscription?.presets.find(
-      (pp) => pp.id === presetState.presetId,
-    )
-    const v = p?.variants[`${presetState.quality}|${presetState.geo}`]
-    if (!v) return null
-    return cadence === 'weekly' && v.weekly ? v.weekly : v.monthly
-  }, [bundle, presetState, cadence])
-
-  const subBenchmarkFit = useMemo(() => {
-    if (!subBenchmarkVariant) return null
-    try {
-      return fitPowerLaw(subBenchmarkVariant.retentionPoints)
-    } catch {
-      return null
-    }
-  }, [subBenchmarkVariant])
-
-  // Subscription model: funnel cascade + power-law fit on retention paying
-  // users + per-cycle revenue/LTV series + payback + ±σ bands. Built once
-  // per input change. `null` when inputs are invalid (UI hides outputs).
-  const subModel = useMemo(() => {
-    if (!subValidation.valid) return null
-    const retentionFractions = subInput.retention
-      .filter((p) => Number.isFinite(p.percent) && p.percent > 0)
-      .map((p) => ({ t: p.t, r: p.percent / 100 }))
-    if (retentionFractions.length < 2) return null
-
-    const funnel = funnelCascade({
-      cohortSize: subInput.cohortSize,
-      installToTrial: subInput.installToTrial / 100,
-      trialToPaid: subInput.trialToPaid / 100,
-      retention: retentionFractions,
-      cadence,
-    })
-
-    let userFit
-    try {
-      userFit = fitPowerLaw(retentionFractions)
-    } catch {
-      return null
-    }
-    // Industry-adjusted: benchmark shape × geometric-mean ratio of user vs
-    // benchmark at user's retention checkpoints. Falls back to userFit when
-    // no preset is selected or the math can't form ratios.
-    const adjustedFit =
-      adjustMode === 'adjusted' && subBenchmarkFit
-        ? adjustFitToBenchmark(subInput.retention, subBenchmarkFit)
-        : null
-    const fit = adjustedFit ?? userFit
-
-    const series = subscriptionLtv({
-      fit,
-      payingAtZero: funnel.payingAtZero,
-      arpuPaid: subInput.arpuPaid,
-      cohortSize: subInput.cohortSize,
-      horizon: subInput.horizon,
-    })
-    const payback = subscriptionPayback(series, subInput.cohortSize, subInput.cac)
-
-    // ±k·σ confidence bands. retentionBand returns retention fractions;
-    // ltvBand integrates `arpu × R(t)` cumulatively — passing cohort-level
-    // dollar-per-cycle (arpuPaid × payingAtZero) gives total-cohort revenue
-    // bounds, which the chart converts to per-install by dividing by
-    // cohortSize. Both bands require fit.se > 0 (≥3 user points).
-    const subRetentionBand =
-      fit.se > 0
-        ? retentionBand(fit, subInput.horizon, bandSigma)
-        : null
-    const subLtvBandSeries =
-      fit.se > 0
-        ? ltvBand(
-            fit,
-            subInput.arpuPaid * funnel.payingAtZero,
-            subInput.horizon,
-            bandSigma,
-          )
-        : null
-
-    // Long-term retention anchor: M12 for monthly, W26 for weekly. Computed
-    // from the fit (not raw input) so it works regardless of which
-    // checkpoints the user keeps in the form.
-    const longTermAnchor = cadence === 'weekly' ? 26 : 12
-    const r1 = predict(1, fit)
-    const longTermRetention = Math.max(
-      0,
-      Math.min(predict(longTermAnchor, fit), r1),
-    )
-
-    const lastUserT = retentionFractions[retentionFractions.length - 1].t
-    const extrap = extrapolationLevel(lastUserT, subInput.horizon)
-
-    return {
-      funnel,
-      fit,
-      userFit,
-      adjustedFit,
-      series,
-      payback,
-      longTermAnchor,
-      longTermRetention,
-      retentionBand: subRetentionBand,
-      ltvBand: subLtvBandSeries,
-      lastUserT,
-      extrap,
-      trialsStarted: subInput.cohortSize * (subInput.installToTrial / 100),
-      payingAtZero: funnel.payingAtZero,
-    }
-  }, [
-    subInput,
-    cadence,
-    subValidation.valid,
-    bandSigma,
-    adjustMode,
-    subBenchmarkFit,
-  ])
-
-  // Dashed benchmark series for the retention chart (cadence in cycle units).
-  const subBenchmarkSeries = useMemo(() => {
-    if (!subBenchmarkFit) return null
-    return retentionCurve(subBenchmarkFit, subInput.horizon)
-  }, [subBenchmarkFit, subInput.horizon])
-
+  const [periodToast, setPeriodToast] = useState(null)
   const [shareCopied, setShareCopied] = useState(false)
-  // Frozen snapshot of the current outputs — pinned via the "Pin as baseline"
-  // button. The live calculator becomes the comparison; charts overlay the
-  // baseline as a faded dashed line and KPI cards show Δ from baseline.
-  // Shape: { summary, fitSeries, ltv, ltvAtHorizon, beDay, ratio, horizon }
   const [baseline, setBaseline] = useState(null)
 
   useEffect(() => {
+    if (!periodToast) return
+    const t = setTimeout(() => setPeriodToast(null), 4000)
+    return () => clearTimeout(t)
+  }, [periodToast])
+
+  useEffect(() => {
     let cancelled = false
-    loadAllPresets(import.meta.env.BASE_URL)
+    loadPresets(`${import.meta.env.BASE_URL}presets.json`)
       .then((b) => {
         if (!cancelled) setBundle(b)
       })
@@ -502,60 +289,95 @@ export default function Calculator() {
     )
   }, [shareInitial])
 
-  const handlePresetChange = (next, variant, meta = {}) => {
-    setPresetState(next)
-    if (!variant) return
+  const selectedPreset = useMemo(() => {
+    if (!bundle || !presetState.presetId) return null
+    return bundle.presets.find((p) => p.id === presetState.presetId) ?? null
+  }, [bundle, presetState.presetId])
+  const selectedVariant = useMemo(() => {
+    if (!selectedPreset) return null
+    return (
+      selectedPreset.variants[`${presetState.quality}|${presetState.geo}`] ??
+      null
+    )
+  }, [selectedPreset, presetState.quality, presetState.geo])
+  const presetLabel = selectedPreset
+    ? presetLabelFor(selectedPreset, presetState)
+    : null
 
-    const presetMode = meta.mode
-    if (presetMode === 'subscription') {
-      // Auto-switch to Subscription mode and pick the cadence the preset
-      // actually has data for. weekly is preferred when both exist AND
-      // dominant_plan is weekly; otherwise stick with monthly.
-      setMode('subscription')
-      const hasWeekly = !!variant.weekly
-      const dominantWeekly =
-        meta.preset?.dominantPlan === 'weekly' ||
-        meta.preset?.dominantPlan === 'monthly_with_some_weekly'
-      const targetCadence = hasWeekly && dominantWeekly ? 'weekly' : 'monthly'
-      setCadence(targetCadence)
+  // The variant's slice for the active period (or null when the preset has
+  // no data for that period). Drives industry-adjusted benchmark.
+  const benchmarkSlice = useMemo(
+    () => variantForPeriod(selectedVariant, period),
+    [selectedVariant, period],
+  )
 
-      const cadenceVariant =
-        targetCadence === 'weekly' && variant.weekly
-          ? variant.weekly
-          : variant.monthly
-      const seeded = defaultsFor(targetCadence)
-      setSubInput({
-        ...seeded,
-        installToTrial: variant.installToTrial ?? seeded.installToTrial,
-        trialToPaid: variant.trialToPaid ?? seeded.trialToPaid,
-        retention: cadenceVariant.retentionPoints.map((p) => ({
-          id: newPointId(),
-          t: p.t,
-          percent: Math.round(p.r * 1000) / 10,
-        })),
-        arpuPaid: cadenceVariant.arpuPaid ?? seeded.arpuPaid,
-        cac: variant.cac ?? seeded.cac,
-      })
-      return
+  const benchmarkFit = useMemo(() => {
+    if (!benchmarkSlice) return null
+    try {
+      return fitPowerLaw(benchmarkSlice.retentionPoints)
+    } catch {
+      return null
     }
+  }, [benchmarkSlice])
 
-    // Session preset: existing behavior.
-    setMode('session')
-    setPoints(
-      variant.retentionPoints.map((p) => ({
+  // Apply a variant to the form for the given period: replace funnel,
+  // retention points, ARPU, CAC. Used both on preset selection and on
+  // period change. Returns true when data was applied.
+  const applyVariantForPeriod = (variant, p) => {
+    const slice = variantForPeriod(variant, p)
+    if (!slice) return false
+    setFunnel(
+      slice.funnel.map((s) => ({
         id: newPointId(),
-        t: p.t,
-        percent: Math.round(p.r * 1000) / 10,
+        label: s.label,
+        conversionPct: s.conversionPct,
       })),
     )
-    if (variant.arpuPerDay != null) setArpu(variant.arpuPerDay)
-    if (variant.cac != null) setCacInput(String(variant.cac))
+    setPoints(
+      slice.retentionPoints.map((pt) => ({
+        id: newPointId(),
+        t: pt.t,
+        percent: Math.round(pt.r * 1000) / 10,
+      })),
+    )
+    if (slice.arpuPerPeriod != null) setArpuPerPeriod(slice.arpuPerPeriod)
+    if (slice.cacPerAcquired != null) setCacInput(String(slice.cacPerAcquired))
+    return true
   }
 
-  const cac = cacInput === '' || cacInput == null ? null : Number(cacInput)
+  const handlePresetChange = (next, variant, meta = {}) => {
+    setPresetState(next)
+    setBaseline(null)
+    if (!variant || !meta.preset) return
+    const targetPeriod = meta.preset.cadenceDefault ?? period
+    setPeriod(targetPeriod)
+    setHorizon(DEFAULT_HORIZON[targetPeriod] ?? horizon)
+    applyVariantForPeriod(variant, targetPeriod)
+  }
 
-  // Parse the paste-mode input on every keystroke; the result feeds points
-  // automatically via the effect below.
+  const handlePeriodChange = (next) => {
+    if (next === period) return
+    setBaseline(null) // baseline t-scale would mismatch
+    // Reset adjust mode — benchmark fit may not have data in the new period.
+    setAdjustMode('pure')
+    setHorizon(DEFAULT_HORIZON[next] ?? horizon)
+
+    // Try to repopulate from preset; fall back to defaults with a toast.
+    if (selectedVariant && applyVariantForPeriod(selectedVariant, next)) {
+      setPeriodToast(`Switched to ${next} — repopulated from "${selectedPreset?.label}".`)
+    } else {
+      setPoints(defaultPoints(next))
+      setArpuPerPeriod(DEFAULT_ARPU[next] ?? arpuPerPeriod)
+      setPeriodToast(
+        selectedPreset
+          ? `Switched to ${next} — preset has no data for this period; points reset.`
+          : `Switched to ${next} — retention points reset to defaults.`,
+      )
+    }
+    setPeriod(next)
+  }
+
+  // Paste-mode parsing
   const pasteParsed = useMemo(
     () => (inputMode === 'paste' && pasteText ? parseCohortTable(pasteText) : null),
     [inputMode, pasteText],
@@ -571,7 +393,7 @@ export default function Calculator() {
     )
   }, [inputMode, pasteParsed])
 
-  // DAU mode: parse → validate → deconvolve → resample to canonical periods.
+  // DAU mode
   const dauParsed = useMemo(
     () => (inputMode === 'dau' && dauText ? parseDAUTable(dauText) : null),
     [inputMode, dauText],
@@ -614,8 +436,6 @@ export default function Calculator() {
 
   useEffect(() => {
     if (inputMode !== 'dau' || !dauR) return
-    // Resample the dense N-day curve to canonical periods so RetentionInput
-    // (max 10 points) and the model fit work cleanly.
     const candidates = [1, 3, 7, 14, 21, 30, 45, 60, 90, 120, 180]
     const sampled = candidates
       .filter((t) => t < dauR.length && dauR[t] > 0)
@@ -627,80 +447,92 @@ export default function Calculator() {
     if (sampled.length >= 3) setPoints(sampled)
   }, [inputMode, dauR])
 
+  const cac = cacInput === '' || cacInput == null ? null : Number(cacInput)
   const pointErrors = useMemo(() => validateRetentionPoints(points), [points])
   const numericErrors = useMemo(
-    () => validateNumericInputs({ cohortSize, arpu, cac, horizon }),
-    [cohortSize, arpu, cac, horizon],
-  )
-  const allValid = pointErrors.valid && numericErrors.valid
-
-  const selectedPreset = useMemo(() => {
-    if (!bundle || !presetState.presetId) return null
-    return (
-      bundle.session?.presets.find((p) => p.id === presetState.presetId) ??
-      bundle.subscription?.presets.find((p) => p.id === presetState.presetId) ??
-      null
-    )
-  }, [bundle, presetState.presetId])
-  const presetLabel = selectedPreset
-    ? presetLabelFor(selectedPreset, presetState)
-    : null
-  const selectedVariant = useMemo(
     () =>
-      selectedPreset
-        ? selectedPreset.variants[
-            `${presetState.quality}|${presetState.geo}`
-          ] ?? null
-        : null,
-    [selectedPreset, presetState.quality, presetState.geo],
+      validateNumericInputs({
+        cohortSize,
+        arpuPerPeriod,
+        cac,
+        horizon,
+      }),
+    [cohortSize, arpuPerPeriod, cac, horizon],
   )
+  const funnelErrors = useMemo(() => validateFunnel(funnel), [funnel])
+  const allValid =
+    pointErrors.valid && numericErrors.valid && funnelErrors.valid
 
-  const userFit = useMemo(
-    () => (allValid ? safeFit(points) : null),
-    [allValid, points],
-  )
-  const benchmarkFit = useMemo(
-    () => safeBenchmarkFit(selectedVariant),
-    [selectedVariant],
-  )
-  // Adjusted-mode synthetic fit: only meaningful with both a benchmark and user data.
-  const adjustedFit = useMemo(
-    () =>
-      adjustMode === 'adjusted' && benchmarkFit && allValid
-        ? adjustFitToBenchmark(points, benchmarkFit)
-        : null,
-    [adjustMode, benchmarkFit, points, allValid],
-  )
+  // Power-law fit on user points
+  const userFit = useMemo(() => {
+    if (!allValid) return null
+    try {
+      return fitPowerLaw(points.map((p) => ({ t: p.t, r: p.percent / 100 })))
+    } catch {
+      return null
+    }
+  }, [allValid, points])
+
+  // Industry-adjusted fit (only when a benchmark is available and user picked it)
+  const adjustedFit = useMemo(() => {
+    if (adjustMode !== 'adjusted' || !benchmarkFit || !allValid) return null
+    return adjustFitToBenchmark(points, benchmarkFit)
+  }, [adjustMode, benchmarkFit, points, allValid])
+
   const fit = adjustedFit ?? userFit
+
+  // Funnel cascade — generic n-step
+  const cascade = useMemo(() => {
+    if (!allValid) return null
+    return funnelCascade({
+      cohortSize,
+      funnel: funnel.map((s) => ({
+        label: s.label,
+        conversionPct: s.conversionPct,
+      })),
+      retention: points.map((p) => ({ t: p.t, r: p.percent / 100 })),
+      period,
+    })
+  }, [allValid, cohortSize, funnel, points, period])
+
+  // LTV series
+  const ltvData = useMemo(() => {
+    if (!fit || !cascade) return null
+    return cohortLtv({
+      fit,
+      acquiredAtZero: cascade.acquiredAtZero,
+      arpuPerPeriod,
+      cohortSize,
+      horizon,
+    })
+  }, [fit, cascade, arpuPerPeriod, cohortSize, horizon])
+
   const fitSeries = useMemo(
     () => (fit ? retentionCurve(fit, horizon) : null),
     [fit, horizon],
   )
-  // When in adjusted mode, also surface the pure user fit as a dashed alternate.
   const alternateFitSeries = useMemo(
     () => (adjustedFit && userFit ? retentionCurve(userFit, horizon) : null),
     [adjustedFit, userFit, horizon],
   )
-  // ±1σ band only meaningful when we have residual dof (se > 0). Adjusted fit
-  // sets se = 0 deliberately (see industryAdjusted.js), so band is hidden in
-  // adjusted mode — that's correct: the synthetic fit doesn't carry residual
-  // uncertainty in a defensible way.
   const retBand = useMemo(
     () => (fit && fit.se > 0 ? retentionBand(fit, horizon, bandSigma) : null),
     [fit, horizon, bandSigma],
   )
-  const ltv = useMemo(
-    () => (fit ? ltvSeries(fit, arpu, horizon) : null),
-    [fit, arpu, horizon],
+  // LTV band for the chart consumer (per-cohort-entrant). Caller passes the
+  // total per-period rate `arpu × acquired / cohort` so cumLtvBand returns
+  // values in per-entrant units, matching the line.
+  const ltvBandSeries = useMemo(() => {
+    if (!fit || fit.se === 0 || !cascade) return null
+    const perEntrantRate = (arpuPerPeriod * cascade.acquiredAtZero) / cohortSize
+    return cohortLtvBand(fit, perEntrantRate, horizon, bandSigma)
+  }, [fit, cascade, arpuPerPeriod, cohortSize, horizon, bandSigma])
+
+  const benchmarkSeries = useMemo(
+    () => (benchmarkFit ? retentionCurve(benchmarkFit, horizon) : null),
+    [benchmarkFit, horizon],
   )
-  const ltvBandSeries = useMemo(
-    () => (fit && fit.se > 0 ? ltvBand(fit, arpu, horizon, bandSigma) : null),
-    [fit, arpu, horizon, bandSigma],
-  )
-  const beDay = useMemo(
-    () => (ltv ? breakevenDay(ltv, cac) : null),
-    [ltv, cac],
-  )
+
   const lastUserT = useMemo(
     () => (points.length ? Math.max(...points.map((p) => p.t)) : 0),
     [points],
@@ -709,374 +541,144 @@ export default function Calculator() {
     () => extrapolationLevel(lastUserT, horizon),
     [lastUserT, horizon],
   )
-  const benchmarkSeries = useMemo(
-    () => (benchmarkFit ? retentionCurve(benchmarkFit, horizon) : null),
-    [benchmarkFit, horizon],
+
+  const ltvAtHorizon = ltvData ? ltvData[ltvData.length - 1].cumLtvPerCohort : null
+  const horizonRetention = fitSeries ? fitSeries[fitSeries.length - 1].r : NaN
+  const payback = useMemo(
+    () => (ltvData ? paybackFn(ltvData, cac) : null),
+    [ltvData, cac],
   )
 
-  const ltvAtHorizon = ltv ? ltv[ltv.length - 1].cumLtv : null
+  // Adapter — chart components expect v1 shape with cumLtv/revenue per
+  // cohort entrant. Our calc.js series carries total-cohort revenue, so we
+  // normalize here once.
+  const v1Series = useMemo(() => {
+    if (!ltvData) return null
+    return ltvData.map((p) => ({
+      t: p.t,
+      retention: p.retention,
+      revenue: p.revenue / cohortSize,
+      cumLtv: p.cumLtvPerCohort,
+    }))
+  }, [ltvData, cohortSize])
+
+  const handleCopyShare = async () => {
+    const encoded = encodeState({
+      period,
+      points,
+      funnel,
+      cohortSize,
+      arpuPerPeriod,
+      cacInput,
+      horizon,
+      presetState,
+      adjustMode,
+      bandSigma,
+    })
+    const url = buildShareUrl(
+      encoded,
+      window.location.origin + window.location.pathname,
+    )
+    try {
+      await navigator.clipboard.writeText(url)
+      setShareCopied(true)
+      setTimeout(() => setShareCopied(false), 2000)
+    } catch {
+      window.prompt('Copy share link:', url)
+    }
+  }
+
+  const handleDownloadCsv = () => {
+    if (!ltvData || !fit || !cascade) return
+    const ts = new Date().toISOString()
+    const csv = buildCsv({
+      timestamp: ts,
+      period,
+      forecastMode: adjustMode,
+      presetLabel,
+      bandSigma,
+      inputs: {
+        arpuPerPeriod,
+        cac,
+        cohortSize,
+        horizon,
+        funnel: funnel.map((s) => ({
+          label: s.label,
+          conversionPct: s.conversionPct,
+        })),
+      },
+      fit: {
+        a: fit.a,
+        b: fit.b,
+        se: fit.se,
+        rSquared: fit.rSquared,
+        n: fit.n ?? points.length,
+      },
+      kpi: {
+        ltvAtHorizon,
+        payback,
+        ltvCacRatio: cac != null && cac > 0 ? ltvAtHorizon / cac : null,
+        horizonRetention,
+        acquiredAtZero: cascade.acquiredAtZero,
+      },
+      userPoints: points.map((p) => ({ t: p.t, percent: p.percent })),
+      series: ltvData,
+    })
+    downloadFile(
+      csv,
+      buildFilename({ timestamp: ts, presetLabel }),
+      'text/csv;charset=utf-8',
+    )
+  }
+
+  const handlePinBaseline = () => {
+    if (baseline) {
+      setBaseline(null)
+      return
+    }
+    if (!ltvData || !fit) return
+    setBaseline({
+      period,
+      label: presetLabel ?? 'Custom',
+      fitSeries: fitSeries.map((p) => ({ t: p.t, r: p.r })),
+      ltv: v1Series.map((p) => ({ t: p.t, cumLtv: p.cumLtv, revenue: p.revenue })),
+      ltvAtHorizon,
+      payback,
+      ratio: cac != null && cac > 0 ? ltvAtHorizon / cac : null,
+      rSquared: fit.rSquared,
+      horizonRetention,
+      horizon,
+      cohortSize,
+      cac,
+      arpu: arpuPerPeriod,
+    })
+  }
+
+  const baselineForKpi = baseline
+    ? {
+        ltvAtHorizon: baseline.ltvAtHorizon,
+        ratio: baseline.ratio,
+        payback: baseline.payback,
+        horizonRetention: baseline.horizonRetention,
+      }
+    : null
+
+  const periodAbbrCur = periodAbbr(period)
+  const periodUnitCur = periodUnit(period)
 
   return (
     <section>
       <header className="mb-6">
         <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
           <h1 className="text-3xl font-semibold tracking-tight">Calculator</h1>
-          <ModeToggle
-            value={mode}
-            onChange={(next) => {
-              setMode(next)
-              // Leaving Subscription invalidates its pinned baseline; the
-              // session side has its own baseline state (`baseline`).
-              if (next !== 'subscription') setSubBaseline(null)
-              // Drop stale presetState if it belongs to the other mode —
-              // otherwise the new mode would surface a phantom preset card
-              // (e.g. a Subscription preset still active after switching
-              // to DAU). Compare presence in the bundle's two halves.
-              const id = presetState.presetId
-              if (!id || !bundle) return
-              const inSession = bundle.session?.presets.some((p) => p.id === id)
-              const inSubs = bundle.subscription?.presets.some((p) => p.id === id)
-              const fitsNext =
-                next === 'session' ? inSession : inSubs
-              if (!fitsNext) {
-                setPresetState({
-                  presetId: null,
-                  quality: 'median',
-                  geo: 'tier_1',
-                })
-              }
-            }}
-          />
         </div>
         <p className="mt-1 text-sm text-fg-dim">
-          {mode === 'session'
-            ? 'Power law fit of retention curve, then ARPU × Σ R(t) for LTV.'
-            : 'Funnel cascade + retention paying users + LTV per install — for consumer subscription apps.'}
+          Power-law fit of retention curve, then ARPU × Σ R(t) for LTV. Funnel
+          conversions cascade the cohort to the active pool; one model for
+          DAU and subscription presets.
         </p>
       </header>
 
-      {mode === 'subscription' && (
-        <div className="grid gap-8 lg:grid-cols-[360px,minmax(0,1fr)]">
-          <aside className="space-y-5 rounded-lg border border-line bg-bg-elev/40 p-4">
-            {bundleError && (
-              <div className="rounded border border-red-900/50 bg-red-950/40 p-2 text-xs text-red-300">
-                Failed to load presets: {bundleError}
-              </div>
-            )}
-            <PresetSelector
-              bundles={bundle}
-              value={presetState}
-              onChange={handlePresetChange}
-            />
-            <CadenceToggle
-              value={cadence}
-              onChange={handleCadenceChange}
-              disabled={
-                selectedPreset?.weeklyDataStatus != null &&
-                selectedPreset.weeklyDataStatus === 'not_applicable'
-              }
-              disabledReason={
-                selectedPreset?.weeklyDataStatus === 'not_applicable'
-                  ? 'No weekly cohort data for this preset; switch to Custom to use Weekly cadence manually.'
-                  : null
-              }
-            />
-            {subBenchmarkFit && (
-              <ForecastModeToggle
-                mode={adjustMode}
-                onChange={setAdjustMode}
-                avgRatio={subModel?.adjustedFit?.avgRatio}
-              />
-            )}
-            <SubscriptionInput
-              state={subInput}
-              cadence={cadence}
-              validation={subValidation}
-              onPatch={(partial) =>
-                setSubInput((prev) => ({ ...prev, ...partial }))
-              }
-              bandSlot={
-                <BandSigmaToggle
-                  sigma={bandSigma}
-                  onChange={setBandSigma}
-                  disabled={!subModel?.retentionBand}
-                />
-              }
-            />
-          </aside>
-          <div className="space-y-5">
-            {cadenceToast && (
-              <div className="rounded-lg border border-accent/40 bg-accent-surface/40 p-3 text-sm text-accent-fg">
-                {cadenceToast}
-              </div>
-            )}
-            {!subValidation.valid && (
-              <div className="rounded-lg border border-amber-700/40 bg-amber-950/20 p-4 text-sm text-amber-200">
-                Fix the input panel to see the model output.
-              </div>
-            )}
-            {subModel && (
-              <>
-                <div className="flex flex-wrap items-center justify-end gap-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      if (subBaseline) {
-                        setSubBaseline(null)
-                        return
-                      }
-                      const last =
-                        subModel.series[subModel.series.length - 1]
-                      const ratio =
-                        subInput.cac > 0
-                          ? last.cumLtvPerInstall / subInput.cac
-                          : null
-                      setSubBaseline({
-                        cadence,
-                        label: presetLabel,
-                        // Per-cycle series is enough for chart overlays;
-                        // KPI snapshot pulls from `summary` to stay
-                        // immune to subModel structure changes.
-                        series: subModel.series,
-                        summary: {
-                          ltvPerInstall: last.cumLtvPerInstall,
-                          ratio,
-                          payback: subModel.payback,
-                          trialToPaid: subInput.trialToPaid,
-                          horizonRetention: last.retention,
-                          arpuPaid: subInput.arpuPaid,
-                          cac: subInput.cac,
-                          rSquared: subModel.fit.rSquared,
-                        },
-                      })
-                    }}
-                    className={`rounded border px-3 py-1.5 text-xs transition-colors ${
-                      subBaseline
-                        ? 'border-accent/60 bg-accent-surface/30 text-accent-fg hover:border-accent'
-                        : 'border-line-strong bg-bg-subtle text-fg-muted hover:border-accent/50 hover:text-accent-fg'
-                    }`}
-                  >
-                    {subBaseline ? '× Clear baseline' : '📌 Pin as baseline'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={async () => {
-                      const encoded = encodeState({
-                        mode,
-                        cadence,
-                        points,
-                        cohortSize,
-                        arpu,
-                        cacInput,
-                        horizon,
-                        presetState,
-                        adjustMode,
-                        bandSigma,
-                        subInput,
-                      })
-                      const url = buildShareUrl(
-                        encoded,
-                        window.location.origin + window.location.pathname,
-                      )
-                      try {
-                        await navigator.clipboard.writeText(url)
-                        setShareCopied(true)
-                        setTimeout(() => setShareCopied(false), 2000)
-                      } catch {
-                        window.prompt('Copy share link:', url)
-                      }
-                    }}
-                    className={`rounded border px-3 py-1.5 text-xs transition-colors ${
-                      shareCopied
-                        ? 'border-emerald-700/60 bg-emerald-950/40 text-emerald-300'
-                        : 'border-line-strong bg-bg-subtle text-fg-muted hover:border-accent/50 hover:text-accent-fg'
-                    }`}
-                  >
-                    {shareCopied ? 'Copied ✓' : 'Copy share link'}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const ts = new Date().toISOString()
-                      const lastSeries =
-                        subModel.series[subModel.series.length - 1]
-                      const csv = buildSubscriptionCsv({
-                        timestamp: ts,
-                        cadence,
-                        presetLabel,
-                        forecastMode: adjustMode,
-                        bandSigma,
-                        inputs: {
-                          installToTrial: subInput.installToTrial,
-                          trialToPaid: subInput.trialToPaid,
-                          arpuPaid: subInput.arpuPaid,
-                          cac: subInput.cac,
-                          cohortSize: subInput.cohortSize,
-                          horizon: subInput.horizon,
-                        },
-                        fit: subModel.fit,
-                        kpi: {
-                          ltvPerInstall: lastSeries.cumLtvPerInstall,
-                          ltvPerPayingUser: lastSeries.cumLtvPerPayingUser,
-                          ltvCacRatio:
-                            subInput.cac > 0
-                              ? lastSeries.cumLtvPerInstall / subInput.cac
-                              : null,
-                          payback: subModel.payback,
-                          longTermAnchor: subModel.longTermAnchor,
-                          longTermRetention: subModel.longTermRetention,
-                        },
-                        userPoints: subInput.retention,
-                        series: subModel.series,
-                      })
-                      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
-                      const url = URL.createObjectURL(blob)
-                      const a = document.createElement('a')
-                      a.href = url
-                      a.download = buildFilename({ timestamp: ts, presetLabel })
-                      document.body.appendChild(a)
-                      a.click()
-                      a.remove()
-                      URL.revokeObjectURL(url)
-                    }}
-                    className="rounded border border-line-strong bg-bg-subtle px-3 py-1.5 text-xs text-fg-muted transition-colors hover:border-accent/50 hover:text-accent-fg"
-                  >
-                    Download CSV
-                  </button>
-                </div>
-                {subBaseline && (
-                  <div className="relative rounded border border-accent/40 bg-accent-surface/20 py-2 pl-3 pr-8 text-xs">
-                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 tabular-nums">
-                      <span className="text-fg-faint">📌 Baseline</span>
-                      {subBaseline.label && (
-                        <span className="flex items-baseline gap-1 whitespace-nowrap">
-                          <span className="text-fg-faint">·</span>
-                          <span className="text-fg">{subBaseline.label}</span>
-                        </span>
-                      )}
-                      {[
-                        ['Cadence', subBaseline.cadence],
-                        ['T→P', `${subBaseline.summary.trialToPaid?.toFixed?.(1)}%`],
-                        ['ARPU paid', fmtMoney(subBaseline.summary.arpuPaid)],
-                        ['CAC', fmtMoney(subBaseline.summary.cac)],
-                        ['LTV/install', fmtMoney(subBaseline.summary.ltvPerInstall)],
-                        ['R²', Number.isFinite(subBaseline.summary.rSquared) ? subBaseline.summary.rSquared.toFixed(3) : '—'],
-                        ...(subBaseline.summary.ratio != null
-                          ? [['LTV/CAC', subBaseline.summary.ratio.toFixed(2)]]
-                          : []),
-                        [
-                          'Payback',
-                          subBaseline.summary.payback != null
-                            ? `${subBaseline.cadence === 'weekly' ? 'W' : 'M'}${subBaseline.summary.payback}`
-                            : 'not reached',
-                        ],
-                        [
-                          'Long-term ret',
-                          Number.isFinite(subBaseline.summary.horizonRetention)
-                            ? `${(subBaseline.summary.horizonRetention * 100).toFixed(2)}%`
-                            : '—',
-                        ],
-                      ].map(([label, value]) => (
-                        <span key={label} className="flex items-baseline gap-1 whitespace-nowrap">
-                          <span className="text-fg-faint">·</span>
-                          <span className="text-fg-faint">{label}</span>
-                          <span className="text-fg">{value}</span>
-                        </span>
-                      ))}
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setSubBaseline(null)}
-                      aria-label="Clear baseline"
-                      className="absolute right-2 top-1.5 text-fg-faint transition-colors hover:text-fg"
-                    >
-                      ×
-                    </button>
-                  </div>
-                )}
-                <SubscriptionKPI
-                  ltvPerInstall={
-                    subModel.series[subModel.series.length - 1].cumLtvPerInstall
-                  }
-                  rSquared={subModel.fit.rSquared}
-                  cac={subInput.cac}
-                  payback={subModel.payback}
-                  horizonRetention={
-                    subModel.series[subModel.series.length - 1].retention
-                  }
-                  horizon={subInput.horizon}
-                  cadence={cadence}
-                  baseline={subBaseline?.summary ?? null}
-                />
-                <PlanBadge
-                  dominantPlan={
-                    selectedPreset?.dominantPlan ?? null
-                  }
-                  cadence={cadence}
-                />
-                {subModel.extrap !== 'none' && (
-                  <ExtrapolationBanner
-                    level={subModel.extrap}
-                    lastUserT={subModel.lastUserT}
-                    horizon={subInput.horizon}
-                    cadence={cadence}
-                  />
-                )}
-                <FunnelWaterfall
-                  steps={subModel.funnel.steps}
-                  presetLabel={presetLabel}
-                />
-                <SubscriptionRetentionChart
-                  userPoints={subInput.retention}
-                  fitSeries={subModel.series}
-                  bandSeries={subModel.retentionBand}
-                  bandSigma={bandSigma}
-                  benchmarkSeries={subBenchmarkSeries}
-                  baselineSeries={subBaseline?.series ?? null}
-                  horizon={subInput.horizon}
-                  cadence={cadence}
-                  rSquared={subModel.fit.rSquared}
-                />
-                <SubscriptionLTVChart
-                  series={subModel.series}
-                  bandSeries={subModel.ltvBand}
-                  bandSigma={bandSigma}
-                  baselineSeries={subBaseline?.series ?? null}
-                  cohortSize={subInput.cohortSize}
-                  cac={subInput.cac}
-                  payback={subModel.payback}
-                  horizon={subInput.horizon}
-                  cadence={cadence}
-                />
-                <SubscriptionRevenueChart
-                  series={subModel.series}
-                  horizon={subInput.horizon}
-                  cadence={cadence}
-                />
-                <SubscriptionResultsTable
-                  series={subModel.series}
-                  userPoints={subInput.retention}
-                  horizon={subInput.horizon}
-                  cadence={cadence}
-                  cac={subInput.cac}
-                />
-                <SubscriptionCohortPL
-                  cohortSize={subInput.cohortSize}
-                  cac={subInput.cac}
-                  trialsStarted={subModel.trialsStarted}
-                  payingAtZero={subModel.payingAtZero}
-                  ltvSeries={subModel.series}
-                  horizon={subInput.horizon}
-                  payback={subModel.payback}
-                  cadence={cadence}
-                />
-              </>
-            )}
-          </div>
-        </div>
-      )}
-
-      {mode === 'session' && (
       <div className="grid gap-8 lg:grid-cols-[360px,minmax(0,1fr)]">
         <aside className="space-y-5 rounded-lg border border-line bg-bg-elev/40 p-4">
           {bundleError && (
@@ -1086,12 +688,19 @@ export default function Calculator() {
           )}
 
           <PresetSelector
-            bundles={bundle}
+            bundle={bundle}
             value={presetState}
+            period={period}
             onChange={handlePresetChange}
           />
 
-          {selectedPreset && (
+          <PeriodSelector
+            value={period}
+            onChange={handlePeriodChange}
+            supported={selectedPreset?.cadenceSupported ?? null}
+          />
+
+          {benchmarkFit && (
             <ForecastModeToggle
               mode={adjustMode}
               onChange={setAdjustMode}
@@ -1105,6 +714,8 @@ export default function Calculator() {
             disabled={!retBand}
           />
 
+          <FunnelSection funnel={funnel} onChange={setFunnel} />
+
           <div className="space-y-3 border-t border-line pt-4">
             <InputModeToggle mode={inputMode} onChange={setInputMode} />
             {inputMode === 'manual' && (
@@ -1113,6 +724,13 @@ export default function Calculator() {
                   points={points}
                   onChange={setPoints}
                   errors={pointErrors.byId}
+                  cadence={
+                    period === 'day'
+                      ? 'daily'
+                      : period === 'week'
+                      ? 'weekly'
+                      : 'monthly'
+                  }
                 />
                 {pointErrors.formError && (
                   <div className="text-xs text-red-400">
@@ -1146,43 +764,42 @@ export default function Calculator() {
               value={cohortSize}
               min={1}
               step={1}
-              suffix="users"
+              suffix="entrants"
               onChange={(v) => setCohortSize(Number(v))}
               error={numericErrors.errors.cohortSize}
               tooltip={
                 <>
                   <p>
-                    Размер привлекаемой когорты — сколько новых юзеров приходит
-                    в один заход.
+                    Размер привлекаемой когорты — кол-во новых юзеров (или
+                    FTDs для iGaming) в один заход.
                   </p>
                   <p className="mt-1.5">
-                    Влияет только на абсолютные значения в Cohort P&amp;L
-                    (умножает revenue и CAC). Per-user метрики (LTV, R²,
-                    LTV/CAC) от размера когорты не зависят.
+                    Влияет только на абсолютные значения в Cohort P&amp;L. Per-
+                    user метрики (LTV per entrant, R², LTV/CAC) от размера
+                    когорты не зависят.
                   </p>
                 </>
               }
             />
             <NumberField
               label="ARPU"
-              value={arpu}
+              value={arpuPerPeriod}
               min={0}
               step={0.01}
-              suffix="$ / day"
-              onChange={(v) => setArpu(Number(v))}
+              suffix={`$ / ${periodUnitCur}`}
+              onChange={(v) => setArpuPerPeriod(Number(v))}
               error={numericErrors.errors.arpu}
               tooltipAlign="right"
               tooltip={
                 <>
                   <p>
-                    Average Revenue Per User — каноническая величина в этом
-                    калькуляторе именно дневная (per-day), а не ARPDAU и не
-                    monthly.
+                    Average Revenue Per active User per period — на одного
+                    активного юзера из acquired pool в одном {periodUnitCur}.
                   </p>
                   <p className="mt-1.5">
-                    Для подписочных продуктов берите monthly subscription / 30.
-                    Для рекламной монетизации — общий дневной доход / число
-                    DAU. Для iGaming — daily NGR на активного депозитора.
+                    DAU mode (нет funnel): pool = вся когорта, ARPU = средний
+                    дневной revenue per cohort entrant. Subscription: pool =
+                    paying users, ARPU = revenue per paying user per cycle.
                   </p>
                 </>
               }
@@ -1192,21 +809,18 @@ export default function Calculator() {
               value={cacInput}
               min={0}
               step={0.01}
-              suffix="$ (optional)"
+              suffix="$ / cohort entrant (optional)"
               onChange={setCacInput}
               error={numericErrors.errors.cac}
-              hint="Empty hides breakeven"
+              hint="Empty hides payback / LTV-CAC"
               tooltip={
                 <>
                   <p>
-                    Customer Acquisition Cost — полная стоимость привлечения
-                    одного юзера: paid acquisition + креативы + агентские fees.
+                    Customer Acquisition Cost — на одного входящего в когорту
+                    (per install / per FTD, в зависимости от пресета).
                   </p>
                   <p className="mt-1.5">
-                    Для iGaming используйте CAC per FTD (per first-time
-                    depositor), не per install — иначе соотношение с LTV
-                    бессмысленно. Если оставить пусто, KPI Breakeven, LTV/CAC
-                    и Payback не считаются.
+                    Если оставить пусто, KPI Payback и LTV/CAC скрываются.
                   </p>
                 </>
               }
@@ -1214,23 +828,20 @@ export default function Calculator() {
             <NumberField
               label="Horizon"
               value={horizon}
-              min={30}
+              min={1}
               step={1}
-              suffix="days"
+              suffix={`${periodUnitCur}s`}
               onChange={(v) => setHorizon(Number(v))}
               error={numericErrors.errors.horizon}
               tooltipAlign="right"
               tooltip={
                 <>
                   <p>
-                    Окно прогноза LTV в днях. Predicted LTV =
+                    Окно прогноза LTV в выбранном period. Predicted LTV =
                     Σ ARPU·R(t) от t=1 до t=horizon.
                   </p>
                   <p className="mt-1.5">
-                    Чем больше горизонт, тем больше неопределённость прогноза —
-                    после ~3× от вашей последней точки данных модель
-                    экстраполирует. Стандартные значения: 30 / 60 / 90 / 180 /
-                    365.
+                    Чем больше горизонт, тем больше неопределённость прогноза.
                   </p>
                 </>
               }
@@ -1239,6 +850,12 @@ export default function Calculator() {
         </aside>
 
         <section aria-label="Outputs" className="space-y-5">
+          {periodToast && (
+            <div className="rounded-lg border border-accent/40 bg-accent-surface/40 p-3 text-sm text-accent-fg">
+              {periodToast}
+            </div>
+          )}
+
           {inputMode === 'dau' && dauReconstructed && dauParsed && (
             <DAUChart
               observed={dauParsed.dau}
@@ -1253,35 +870,12 @@ export default function Calculator() {
             </div>
           )}
 
-          {allValid && fit && ltv && fitSeries && (
+          {allValid && fit && ltvData && fitSeries && cascade && (
             <>
               <div className="flex items-center justify-end gap-2">
                 <button
                   type="button"
-                  onClick={() => {
-                    if (baseline) {
-                      setBaseline(null)
-                      return
-                    }
-                    setBaseline({
-                      fitSeries: fitSeries.map((p) => ({ t: p.t, r: p.r })),
-                      ltv: ltv.map((p) => ({
-                        t: p.t,
-                        cumLtv: p.cumLtv,
-                        revenue: p.revenue,
-                      })),
-                      ltvAtHorizon,
-                      beDay,
-                      ratio: cac != null && cac > 0 ? ltvAtHorizon / cac : null,
-                      rSquared: fit.rSquared,
-                      horizonRetention: fitSeries[fitSeries.length - 1].r,
-                      horizon,
-                      cohortSize,
-                      cac,
-                      arpu,
-                      presetLabel: presetLabel ?? 'Custom',
-                    })
-                  }}
+                  onClick={handlePinBaseline}
                   className={`rounded border px-3 py-1.5 text-xs transition-colors ${
                     baseline
                       ? 'border-accent/60 bg-accent-surface/30 text-accent-fg hover:border-accent'
@@ -1292,32 +886,7 @@ export default function Calculator() {
                 </button>
                 <button
                   type="button"
-                  onClick={async () => {
-                    const encoded = encodeState({
-                      mode,
-                      cadence,
-                      points,
-                      cohortSize,
-                      arpu,
-                      cacInput,
-                      horizon,
-                      presetState,
-                      adjustMode,
-                      bandSigma,
-                      subInput: mode === 'subscription' ? subInput : null,
-                    })
-                    const url = buildShareUrl(
-                      encoded,
-                      window.location.origin + window.location.pathname,
-                    )
-                    try {
-                      await navigator.clipboard.writeText(url)
-                      setShareCopied(true)
-                      setTimeout(() => setShareCopied(false), 2000)
-                    } catch {
-                      window.prompt('Copy share link:', url)
-                    }
-                  }}
+                  onClick={handleCopyShare}
                   className={`rounded border px-3 py-1.5 text-xs transition-colors ${
                     shareCopied
                       ? 'border-emerald-700/60 bg-emerald-950/40 text-emerald-300'
@@ -1328,58 +897,29 @@ export default function Calculator() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => {
-                    const timestamp = new Date().toISOString()
-                    const csv = buildCsv({
-                      timestamp,
-                      mode: adjustMode,
-                      presetLabel,
-                      bandSigma,
-                      inputs: {
-                        arpuPerDay: arpu,
-                        cac,
-                        cohortSize,
-                        horizon,
-                      },
-                      fit: {
-                        a: fit.a,
-                        b: fit.b,
-                        se: fit.se,
-                        rSquared: fit.rSquared,
-                        n: fit.n ?? points.length,
-                      },
-                      kpi: {
-                        ltvAtHorizon,
-                        beDay,
-                        ltvCacRatio:
-                          cac != null && cac > 0 ? ltvAtHorizon / cac : null,
-                        paybackDays: cac != null && cac > 0 ? beDay : null,
-                      },
-                      userPoints: points.map((p) => ({ t: p.t, percent: p.percent })),
-                      series: ltv,
-                    })
-                    downloadFile(
-                      csv,
-                      buildFilename({ timestamp, presetLabel }),
-                      'text/csv;charset=utf-8',
-                    )
-                  }}
+                  onClick={handleDownloadCsv}
                   className="rounded border border-line-strong bg-bg-subtle px-3 py-1.5 text-xs text-fg-muted transition-colors hover:border-accent/50 hover:text-accent-fg"
                 >
                   Download CSV
                 </button>
               </div>
+
               {baseline && (
                 <div className="relative rounded border border-accent/40 bg-accent-surface/20 py-2 pl-3 pr-8 text-xs">
                   <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5 tabular-nums">
                     <span className="text-fg-faint">📌 Baseline</span>
+                    <span className="flex items-baseline gap-1 whitespace-nowrap">
+                      <span className="text-fg-faint">·</span>
+                      <span className="text-fg">{baseline.label}</span>
+                    </span>
                     {[
+                      ['Period', baseline.period],
                       ['ARPU', `$${baseline.arpu}`],
                       ['CAC', baseline.cac != null ? `$${baseline.cac}` : '—'],
                       ['LTV', fmtMoney(baseline.ltvAtHorizon)],
                       ['R²', Number.isFinite(baseline.rSquared) ? baseline.rSquared.toFixed(3) : '—'],
                       ...(baseline.cac != null && baseline.cac > 0
-                        ? [['Payback', baseline.beDay != null ? `D${baseline.beDay}` : 'not reached']]
+                        ? [['Payback', baseline.payback != null ? `${periodAbbr(baseline.period)}${baseline.payback}` : 'not reached']]
                         : []),
                       ...(baseline.ratio != null
                         ? [['LTV/CAC', baseline.ratio.toFixed(2)]]
@@ -1408,22 +948,34 @@ export default function Calculator() {
                   </button>
                 </div>
               )}
+
               <KPICards
                 ltvAtHorizon={ltvAtHorizon}
                 horizon={horizon}
+                period={period}
                 rSquared={fit.rSquared}
-                beDay={beDay}
+                payback={payback}
                 cac={cac}
-                horizonRetention={
-                  fitSeries && fitSeries.length
-                    ? fitSeries[fitSeries.length - 1].r
-                    : NaN
-                }
-                baseline={baseline}
+                horizonRetention={horizonRetention}
+                baseline={baselineForKpi}
               />
+
               {extrap !== 'none' && (
-                <ExtrapolationBanner level={extrap} lastUserT={lastUserT} horizon={horizon} />
+                <ExtrapolationBanner
+                  level={extrap}
+                  lastUserT={lastUserT}
+                  horizon={horizon}
+                  period={period}
+                />
               )}
+
+              {funnel.length > 0 && (
+                <FunnelWaterfall
+                  steps={cascade.steps}
+                  presetLabel={presetLabel}
+                />
+              )}
+
               <RetentionChart
                 userPoints={points}
                 fitSeries={fitSeries}
@@ -1438,18 +990,18 @@ export default function Calculator() {
                 presetLabel={presetLabel}
               />
               <LTVChart
-                series={ltv}
+                series={v1Series}
                 bandSeries={ltvBandSeries}
                 bandSigma={bandSigma}
                 cac={cac}
-                beDay={beDay}
+                beDay={payback}
                 horizon={horizon}
                 lastUserT={lastUserT}
                 baselineSeries={baseline?.ltv}
                 presetLabel={presetLabel}
               />
               <RevenueChart
-                series={ltv}
+                series={v1Series}
                 cohortSize={cohortSize}
                 horizon={horizon}
                 baselineSeries={baseline?.ltv}
@@ -1457,7 +1009,7 @@ export default function Calculator() {
                 presetLabel={presetLabel}
               />
               <ResultsTable
-                series={ltv}
+                series={v1Series}
                 points={points}
                 horizon={horizon}
                 cohortSize={cohortSize}
@@ -1466,10 +1018,10 @@ export default function Calculator() {
               />
               {cac != null && cac > 0 ? (
                 <CohortPL
-                  series={ltv}
+                  series={v1Series}
                   cohortSize={cohortSize}
                   cac={cac}
-                  beDay={beDay}
+                  beDay={payback}
                   horizon={horizon}
                   baselineSeries={baseline?.ltv}
                   baselineCohortSize={baseline?.cohortSize}
@@ -1484,8 +1036,6 @@ export default function Calculator() {
           )}
         </section>
       </div>
-      )}
     </section>
   )
 }
-

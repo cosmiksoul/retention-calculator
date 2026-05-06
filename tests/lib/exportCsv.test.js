@@ -3,20 +3,45 @@ import { buildCsv, buildFilename } from '../../src/lib/exportCsv.js'
 
 const baseSnapshot = () => ({
   timestamp: '2026-05-05T17:30:00.000Z',
-  mode: 'pure',
+  period: 'day',
+  forecastMode: 'pure',
   presetLabel: 'Mobile Casual · median · Tier 1',
   bandSigma: 1,
-  inputs: { arpuPerDay: 2, cac: 10, cohortSize: 1000, horizon: 3 },
+  inputs: {
+    arpuPerPeriod: 2,
+    cac: 10,
+    cohortSize: 1000,
+    horizon: 3,
+    funnel: [],
+  },
   fit: { a: 1, b: 0.5, se: 0.02, rSquared: 0.95, n: 5 },
-  kpi: { ltvAtHorizon: 4.5, beDay: 30, ltvCacRatio: 0.45, paybackDays: 30 },
+  kpi: {
+    ltvAtHorizon: 4.5,
+    payback: 30,
+    ltvCacRatio: 0.45,
+    horizonRetention: 0.55,
+    acquiredAtZero: 1000,
+  },
   userPoints: [
     { t: 1, percent: 100 },
     { t: 7, percent: 35.5 },
   ],
   series: [
-    { t: 1, retention: 1.0, revenue: 2.0, cumLtv: 2.0 },
-    { t: 2, retention: 0.7, revenue: 1.4, cumLtv: 3.4 },
-    { t: 3, retention: 0.55, revenue: 1.1, cumLtv: 4.5 },
+    {
+      t: 1, retention: 1.0, active: 1000,
+      revenue: 2000, cumRevenue: 2000,
+      cumLtvPerCohort: 2.0, cumLtvPerAcquired: 2.0,
+    },
+    {
+      t: 2, retention: 0.7, active: 700,
+      revenue: 1400, cumRevenue: 3400,
+      cumLtvPerCohort: 3.4, cumLtvPerAcquired: 3.4,
+    },
+    {
+      t: 3, retention: 0.55, active: 550,
+      revenue: 1100, cumRevenue: 4500,
+      cumLtvPerCohort: 4.5, cumLtvPerAcquired: 4.5,
+    },
   ],
 })
 
@@ -24,7 +49,7 @@ describe('buildCsv', () => {
   it('emits sections in order: metadata, inputs, fit, KPIs, breakdown', () => {
     const out = buildCsv(baseSnapshot())
     expect(out).toMatch(/Retention & LTV Calculator export/)
-    const sections = ['Inputs', 'Power-law fit', 'KPIs', 'Per-period breakdown']
+    const sections = ['Inputs', 'Power-law fit', 'KPIs', 'Per-day breakdown']
     let prev = -1
     for (const s of sections) {
       const idx = out.indexOf(s)
@@ -33,9 +58,8 @@ describe('buildCsv', () => {
     }
   })
 
-  it('writes one row per day in the breakdown', () => {
+  it('writes one row per period with input retention shown only at user points', () => {
     const out = buildCsv(baseSnapshot())
-    // First column is "Day" then numeric rows 1..3
     expect(out).toMatch(/\n1,100\.00,/)
     expect(out).toMatch(/\n2,,70\.00,/)
     expect(out).toMatch(/\n3,,55\.00,/)
@@ -46,10 +70,46 @@ describe('buildCsv', () => {
     expect(withCac).toMatch(/LTV \/ CAC/)
     const noCac = buildCsv({
       ...baseSnapshot(),
-      inputs: { arpuPerDay: 2, cac: null, cohortSize: 1000, horizon: 3 },
-      kpi: { ltvAtHorizon: 4.5, beDay: null, ltvCacRatio: null, paybackDays: null },
+      inputs: {
+        arpuPerPeriod: 2,
+        cac: null,
+        cohortSize: 1000,
+        horizon: 3,
+        funnel: [],
+      },
+      kpi: {
+        ltvAtHorizon: 4.5,
+        payback: null,
+        ltvCacRatio: null,
+        horizonRetention: 0.55,
+        acquiredAtZero: 1000,
+      },
     })
     expect(noCac).not.toMatch(/LTV \/ CAC/)
+  })
+
+  it('includes per-acquired LTV column when funnel is present', () => {
+    const sub = buildCsv({
+      ...baseSnapshot(),
+      period: 'month',
+      inputs: {
+        ...baseSnapshot().inputs,
+        funnel: [
+          { label: 'Install → Trial', conversionPct: 8.6 },
+          { label: 'Trial → Paid', conversionPct: 35 },
+        ],
+      },
+      kpi: { ...baseSnapshot().kpi, acquiredAtZero: 30.1 },
+    })
+    expect(sub).toMatch(/Cum LTV \/ acquired/)
+    expect(sub).toMatch(/Funnel/)
+    expect(sub).toMatch(/Install → Trial,8\.60,%/)
+    expect(sub).toMatch(/Per-month breakdown/)
+  })
+
+  it('omits per-acquired LTV column when funnel is empty (DAU mode)', () => {
+    const out = buildCsv(baseSnapshot())
+    expect(out).not.toMatch(/Cum LTV \/ acquired/)
   })
 
   it('quotes cells that contain commas', () => {
@@ -68,22 +128,30 @@ describe('buildCsv', () => {
     expect(out).toMatch(/"Custom ""v2"" preset"/)
   })
 
-  it('omits breakeven / payback rows when not provided', () => {
+  it('omits payback row when not provided', () => {
     const out = buildCsv({
       ...baseSnapshot(),
-      kpi: { ltvAtHorizon: 4.5, beDay: null, ltvCacRatio: null, paybackDays: null },
+      kpi: {
+        ltvAtHorizon: 4.5,
+        payback: null,
+        ltvCacRatio: null,
+        horizonRetention: 0.55,
+        acquiredAtZero: 1000,
+      },
     })
-    expect(out).not.toMatch(/^Breakeven,/m)
     expect(out).not.toMatch(/^Payback,/m)
     expect(out).toMatch(/Predicted LTV @ D3/)
   })
 
-  it('marks user-input rows with a percent value, fit-only rows leave it blank', () => {
-    const out = buildCsv(baseSnapshot())
-    const lines = out.split('\n')
-    const dayRows = lines.filter((l) => /^\d+,/.test(l))
-    expect(dayRows[0]).toMatch(/^1,100\.00,/) // user point at t=1
-    expect(dayRows[1]).toMatch(/^2,,/) // no user point at t=2
+  it('uses period-aware section headers and units', () => {
+    const week = buildCsv({ ...baseSnapshot(), period: 'week' })
+    expect(week).toMatch(/Per-week breakdown/)
+    expect(week).toMatch(/Predicted LTV @ W3/)
+    expect(week).toMatch(/\$\/week/)
+
+    const month = buildCsv({ ...baseSnapshot(), period: 'month' })
+    expect(month).toMatch(/Per-month breakdown/)
+    expect(month).toMatch(/Predicted LTV @ M3/)
   })
 })
 

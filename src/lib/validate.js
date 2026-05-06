@@ -14,12 +14,13 @@
 
 /**
  * Validate the retention input rows. Rules:
- *   - at least 3 rows
  *   - per-row: t > 0; percent in [0, 100]
  *   - no duplicate t
- *   - retention is non-increasing in t (Stage 0: Days only)
+ *   - retention is non-increasing in t
+ *   - at least `minPoints` rows (default 2; the band visualization needs ≥3
+ *     for non-zero residual std error, but the fit itself accepts 2)
  */
-export function validateRetentionPoints(points) {
+export function validateRetentionPoints(points, { minPoints = 2 } = {}) {
   const byId = new Map()
   if (!Array.isArray(points)) {
     return { valid: false, byId, formError: 'No retention points provided.' }
@@ -52,23 +53,56 @@ export function validateRetentionPoints(points) {
   }
 
   let formError = null
-  if (points.length < 3) {
-    formError = 'Need at least 3 retention points to fit a power law.'
+  if (points.length < minPoints) {
+    formError = `Need at least ${minPoints} retention points to fit a power law.`
   }
 
   return { valid: byId.size === 0 && !formError, byId, formError }
 }
 
 /**
- * Cohort size, ARPU, horizon must be positive finite numbers.
- * CAC is optional — null/undefined/empty string ⇒ valid (just no breakeven).
+ * Validate funnel rows. Each row must have a non-empty label and a
+ * conversionPct in (0, 100]. Empty funnel is allowed (DAU semantics).
  */
-export function validateNumericInputs({ cohortSize, arpu, cac, horizon }) {
+export function validateFunnel(funnel) {
+  const byId = new Map()
+  if (!Array.isArray(funnel)) return { valid: true, byId }
+  for (const step of funnel) {
+    if (!step) continue
+    if (typeof step.label !== 'string' || step.label.trim() === '') {
+      byId.set(step.id, 'Step label cannot be empty')
+      continue
+    }
+    if (
+      !Number.isFinite(step.conversionPct) ||
+      step.conversionPct <= 0 ||
+      step.conversionPct > 100
+    ) {
+      byId.set(step.id, 'Conversion must be in (0, 100]')
+    }
+  }
+  return { valid: byId.size === 0, byId }
+}
+
+/**
+ * Cohort size, ARPU, horizon must be positive finite numbers.
+ * CAC is optional — null/undefined/empty string ⇒ valid (just no payback).
+ *
+ * Accepts both `arpu` (legacy call sites) and `arpuPerPeriod` (unified).
+ */
+export function validateNumericInputs({
+  cohortSize,
+  arpu,
+  arpuPerPeriod,
+  cac,
+  horizon,
+}) {
   const errors = {}
   if (!(cohortSize > 0) || !Number.isFinite(cohortSize)) {
     errors.cohortSize = 'Cohort size must be > 0'
   }
-  if (!(arpu >= 0) || !Number.isFinite(arpu)) {
+  const arpuValue = arpuPerPeriod ?? arpu
+  if (!(arpuValue >= 0) || !Number.isFinite(arpuValue)) {
     errors.arpu = 'ARPU must be a non-negative number'
   }
   if (cac != null && cac !== '' && (!(cac >= 0) || !Number.isFinite(cac))) {

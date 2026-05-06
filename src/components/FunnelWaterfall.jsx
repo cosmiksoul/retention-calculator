@@ -1,14 +1,14 @@
-// Vertical funnel cascade (spec-v2 §5.2): Installs → Trials → Paying@0 →
-// Active@retention checkpoints. Each step shows absolute count and the
-// drop-off vs the previous step. Bar widths are proportional to count.
+// Vertical funnel cascade visualization: cohort → optional funnel steps →
+// active count at each user-input retention checkpoint. Each row shows
+// absolute count and the drop-off vs the previous step. Bar widths are
+// proportional to count.
 //
-// Implementation: pure CSS — flexbox + percentage-width inner bars. No
-// chart library, per spec note "не нужно тяжёлое".
+// Pure CSS — flexbox + percentage-width inner bars. No chart library.
 
 import { useRef } from 'react'
-import HoverHint from '../HoverHint.jsx'
-import ExportPngButton from '../ExportPngButton.jsx'
-import { pngFilename } from '../../lib/exportPng.js'
+import HoverHint from './HoverHint.jsx'
+import ExportPngButton from './ExportPngButton.jsx'
+import { pngFilename } from '../lib/exportPng.js'
 
 function fmtCount(x) {
   if (!Number.isFinite(x)) return '—'
@@ -40,20 +40,19 @@ export default function FunnelWaterfall({ steps, presetLabel }) {
         <span>Funnel cascade</span>
         <HoverHint align="left">
           <p>
-            Воронка от installs к платящим юзерам, активным на каждой
-            точке retention. Drop-off на каждом шаге считается от
-            предыдущего, не от installs.
+            Воронка от cohort к активным юзерам в каждой точке retention.
+            Drop-off на каждом шаге считается от предыдущего, не от cohort.
           </p>
           <p className="mt-1.5">
-            Самые жирные drop-off обычно на install→trial (paywall+онбординг)
-            и trial→paid (ценность продукта). Retention drop-off становится
-            менее агрессивным с течением времени — это нормально.
+            Самые жирные drop-off обычно на conversion-шагах (paywall, trial→paid).
+            Retention drop-off становится менее агрессивным со временем — это
+            нормально для степенной кривой.
           </p>
         </HoverHint>
         <div className="ml-auto">
           <ExportPngButton
             targetRef={cardRef}
-            filename={pngFilename('subscription-funnel', presetLabel)}
+            filename={pngFilename('funnel-cascade', presetLabel)}
           />
         </div>
       </div>

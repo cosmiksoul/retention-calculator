@@ -6,10 +6,12 @@
 // retention points) is already part of the snapshot. The recipient lands on
 // the same fit; if they want to re-edit they can paste again.
 //
-// Version field lets us evolve the schema without breaking old links —
-// decode returns null on a version it doesn't recognize.
+// Schema v2: flat unified state — no separate session/subscription paths,
+// the period is part of the payload directly. v1 links from the old two-
+// mode app are intentionally not decodable (they returned null even before
+// because of the version check).
 
-const VERSION = 1
+const VERSION = 2
 
 function toBase64Url(str) {
   // btoa wants binary string. JSON is already ASCII-safe except for
@@ -32,6 +34,15 @@ function pickPoints(points) {
     .map((p) => [p.t, p.percent])
 }
 
+function pickFunnel(funnel) {
+  if (!Array.isArray(funnel)) return []
+  return funnel
+    .filter(
+      (s) => s && typeof s.label === 'string' && Number.isFinite(s.conversionPct),
+    )
+    .map((s) => [s.label, s.conversionPct])
+}
+
 function pickPreset(p) {
   if (!p || typeof p !== 'object') return null
   const out = {}
@@ -41,55 +52,40 @@ function pickPreset(p) {
   return out
 }
 
-function pickSubInput(sub) {
-  if (!sub || typeof sub !== 'object') return null
-  return {
-    i2t: sub.installToTrial,
-    t2p: sub.trialToPaid,
-    R: Array.isArray(sub.retention)
-      ? sub.retention
-          .filter((p) => Number.isFinite(p.t) && Number.isFinite(p.percent))
-          .map((p) => [p.t, p.percent])
-      : [],
-    A: sub.arpuPaid,
-    K: sub.cac,
-    Cs: sub.cohortSize,
-    H: sub.horizon,
-  }
-}
+const PERIOD_TO_CODE = { day: 'd', week: 'w', month: 'm' }
+const CODE_TO_PERIOD = { d: 'day', w: 'week', m: 'month' }
 
 /**
  * @param {{
- *   mode?: 'session'|'subscription',
- *   cadence?: 'monthly'|'weekly',
+ *   period: 'day'|'week'|'month',
  *   points: Array<{t:number, percent:number}>,
+ *   funnel: Array<{label:string, conversionPct:number}>,
  *   cohortSize: number,
- *   arpu: number,
+ *   arpuPerPeriod: number,
  *   cacInput: string|number|null,
  *   horizon: number,
  *   presetState: {presetId:string|null, quality:string, geo:string},
  *   adjustMode: 'pure'|'adjusted',
  *   bandSigma: 1|2,
- *   subInput?: object,
  * }} state
  * @returns {string}
  */
 export function encodeState(state) {
   const payload = {
     v: VERSION,
-    M: state.mode === 'subscription' ? 'sub' : 'ses',
-    Cd: state.cadence === 'weekly' ? 'w' : 'm',
+    pe: PERIOD_TO_CODE[state.period] ?? 'd',
     p: pickPoints(state.points),
-    c: state.cohortSize,
-    a: state.arpu,
-    k: state.cacInput === '' || state.cacInput == null ? null : Number(state.cacInput),
+    f: pickFunnel(state.funnel),
+    cs: state.cohortSize,
+    a: state.arpuPerPeriod,
+    k:
+      state.cacInput === '' || state.cacInput == null
+        ? null
+        : Number(state.cacInput),
     h: state.horizon,
     pr: pickPreset(state.presetState),
     m: state.adjustMode === 'adjusted' ? 'a' : 'p',
     s: state.bandSigma,
-  }
-  if (state.mode === 'subscription') {
-    payload.Sub = pickSubInput(state.subInput)
   }
   return toBase64Url(JSON.stringify(payload))
 }
@@ -97,9 +93,11 @@ export function encodeState(state) {
 /**
  * @param {string} encoded
  * @returns {null | {
+ *   period: 'day'|'week'|'month',
  *   points: Array<{t:number, percent:number}>,
+ *   funnel: Array<{label:string, conversionPct:number}>,
  *   cohortSize: number,
- *   arpu: number,
+ *   arpuPerPeriod: number,
  *   cacInput: string,
  *   horizon: number,
  *   presetState: {presetId:string|null, quality:string, geo:string},
@@ -117,6 +115,8 @@ export function decodeState(encoded) {
   }
   if (!payload || payload.v !== VERSION) return null
 
+  const period = CODE_TO_PERIOD[payload.pe] ?? 'day'
+
   const points = Array.isArray(payload.p)
     ? payload.p
         .filter((row) => Array.isArray(row) && row.length === 2)
@@ -124,8 +124,20 @@ export function decodeState(encoded) {
         .map(([t, percent]) => ({ t, percent }))
     : []
 
-  const cohortSize = Number.isFinite(payload.c) ? payload.c : 1000
-  const arpu = Number.isFinite(payload.a) ? payload.a : 2
+  const funnel = Array.isArray(payload.f)
+    ? payload.f
+        .filter(
+          (row) =>
+            Array.isArray(row) &&
+            row.length === 2 &&
+            typeof row[0] === 'string' &&
+            Number.isFinite(row[1]),
+        )
+        .map(([label, conversionPct]) => ({ label, conversionPct }))
+    : []
+
+  const cohortSize = Number.isFinite(payload.cs) ? payload.cs : 1000
+  const arpuPerPeriod = Number.isFinite(payload.a) ? payload.a : 2
   const horizon = Number.isFinite(payload.h) ? payload.h : 180
   const cacInput =
     payload.k == null
@@ -144,43 +156,17 @@ export function decodeState(encoded) {
   const adjustMode = payload.m === 'a' ? 'adjusted' : 'pure'
   const bandSigma = payload.s === 2 ? 2 : 1
 
-  // Optional v2 subscription extensions. Old (session-only) links don't
-  // carry these fields, so default mode='session' keeps full backward
-  // compatibility with v1 share URLs.
-  const mode = payload.M === 'sub' ? 'subscription' : 'session'
-  const cadence = payload.Cd === 'w' ? 'weekly' : 'monthly'
-
-  let subInput = null
-  if (payload.Sub && typeof payload.Sub === 'object') {
-    const r = Array.isArray(payload.Sub.R)
-      ? payload.Sub.R
-          .filter((row) => Array.isArray(row) && row.length === 2)
-          .filter(([t, pct]) => Number.isFinite(t) && Number.isFinite(pct))
-          .map(([t, percent]) => ({ t, percent }))
-      : []
-    subInput = {
-      installToTrial: payload.Sub.i2t,
-      trialToPaid: payload.Sub.t2p,
-      retention: r,
-      arpuPaid: payload.Sub.A,
-      cac: payload.Sub.K,
-      cohortSize: payload.Sub.Cs,
-      horizon: payload.Sub.H,
-    }
-  }
-
   return {
-    mode,
-    cadence,
+    period,
     points,
+    funnel,
     cohortSize,
-    arpu,
+    arpuPerPeriod,
     cacInput,
     horizon,
     presetState,
     adjustMode,
     bandSigma,
-    subInput,
   }
 }
 
