@@ -733,11 +733,107 @@ export default function Calculator() {
             onChange={handlePresetChange}
           />
 
+          <div className="grid grid-cols-2 gap-4 border-t border-line pt-4">
+            <NumberField
+              label="Cohort (Acquired)"
+              value={cohortSize}
+              min={1}
+              step={1}
+              suffix="acquired"
+              onChange={(v) => setCohortSize(Number(v))}
+              error={numericErrors.errors.cohortSize}
+              tooltip={
+                <>
+                  <p>
+                    Размер привлекаемой когорты — кол-во новых acquired users
+                    (installs / FTDs / signups), за которых уже заплачен CAC.
+                    Окупаемость и LTV считаются от этой точки.
+                  </p>
+                  <p className="mt-1.5">
+                    Влияет только на абсолютные значения в Cohort P&amp;L. Per-
+                    user метрики (LTV per entrant, R², LTV/CAC) от размера
+                    когорты не зависят.
+                  </p>
+                </>
+              }
+            />
+            <NumberField
+              label="CAC"
+              value={cacInput}
+              min={0}
+              step={0.01}
+              suffix="$ / cohort entrant (optional)"
+              onChange={setCacInput}
+              error={numericErrors.errors.cac}
+              hint="Empty hides payback / LTV-CAC"
+              tooltipAlign="right"
+              tooltip={
+                <>
+                  <p>
+                    Customer Acquisition Cost — на одного входящего в когорту
+                    (per install / per FTD, в зависимости от пресета).
+                  </p>
+                  <p className="mt-1.5">
+                    Если оставить пусто, KPI Payback и LTV/CAC скрываются.
+                  </p>
+                </>
+              }
+            />
+          </div>
+
+          <FunnelSection funnel={funnel} onChange={setFunnel} />
+
           <PeriodSelector
             value={period}
             onChange={handlePeriodChange}
             supported={selectedPreset?.cadenceSupported ?? null}
           />
+
+          <div className="grid grid-cols-2 gap-4">
+            <NumberField
+              label="ARPU"
+              value={arpuPerPeriod}
+              min={0}
+              step={0.01}
+              suffix={`$ / ${periodUnitCur}`}
+              onChange={(v) => setArpuPerPeriod(Number(v))}
+              error={numericErrors.errors.arpu}
+              tooltip={
+                <>
+                  <p>
+                    Average Revenue Per active User per period — на одного
+                    активного юзера из acquired pool в одном {periodUnitCur}.
+                  </p>
+                  <p className="mt-1.5">
+                    DAU mode (нет funnel): pool = вся когорта, ARPU = средний
+                    дневной revenue per cohort entrant. Subscription: pool =
+                    paying users, ARPU = revenue per paying user per cycle.
+                  </p>
+                </>
+              }
+            />
+            <NumberField
+              label="Horizon"
+              value={horizon}
+              min={1}
+              step={1}
+              suffix={`${periodUnitCur}s`}
+              onChange={(v) => setHorizon(Number(v))}
+              error={numericErrors.errors.horizon}
+              tooltipAlign="right"
+              tooltip={
+                <>
+                  <p>
+                    Окно прогноза LTV в выбранном period. Predicted LTV =
+                    Σ ARPU·R(t) от t=1 до t=horizon.
+                  </p>
+                  <p className="mt-1.5">
+                    Чем больше горизонт, тем больше неопределённость прогноза.
+                  </p>
+                </>
+              }
+            />
+          </div>
 
           {benchmarkFit && (
             <ForecastModeToggle
@@ -752,8 +848,6 @@ export default function Calculator() {
             onChange={setBandSigma}
             disabled={!retBand}
           />
-
-          <FunnelSection funnel={funnel} onChange={setFunnel} />
 
           <div className="space-y-3 border-t border-line pt-4">
             <InputModeToggle mode={inputMode} onChange={setInputMode} />
@@ -795,97 +889,6 @@ export default function Calculator() {
                 onSmoothChange={setDauSmoothWindow}
               />
             )}
-          </div>
-
-          <div className="grid grid-cols-2 gap-4 border-t border-line pt-4">
-            <NumberField
-              label="Cohort (Acquired users)"
-              value={cohortSize}
-              min={1}
-              step={1}
-              suffix="acquired"
-              onChange={(v) => setCohortSize(Number(v))}
-              error={numericErrors.errors.cohortSize}
-              tooltip={
-                <>
-                  <p>
-                    Размер привлекаемой когорты — кол-во новых acquired users
-                    (installs / FTDs / signups), за которых уже заплачен CAC.
-                    Окупаемость и LTV считаются от этой точки.
-                  </p>
-                  <p className="mt-1.5">
-                    Влияет только на абсолютные значения в Cohort P&amp;L. Per-
-                    user метрики (LTV per entrant, R², LTV/CAC) от размера
-                    когорты не зависят.
-                  </p>
-                </>
-              }
-            />
-            <NumberField
-              label="ARPU"
-              value={arpuPerPeriod}
-              min={0}
-              step={0.01}
-              suffix={`$ / ${periodUnitCur}`}
-              onChange={(v) => setArpuPerPeriod(Number(v))}
-              error={numericErrors.errors.arpu}
-              tooltipAlign="right"
-              tooltip={
-                <>
-                  <p>
-                    Average Revenue Per active User per period — на одного
-                    активного юзера из acquired pool в одном {periodUnitCur}.
-                  </p>
-                  <p className="mt-1.5">
-                    DAU mode (нет funnel): pool = вся когорта, ARPU = средний
-                    дневной revenue per cohort entrant. Subscription: pool =
-                    paying users, ARPU = revenue per paying user per cycle.
-                  </p>
-                </>
-              }
-            />
-            <NumberField
-              label="CAC"
-              value={cacInput}
-              min={0}
-              step={0.01}
-              suffix="$ / cohort entrant (optional)"
-              onChange={setCacInput}
-              error={numericErrors.errors.cac}
-              hint="Empty hides payback / LTV-CAC"
-              tooltip={
-                <>
-                  <p>
-                    Customer Acquisition Cost — на одного входящего в когорту
-                    (per install / per FTD, в зависимости от пресета).
-                  </p>
-                  <p className="mt-1.5">
-                    Если оставить пусто, KPI Payback и LTV/CAC скрываются.
-                  </p>
-                </>
-              }
-            />
-            <NumberField
-              label="Horizon"
-              value={horizon}
-              min={1}
-              step={1}
-              suffix={`${periodUnitCur}s`}
-              onChange={(v) => setHorizon(Number(v))}
-              error={numericErrors.errors.horizon}
-              tooltipAlign="right"
-              tooltip={
-                <>
-                  <p>
-                    Окно прогноза LTV в выбранном period. Predicted LTV =
-                    Σ ARPU·R(t) от t=1 до t=horizon.
-                  </p>
-                  <p className="mt-1.5">
-                    Чем больше горизонт, тем больше неопределённость прогноза.
-                  </p>
-                </>
-              }
-            />
           </div>
         </aside>
 
