@@ -11,6 +11,7 @@ import CohortPaste from '../components/CohortPaste.jsx'
 import DAUInput from '../components/DAUInput.jsx'
 import DAUChart from '../components/DAUChart.jsx'
 import KPICards from '../components/KPICards.jsx'
+import EconomicsFlow from '../components/EconomicsFlow.jsx'
 import RetentionChart from '../components/RetentionChart.jsx'
 import LTVChart from '../components/LTVChart.jsx'
 import RevenueChart from '../components/RevenueChart.jsx'
@@ -787,18 +788,19 @@ export default function Calculator() {
 
           <div className="grid grid-cols-2 gap-4 border-t border-line pt-4">
             <NumberField
-              label="Cohort size"
+              label="Cohort (Acquired users)"
               value={cohortSize}
               min={1}
               step={1}
-              suffix="entrants"
+              suffix="acquired"
               onChange={(v) => setCohortSize(Number(v))}
               error={numericErrors.errors.cohortSize}
               tooltip={
                 <>
                   <p>
-                    Размер привлекаемой когорты — кол-во новых юзеров (или
-                    FTDs для iGaming) в один заход.
+                    Размер привлекаемой когорты — кол-во новых acquired users
+                    (installs / FTDs / signups), за которых уже заплачен CAC.
+                    Окупаемость и LTV считаются от этой точки.
                   </p>
                   <p className="mt-1.5">
                     Влияет только на абсолютные значения в Cohort P&amp;L. Per-
@@ -985,6 +987,16 @@ export default function Calculator() {
                 cac={cac}
                 horizonRetention={horizonRetention}
                 baseline={baselineForKpi}
+              />
+
+              <EconomicsFlow
+                cohortSize={cohortSize}
+                acquiredAtZero={cascade.acquiredAtZero}
+                cumRevenueAtHorizon={ltvData[ltvData.length - 1].cumRevenue}
+                cac={cac}
+                horizon={horizon}
+                period={period}
+                funnelLength={funnel.length}
               />
 
               {extrap !== 'none' && (

@@ -101,7 +101,7 @@ export function funnelCascade({
     throw new Error('funnelCascade: cohortSize must be >= 0')
   }
 
-  const steps = [{ label: 'Cohort', count: cohortSize, dropoffPct: null }]
+  const steps = [{ label: 'Cohort (acquired users)', count: cohortSize, dropoffPct: null }]
   let prevCount = cohortSize
 
   for (const entry of funnel) {

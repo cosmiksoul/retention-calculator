@@ -43,7 +43,7 @@ describe('funnelCascade — DAU semantics (no funnel steps)', () => {
     })
     expect(steps).toHaveLength(1)
     expect(steps[0]).toMatchObject({
-      label: 'Cohort',
+      label: 'Cohort (acquired users)',
       count: 1000,
       dropoffPct: null,
     })
